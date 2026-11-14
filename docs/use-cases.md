@@ -203,7 +203,7 @@ Goal: get a book without hunting for a file.
 
 - "Find books" on the shelf searches Project Gutenberg through Gutendex, by genre and popularity.
 - Tapping a book adds it to the import queue at once, as an EPUB still to fetch. A book with no EPUB says so and sends no request.
-- While one book is made (compute bound), the highest book in line that has no file yet is fetched in the background (network bound), so it is ready when its turn comes. Its row says "Downloading…", then "Queued".
+- While one book is made (compute bound), the highest book in line that has no file yet is fetched in the background (network bound), so it is ready when its turn comes. Its row says "Downloading 42% · 3.1 of 7.4 MB" under a bar that fills with the bytes received over the length the server announced, then "Queued". With no announced length the bar runs without end and the row says the bytes so far. The result in "Find books" shows the same text. Progress is kept in memory only and updates once per whole percent, so it costs no disk writes.
 - One fetch runs at a time, in queue order, and a reorder, an addition or a deletion is taken into account at the next fetch. A book is never fetched twice.
 - A failed fetch shows its error on the row and does not stop the book being made; the book's own turn retries it, and fails it with the reason if that fails too.
 - A fetch writes to a temporary name and renames it when whole, so a stopped worker or a killed app never leaves a partial file taken for a book.
@@ -213,6 +213,12 @@ Goal: get a book without hunting for a file.
 Tests:
 - `FindBooksUiTest.searchesByGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
 - `FindBooksUiTest.theSecondBookIsDownloadedWhileTheFirstIsBeingMade`
+- `FindBooksUiTest.aBookDownloadedOnItsOwnTurnShowsItsProgressOnItsResultAndItsRowAndThenCarriesOn`
+- `FindBooksUiTest.aBookDownloadedAheadShowsItsProgressWhileTheBookBeingMadeShowsNoneAndReturnsToQueued`
+- `FindBooksUiTest.aDownloadOfUnknownLengthShowsAnIndeterminateBarAndTheBytesSoFar`
+- `DownloadProgressTest.aKnownLengthGivesAFractionAndAPercentWithBothSizes`
+- `DownloadProgressTest.theThrottlePassesOnlyReportsThatChangeWhatTheReaderSees`
+- `GutendexTest.aDownloadReportsTheBytesReceivedAndTheAnnouncedLengthAndKeepsTheFileOnlyWhenWhole`
 - `FindBooksUiTest.saysWhenABookHasNoEpubAndSendsNoRequestForIt`
 - `ImportQueueTest.theHighestWaitingBookWithoutItsFileIsFetchedNext`
 - `ImportQueueTest.fetchedBooksFileBooksAndTheBookBeingMadeAreSkipped`

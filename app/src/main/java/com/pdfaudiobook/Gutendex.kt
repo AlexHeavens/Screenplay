@@ -122,8 +122,11 @@ object Gutendex {
         return url.takeIf { it.startsWith("https://") && (host == "gutenberg.org" || host.endsWith(".gutenberg.org")) }
     }
 
-    /** The default of [Engines.httpGet]: one GET, the body copied to [out]. Gutendex can take a minute to answer, so the read timeout is long. */
-    suspend fun fetch(url: String, userAgent: String, out: OutputStream): Unit = withContext(Dispatchers.IO) {
+    /**
+     * The default of [Engines.httpGet]: one GET, the body copied to [out] in chunks, each reported to [onProgress] with the length the server
+     * announced (-1 when it did not). Gutendex can take a minute to answer, so the read timeout is long.
+     */
+    suspend fun fetch(url: String, userAgent: String, out: OutputStream, onProgress: (received: Long, expected: Long) -> Unit): Unit = withContext(Dispatchers.IO) {
         val connection = URL(url).openConnection() as HttpURLConnection
         try {
             connection.setRequestProperty("User-Agent", userAgent)
@@ -138,14 +141,26 @@ object Gutendex {
                     retryAfter,
                 )
             }
-            connection.inputStream.use { it.copyTo(out) }
-            Unit
+            val expected = connection.contentLengthLong
+            val chunk = ByteArray(CHUNK_BYTES)
+            var received = 0L
+            connection.inputStream.use { body ->
+                while (true) {
+                    val read = body.read(chunk)
+                    if (read < 0) break
+                    out.write(chunk, 0, read)
+                    received += read
+                    onProgress(received, expected)
+                }
+            }
         } catch (e: IOException) {
             throw CatalogueException("Could not reach the book catalogue. Check the connection and try again.")
         } finally {
             connection.disconnect()
         }
     }
+
+    private const val CHUNK_BYTES = 16 * 1024
 
     /** The shared client, made on first use so it can name the installed version; a test sets it to start with an empty cache and no waiting. */
     var client: CatalogueClient? = null
@@ -197,9 +212,9 @@ class CatalogueClient(private val userAgent: String, private val now: () -> Long
     }
 
     /** Saves the book's EPUB to [file]; a file left by a failed download is removed. */
-    suspend fun download(entry: Gutendex.Entry, file: File) {
+    suspend fun download(entry: Gutendex.Entry, file: File, onProgress: (received: Long, expected: Long) -> Unit = { _, _ -> }) {
         val url = entry.epubUrl ?: throw CatalogueException("“${entry.title}” has no EPUB, so it cannot be added.")
-        download(url, file)
+        download(url, file, onProgress)
     }
 
     /** How long a request must still wait after a failure; the queue waits this out rather than failing a book. */
@@ -208,11 +223,12 @@ class CatalogueClient(private val userAgent: String, private val now: () -> Long
     /**
      * Saves [url] to [file]. The body goes to a temporary name beside it and is renamed once whole, so a download cut short by a
      * stopped worker or a killed app never leaves a partial file that looks like a book; a failed one removes its temporary file.
+     * [onProgress] hears the bytes received and the length announced as the body arrives.
      */
-    suspend fun download(url: String, file: File) {
+    suspend fun download(url: String, file: File, onProgress: (received: Long, expected: Long) -> Unit = { _, _ -> }) {
         val partial = File(file.parentFile, file.name + ".part")
         try {
-            partial.outputStream().use { request(url, it) }
+            partial.outputStream().use { request(url, it, onProgress) }
             java.nio.file.Files.move(partial.toPath(), file.toPath(), java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
         } catch (e: Throwable) {
             partial.delete()
@@ -220,11 +236,11 @@ class CatalogueClient(private val userAgent: String, private val now: () -> Long
         }
     }
 
-    private suspend fun request(url: String, out: OutputStream) {
+    private suspend fun request(url: String, out: OutputStream, onProgress: (received: Long, expected: Long) -> Unit = { _, _ -> }) {
         val wait = backoff.waitMs(now())
         if (wait > 0) throw CatalogueException("Please wait ${(wait + 999) / 1000} seconds before trying again.")
         try {
-            Engines.httpGet(url, userAgent, out)
+            Engines.httpGet(url, userAgent, out, onProgress)
             backoff.succeeded()
         } catch (e: CatalogueException) {
             backoff.failed(now(), e.retryAfterMs)

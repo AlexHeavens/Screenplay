@@ -152,7 +152,7 @@ class GutendexTest {
         val saved = Engines.httpGet
         val client = CatalogueClient("Screenplay/test", now = { clock })
         try {
-            Engines.httpGet = { _, agent, out ->
+            Engines.httpGet = { _, agent, out, _ ->
                 assertEquals("Screenplay/test", agent)
                 asked++
                 out.write(sample.toByteArray())
@@ -161,7 +161,7 @@ class GutendexTest {
             client.search(Gutendex.Query("dickens"))
             assertEquals("the second search comes from the cache", 1, asked)
 
-            Engines.httpGet = { _, _, _ -> asked++; throw CatalogueException("down") }
+            Engines.httpGet = { _, _, _, _ -> asked++; throw CatalogueException("down") }
             clock = 400_000
             try { client.search(Gutendex.Query("poe")); error("expected a failure") } catch (e: CatalogueException) { assertEquals("down", e.message) }
             val before = asked
@@ -181,13 +181,32 @@ class GutendexTest {
         val client = CatalogueClient("Screenplay/test")
         val file = java.io.File(tmp.root, "book.epub")
         try {
-            Engines.httpGet = { _, _, _ -> error("no request expected") }
+            Engines.httpGet = { _, _, _, _ -> error("no request expected") }
             try { client.download(Gutendex.Entry(1, "Lost", "a", emptyList(), 1, null), file); error("expected a refusal") } catch (e: CatalogueException) { assertTrue(e.message!!, "no EPUB" in e.message!!) }
 
-            Engines.httpGet = { _, _, out -> out.write(1); throw CatalogueException("cut off") }
+            Engines.httpGet = { _, _, out, _ -> out.write(1); throw CatalogueException("cut off") }
             try { client.download(Gutendex.Entry(1, "Cut", "a", emptyList(), 1, "https://www.gutenberg.org/ebooks/1.epub3.images"), file); error("expected a failure") } catch (e: CatalogueException) {}
             assertFalse("a cut-off download never becomes the book's file", file.exists())
             assertFalse("and leaves no temporary file", java.io.File(tmp.root, "book.epub.part").exists())
+        } finally {
+            Engines.httpGet = saved
+        }
+    }
+
+    @Test
+    fun aDownloadReportsTheBytesReceivedAndTheAnnouncedLengthAndKeepsTheFileOnlyWhenWhole() = runBlocking {
+        val saved = Engines.httpGet
+        val file = File(tmp.root, "book.epub")
+        val heard = mutableListOf<Pair<Long, Long>>()
+        try {
+            Engines.httpGet = { _, _, out, onProgress ->
+                out.write(ByteArray(10)); onProgress(10, 30)
+                assertFalse("the file is not the book until whole", file.exists())
+                out.write(ByteArray(20)); onProgress(30, 30)
+            }
+            CatalogueClient("Screenplay/test").download("https://www.gutenberg.org/ebooks/1.epub3.images", file) { received, expected -> heard += received to expected }
+            assertEquals(listOf(10L to 30L, 30L to 30L), heard)
+            assertEquals(30L, file.length())
         } finally {
             Engines.httpGet = saved
         }

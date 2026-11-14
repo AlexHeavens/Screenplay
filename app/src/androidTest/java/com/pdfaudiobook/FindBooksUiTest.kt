@@ -4,6 +4,8 @@
 
 package com.pdfaudiobook
 
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasTestTag
@@ -69,7 +71,7 @@ class FindBooksUiTest {
         Options().save(ctx)
         Engines.synthesizer = { FakeSynthesizer() }
         Gutendex.client = null
-        Engines.httpGet = { url, agent, out ->
+        Engines.httpGet = { url, agent, out, _ ->
             requests += url
             agents += agent
             when {
@@ -141,20 +143,12 @@ class FindBooksUiTest {
         val inner = Engines.httpGet
         val arrived = CopyOnWriteArrayList<String>()
         val firstMayFinish = CompletableDeferred<Unit>()
-        Engines.httpGet = { url, agent, out ->
+        Engines.httpGet = { url, agent, out, onProgress ->
             if (url.endsWith(".epub3.images")) arrived += url
             if (url == firstLink) firstMayFinish.await()
-            inner(url, agent, out)
+            inner(url, agent, out, onProgress)
         }
-        // Speech is held, so the first book stays "being made" until the test lets it go.
-        val speechMayGo = CompletableDeferred<Unit>()
-        Engines.synthesizer = {
-            val real = FakeSynthesizer()
-            object : Synthesizer {
-                override suspend fun speak(text: String, wav: File) { speechMayGo.await(); real.speak(text, wav) }
-                override fun close() = real.close()
-            }
-        }
+        val speechMayGo = holdSpeech()
         fun bookFrom(source: String) = Library.books.value.single { it.source == source }
 
         openFindBooks()
@@ -180,6 +174,109 @@ class FindBooksUiTest {
         assertTrue("no partial file is left", Library.books.value.all { b -> File(Library.dir(ctx, b.id), "source.epub.part").exists().not() })
     }
 
+    /** Speech is held, so the first book stays "being made" until the returned gate is opened. */
+    private fun holdSpeech(): CompletableDeferred<Unit> {
+        val speechMayGo = CompletableDeferred<Unit>()
+        Engines.synthesizer = {
+            val real = FakeSynthesizer()
+            object : Synthesizer {
+                override suspend fun speak(text: String, wav: File) { speechMayGo.await(); real.speak(text, wav) }
+                override fun close() = real.close()
+            }
+        }
+        return speechMayGo
+    }
+
+    /**
+     * Makes the download of [link] report [steps] (bytes received, bytes announced) and then wait at [mayFinish], as a slow connection would;
+     * [atMidPoint] opens once the steps are reported. Every other request is served as before.
+     */
+    private fun slowDownload(link: String, steps: List<Pair<Long, Long>>, atMidPoint: CompletableDeferred<Unit>, mayFinish: CompletableDeferred<Unit>) {
+        val inner = Engines.httpGet
+        Engines.httpGet = { url, agent, out, onProgress ->
+            if (url == link) {
+                out.write(book())
+                steps.forEach { (received, announced) -> onProgress(received, announced) }
+                atMidPoint.complete(Unit)
+                mayFinish.await()
+                if (steps.last().second > 0) onProgress(steps.last().second, steps.last().second)
+            } else inner(url, agent, out, onProgress)
+        }
+    }
+
+    private fun barRange(title: String) = compose.onNodeWithTag("download-bar-$title", useUnmergedTree = true).fetchSemanticsNode().config[SemanticsProperties.ProgressBarRangeInfo]
+
+    private fun waitForBar(title: String, value: ProgressBarRangeInfo) = compose.waitUntil(30_000) { exists("download-bar-$title") && barRange(title) == value }
+
+    @Smoke @Test
+    fun aBookDownloadedOnItsOwnTurnShowsItsProgressOnItsResultAndItsRowAndThenCarriesOn() {
+        val midPoint = CompletableDeferred<Unit>()
+        val mayFinish = CompletableDeferred<Unit>()
+        slowDownload(epubLink, listOf(1_000_000L to 4_000_000L, 2_000_000L to 4_000_000L), midPoint, mayFinish)
+
+        openFindBooks()
+        compose.onNodeWithTag("genre-SCIENCE_FICTION").performClick()
+        waitForTag("result-4242")
+        compose.onNodeWithTag("result-4242").performClick()
+        compose.waitUntil(30_000) { midPoint.isCompleted }
+        compose.waitUntil(30_000) { exists("result-state-4242") && "Downloading 50%" in compose.onNodeWithTag("result-state-4242", useUnmergedTree = true).fetchSemanticsNode().config[SemanticsProperties.Text].joinToString() }
+
+        compose.onNodeWithTag("find-back").performClick()
+        waitForBar("Harbour Notes", ProgressBarRangeInfo(0.5f, 0f..1f))
+        compose.onNodeWithTag("status-Harbour Notes", useUnmergedTree = true).assertTextContains("Downloading 50% · 1.9 of 3.8 MB")
+
+        mayFinish.complete(Unit)
+        compose.waitUntil(30_000) { !exists("download-bar-Harbour Notes") }
+        compose.waitUntil(120_000) { Library.books.value.singleOrNull()?.status == Status.READY }
+    }
+
+    @Test
+    fun aBookDownloadedAheadShowsItsProgressWhileTheBookBeingMadeShowsNoneAndReturnsToQueued() {
+        val midPoint = CompletableDeferred<Unit>()
+        val mayFinish = CompletableDeferred<Unit>()
+        slowDownload("https://www.gutenberg.org/ebooks/77.epub3.images", listOf(1_000_000L to 4_000_000L, 2_000_000L to 4_000_000L), midPoint, mayFinish)
+        val speechMayGo = holdSpeech()
+
+        openFindBooks()
+        compose.onNodeWithTag("genre-SCIENCE_FICTION").performClick()
+        waitForTag("result-77")
+        compose.onNodeWithTag("result-4242").performClick()
+        compose.onNodeWithTag("result-77").performClick()
+        compose.waitUntil(30_000) { midPoint.isCompleted }
+        compose.onNodeWithTag("find-back").performClick()
+
+        waitForBar("Quiet Shore", ProgressBarRangeInfo(0.5f, 0f..1f))
+        compose.onNodeWithTag("status-Quiet Shore", useUnmergedTree = true).assertTextContains("Downloading 50%", substring = true)
+        assertTrue("the book being made has its file and shows no download bar", !exists("download-bar-Harbour Notes"))
+
+        mayFinish.complete(Unit)
+        compose.waitUntil(30_000) { !exists("download-bar-Quiet Shore") }
+        compose.onNodeWithTag("status-Quiet Shore", useUnmergedTree = true).assertTextContains("Queued · position 2")
+
+        speechMayGo.complete(Unit)
+        compose.waitUntil(120_000) { Library.books.value.size == 2 && Library.books.value.all { it.status == Status.READY } }
+    }
+
+    @Test
+    fun aDownloadOfUnknownLengthShowsAnIndeterminateBarAndTheBytesSoFar() {
+        val midPoint = CompletableDeferred<Unit>()
+        val mayFinish = CompletableDeferred<Unit>()
+        slowDownload(epubLink, listOf(1_048_576L to -1L), midPoint, mayFinish)
+
+        openFindBooks()
+        compose.onNodeWithTag("genre-SCIENCE_FICTION").performClick()
+        waitForTag("result-4242")
+        compose.onNodeWithTag("result-4242").performClick()
+        compose.waitUntil(30_000) { midPoint.isCompleted }
+        compose.onNodeWithTag("find-back").performClick()
+
+        waitForBar("Harbour Notes", ProgressBarRangeInfo.Indeterminate)
+        compose.onNodeWithTag("status-Harbour Notes", useUnmergedTree = true).assertTextContains("Downloading 1.0 MB")
+
+        mayFinish.complete(Unit)
+        compose.waitUntil(30_000) { !exists("download-bar-Harbour Notes") }
+    }
+
     @Smoke @Test
     fun saysWhenABookHasNoEpubAndSendsNoRequestForIt() {
         openFindBooks()
@@ -196,7 +293,7 @@ class FindBooksUiTest {
 
     @Smoke @Test
     fun showsAFriendlyMessageWhenTheCatalogueCannotBeReached() {
-        Engines.httpGet = { _, _, _ -> throw CatalogueException("Could not reach the book catalogue. Check the connection and try again.") }
+        Engines.httpGet = { _, _, _, _ -> throw CatalogueException("Could not reach the book catalogue. Check the connection and try again.") }
         openFindBooks()
         compose.onNodeWithTag("find-query").performTextInput("anything")
         compose.onNodeWithTag("find-search").performClick()

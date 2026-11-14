@@ -67,8 +67,11 @@ object Engines {
     /** Looks up a book's title and author by ISBN; a test swaps in one that needs no network. Null when the catalogue has no such book. */
     var lookupBook: suspend (isbn: String) -> BookInfo? = { isbn -> withContext(Dispatchers.IO) { Isbn.openLibrary(isbn) } }
 
-    /** The one place the "Find books" screen touches the network: a GET of [url], the body copied to the stream. A test swaps in one that serves canned answers. */
-    var httpGet: suspend (url: String, userAgent: String, out: java.io.OutputStream) -> Unit = Gutendex::fetch
+    /**
+     * The one place the "Find books" screen touches the network: a GET of [url], the body copied to the stream. A test swaps in one that serves canned answers.
+     * It calls `onProgress` with the bytes received so far and the bytes the server announced (0 or less when it did not) as the body arrives.
+     */
+    var httpGet: suspend (url: String, userAgent: String, out: java.io.OutputStream, onProgress: (received: Long, expected: Long) -> Unit) -> Unit = Gutendex::fetch
 }
 
 class AndroidSynthesizer(private val context: Context) : Synthesizer {

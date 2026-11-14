@@ -87,7 +87,8 @@ class ImportQueueTest {
     @Test
     fun theRowSaysDownloadingWhileItsFileIsFetchedAndShowsAFailureWithItsPlace() {
         val books = listOf(book("a", Status.READING), remote("b", order = 1), remote("c", order = 2).copy(error = "No connection"))
-        assertEquals("Downloading…", ImportQueue.label(books, books[1], downloading = setOf("b")))
+        assertEquals("Downloading…", ImportQueue.label(books, books[1], downloading = mapOf("b" to DownloadProgress(0, -1))))
+        assertEquals("Downloading 50% · 1 of 2 KB", ImportQueue.label(books, books[1], downloading = mapOf("b" to DownloadProgress(1024, 2048))))
         assertEquals("Queued · position 2", ImportQueue.label(books, books[1]))
         assertEquals("Queued · position 3 · Download failed: No connection", ImportQueue.label(books, books[2]))
     }

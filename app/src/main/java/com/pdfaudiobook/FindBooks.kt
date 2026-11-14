@@ -34,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,6 +60,8 @@ fun FindBooks(onBack: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val client = remember { Gutendex.client(ctx) }
+    val books by Library.books.collectAsState()
+    val downloading by QueueDownload.active.collectAsState()
     var text by remember { mutableStateOf("") }
     var genre by remember { mutableStateOf<Gutendex.Genre?>(null) }
     var popularity by remember { mutableStateOf(Gutendex.Popularity.ANY) }
@@ -138,7 +141,7 @@ fun FindBooks(onBack: () -> Unit) {
                 if (searched && shown.isEmpty() && !loading) item {
                     Text(if (entries.isEmpty()) "No books found." else "No books match this popularity. Choose Any to see all ${entries.size} found.", Modifier.padding(16.dp).testTag("find-empty"))
                 }
-                items(shown, key = { it.id }) { entry -> ResultRow(entry, entry.id in added) { add(entry) } }
+                items(shown, key = { it.id }) { entry -> ResultRow(entry, entry.id in added, books.firstOrNull { it.source == "gutenberg:${entry.id}" }?.let { downloading[it.id] }) { add(entry) } }
                 val page = lastPage
                 if (page != null && Gutendex.hasMore(page, popularity)) item {
                     OutlinedButton({ search(Gutendex.Query(text, genre, englishOnly, pageNumber + 1)) }, Modifier.padding(16.dp).testTag("find-more"), enabled = !loading) { Text("More results") }
@@ -150,8 +153,9 @@ fun FindBooks(onBack: () -> Unit) {
 }
 
 @Composable
-private fun ResultRow(entry: Gutendex.Entry, added: Boolean, onClick: () -> Unit) {
+private fun ResultRow(entry: Gutendex.Entry, added: Boolean, download: DownloadProgress?, onClick: () -> Unit) {
     val state = when {
+        download != null -> download.label
         added -> "Added to the import queue"
         entry.epubUrl == null -> "No EPUB available"
         else -> null

@@ -186,7 +186,7 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
             if (importing.isNotEmpty()) {
                 item(key = "header-importing") { SectionHeader("Importing", "section-importing") }
                 items(importing, key = { it.id }) { b ->
-                    BookRow(b, ImportQueue.label(books, b, downloading), onOpen, onDelete = { toDelete = b }, drag = drag)
+                    BookRow(b, ImportQueue.label(books, b, downloading), onOpen, onDelete = { toDelete = b }, drag = drag, download = downloading[b.id])
                 }
             }
             if (imported.isNotEmpty()) {
@@ -204,14 +204,24 @@ private fun SectionHeader(text: String, tag: String) {
 
 /** One book on the shelf. A book in the import queue can be dragged ([drag]); while one is dragged, a line shows the place it takes if released. Finished books have neither. */
 @Composable
-private fun BookRow(b: Book, label: String, onOpen: (String) -> Unit, onDelete: () -> Unit, drag: QueueDrag?) {
+private fun BookRow(b: Book, label: String, onOpen: (String) -> Unit, onDelete: () -> Unit, drag: QueueDrag?, download: DownloadProgress? = null) {
     val dragging = drag?.isDragging(b.id) == true
     val above = drag?.dropLineAbove(b.id)
     Box {
         ListItem(
             headlineContent = { Text(b.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
             overlineContent = if (b.author.isEmpty()) null else ({ Text(b.author, Modifier.testTag("author-${b.title}")) }),
-            supportingContent = { Text(label, Modifier.testTag("status-${b.title}")) },
+            supportingContent = {
+                Column {
+                    Text(label, Modifier.testTag("status-${b.title}"))
+                    // The bar of a book being fetched; filled by the bytes received, or running without end when the server gave no length.
+                    if (download != null) {
+                        val bar = Modifier.fillMaxWidth().padding(top = 4.dp).testTag("download-bar-${b.title}")
+                        val fraction = download.fraction
+                        if (fraction == null) LinearProgressIndicator(bar) else LinearProgressIndicator(progress = { fraction }, modifier = bar)
+                    }
+                }
+            },
             // Three lines is the Menu icon: the drag-handle icon is in the extended icon set, which is not worth its size for one glyph.
             leadingContent = if (drag == null) null else ({
                 Icon(Icons.Filled.Menu, contentDescription = "Drag to reorder ${b.title}", Modifier.testTag("drag-handle-${b.title}").then(drag.handle(b.id)).padding(8.dp))

@@ -44,11 +44,11 @@ object ImportQueue {
     fun nextDownload(books: List<Book>, skip: Set<String> = emptySet()): Book? = line(books).firstOrNull { it.awaitingDownload && it.id !in skip }
 
     /**
-     * What the row says: "Downloading" while its file is being fetched, else "Queued" with the place in line (the book being made is first;
+     * What the row says: how far the fetch has come while its file is being fetched ([DownloadProgress.label]), else "Queued" with the place in line (the book being made is first;
      * a failed fetch adds its error), else the book's own progress.
      */
-    fun label(books: List<Book>, book: Book, downloading: Set<String> = emptySet()): String {
-        if (book.status == Status.QUEUED && book.id in downloading) return "Downloading…"
+    fun label(books: List<Book>, book: Book, downloading: Map<String, DownloadProgress> = emptyMap()): String {
+        if (book.status == Status.QUEUED) downloading[book.id]?.let { return it.label }
         val place = line(books).indexOfFirst { it.id == book.id } + 1
         if (book.status != Status.QUEUED || place <= 0) return book.label()
         return "Queued · position $place" + (book.error?.let { " · Download failed: $it" } ?: "")
