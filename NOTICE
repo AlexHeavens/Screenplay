@@ -23,3 +23,26 @@ Test scans: app/src/androidTest/assets/ocr/{origin,gibbon,james,varieties}*
   "Decline and Fall of the Roman Empire vol 1 (1897).djvu", "The varieties of religious experience, a study in human nature.djvu").
   Expected text: Wikisource transcriptions of the same pages, which Wikisource publishes under CC BY-SA 4.0,
   https://creativecommons.org/licenses/by-sa/4.0/ . Their contributors are credited through the page histories on Wikisource.
+
+Libraries built into the app (Gradle dependencies)
+  sherpa-onnx 1.13.8 (k2-fsa) and ONNX Runtime: Apache-2.0 and MIT. Fetched by the `fetchSherpa` task, not stored in this repository.
+  Apache Commons Compress, AndroidX (Core, Activity, Lifecycle, Compose, WorkManager): Apache-2.0.
+  Google ML Kit text recognition 16.0.1: proprietary, Google ML Kit terms, https://developers.google.com/ml-kit/terms
+
+Copyleft code inside a built library (unverified, see "Open licensing questions" below)
+  espeak-ng: GPL-3.0-or-later, https://github.com/espeak-ng/espeak-ng
+  The native library in the sherpa-onnx AAR contains espeak-ng phonemizer code (strings such as "phondata" and "mbrola").
+
+Voices downloaded on first use, not shipped in the APK (from https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models)
+  Kokoro (int8, English v0.19): Apache-2.0 as stated by the model's publisher; not verified here.
+  Piper en_US libritts_r medium: voices trained on LibriTTS-R, CC BY 4.0, https://creativecommons.org/licenses/by/4.0/
+    Credit: LibriTTS-R, Y. Koizumi et al.; Piper voice by Rhasspy, https://huggingface.co/rhasspy/piper-voices (not verified here).
+  espeak-ng-data inside both model archives: GPL-3.0-or-later.
+
+Web services the app calls at run time
+  Project Gutenberg catalogue via Gutendex: see docs/gutenberg.md. Open Library book lookup by ISBN: terms not yet read.
+
+Open licensing questions (not legal advice; unresolved)
+  1. A built APK would combine MPL-2.0 code, GPL-3.0 espeak-ng code and proprietary ML Kit libraries. GPL-3.0 does not
+     allow a proprietary library in the same combined work, so do not publish an APK until this is resolved.
+  2. The source repository itself carries none of these binaries.
