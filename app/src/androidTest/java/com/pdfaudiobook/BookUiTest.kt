@@ -533,4 +533,67 @@ class BookUiTest {
         )
         waitFor(what = "failure", matcher = hasText("No text found", substring = true))
     }
+
+    /** Runs [body] with every PDF page read as one fixed sentence, so an import ends in a moment instead of waiting for OCR. [body] must wait for the import to finish. */
+    private fun withQuickOcr(body: () -> Unit) {
+        Engines.recognisePage = { listOf("A short sentence that the import tests read in a moment.") }
+        try { body() } finally { Engines.recognisePage = null }
+    }
+
+    private fun launchViewing(file: File, type: String = "application/pdf") {
+        scenario = ActivityScenario.launch(
+            Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
+                .setDataAndType(androidx.core.content.FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", file), type)
+        )
+    }
+
+    @Test
+    fun aPdfSharedFromAnotherAppJoinsTheShelfAndIsMade() = withQuickOcr {
+        scenario = ActivityScenario.launch(
+            Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_SEND).setType("application/pdf")
+                .putExtra(Intent.EXTRA_STREAM, Fixtures.pdf(ctx)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        )
+        waitFor(what = "ready", matcher = hasText("Ready", substring = true))
+        compose.onNodeWithText(title).assertIsDisplayed()
+    }
+
+    @Test
+    fun aShareWithNoFileAddsNothingAndTheShelfStaysEmpty() {
+        scenario = ActivityScenario.launch(Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_SEND).setType("application/pdf"))
+        waitFor(what = "empty shelf", matcher = hasText("No audiobooks yet. Import a PDF or EPUB."))
+        Thread.sleep(1_000) // An import runs in the background; give a wrongly started one time to show.
+        assertTrue(Library.books.value.isEmpty())
+    }
+
+    @Test
+    fun aFileThatCannotBeOpenedFailsTheBookWithAReasonInsteadOfCrashing() {
+        launchViewing(File(ctx.cacheDir, "missing.pdf").also { it.delete() })
+        waitFor(what = "failure", matcher = hasText("Could not read the PDF", substring = true))
+        assertEquals(Status.FAILED, Library.books.value.single().status)
+    }
+
+    @Test
+    fun aFileThatIsNotAPdfFailsWithAReason() {
+        launchViewing(File(ctx.cacheDir, "notes.pdf").also { it.writeText("this is plainly not a pdf") })
+        compose.waitUntil(60_000) { Library.books.value.singleOrNull()?.status == Status.FAILED }
+        val reason = Library.books.value.single().error
+        assertTrue("a reason is shown, not a blank: $reason", !reason.isNullOrBlank())
+        waitFor(what = "the reason on the shelf", matcher = hasText(reason!!, substring = true))
+    }
+
+    @Test
+    fun importingTheSamePdfTwiceMakesTwoBooksWithTheSameTitle() = withQuickOcr {
+        launchWithPdf()
+        waitFor(what = "first ready", matcher = hasText("Ready", substring = true))
+        val second = ActivityScenario.launch<MainActivity>(
+            Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setDataAndType(Fixtures.pdf(ctx), "application/pdf")
+        )
+        try {
+            compose.waitUntil(60_000) { Library.books.value.size == 2 && Library.books.value.all { it.status == Status.READY } }
+            assertEquals(listOf(title, title), Library.books.value.map { it.title })
+            assertEquals(2, Library.books.value.map { it.id }.toSet().size)
+        } finally {
+            second.close()
+        }
+    }
 }
