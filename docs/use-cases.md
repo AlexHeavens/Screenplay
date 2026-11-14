@@ -791,7 +791,7 @@ Tests:
 - `ImportQueueTest.theHighestWaitingBookWithoutItsFileIsFetchedNext`
 - `ImportQueueTest.fetchedBooksFileBooksAndTheBookBeingMadeAreSkipped`
 - `ImportQueueTest.aReorderChangesWhichBookIsFetchedNext`
-- `ImportQueueTest.theRowSaysDownloadingWhileItsFileIsFetchedAndShowsAFailureWithItsPlace`
+- `ImportQueueTest.theRowSaysNothingWhileItsFileIsFetchedAndShowsAFailureWithItsPlace`
 - `FindBooksUiTest.showsAFriendlyMessageWhenTheCatalogueCannotBeReached`
 - `GutendexTest.turnsFiltersIntoTheCatalogueRequest`
 - `GutendexTest.leavesOutBooksInCopyrightAndAnythingNotText`
@@ -889,7 +889,7 @@ Tests:
 - `ImportQueueTest.theHighestWaitingBookWithoutItsFileIsFetchedNext`
 - `ImportQueueTest.fetchedBooksFileBooksAndTheBookBeingMadeAreSkipped`
 - `ImportQueueTest.aReorderChangesWhichBookIsFetchedNext`
-- `ImportQueueTest.theRowSaysDownloadingWhileItsFileIsFetchedAndShowsAFailureWithItsPlace`
+- `ImportQueueTest.theRowSaysNothingWhileItsFileIsFetchedAndShowsAFailureWithItsPlace`
 
 #### UC-13h A failed download shows its error and leaves no partial file
 
@@ -898,7 +898,7 @@ Goal: see why a book did not download, and not keep a broken file.
 - A failed fetch shows its error on the row. The file is written under a `.part` name and renamed when whole, so a failure leaves no file that looks like a book.
 
 Tests:
-- `ImportQueueTest.theRowSaysDownloadingWhileItsFileIsFetchedAndShowsAFailureWithItsPlace`
+- `ImportQueueTest.theRowSaysNothingWhileItsFileIsFetchedAndShowsAFailureWithItsPlace`
 - `GutendexTest.aBookWithoutAnEpubIsNeverRequestedAndAFailedDownloadLeavesNoFile`
 
 #### UC-13i The catalogue cannot be reached
@@ -2265,6 +2265,27 @@ Tests:
 - `FootnoteUiTest.withTheOptionOffTheFootnoteIsSpokenAsBefore`
 - `FootnoteUiTest.theFootnoteOptionIsOnByDefaultAndSavedWithTheOthers`
 - `FootnoteUiTest.aBackupCarriesTheFootnotesAndRestoresThemWithTheBook`
+
+### UC-52 See the stages of an import
+
+Goal: see at a glance how far a book in the queue has come, without reading text.
+
+- Each stage has an icon: fetching the file (only for a book from Find books), reading, speaking, encoding. It is grey when it is next but not started, blue while it runs, and white once done (the text colour on a light theme). Stages after the next one are not shown.
+- A running stage has a thin bar and its percentage with its total, such as "42% · 1,200/3,000 words" or "25% · 3/12 pages". Reading and speaking can run together. A fetch of unknown length has a bar that runs without end and shows the size so far.
+- A waiting book still says "Queued · position N" in words, with the error of a failed fetch; a book being made says nothing else.
+- Delete is a bin icon on the row.
+
+Tests:
+- `StagesTest.aQueuedPdfShowsOnlyReadingAsNext`
+- `StagesTest.aBookFromFindBooksStartsWithItsFetchAndShowsNothingLater`
+- `StagesTest.aFetchOfUnknownLengthHasNoFractionAndOnlyTheBytesSoFar`
+- `StagesTest.readingShowsItsPercentAndPagesAndSpeakingIsNextUntilItHasWords`
+- `StagesTest.readingAndSpeakingRunTogetherAndEncodingIsNext`
+- `StagesTest.speakingShowsItsPercentAndWordsOutOfTheTotalWithReadingDone`
+- `StagesTest.encodingShowsItsPercentWithEverythingBeforeItDone`
+- `StagesTest.aBookWhoseImportIsOverShowsNoStages`
+- `FindBooksUiTest.aBookDownloadedOnItsOwnTurnShowsItsProgressOnItsResultAndItsRowAndThenCarriesOn`
+- `ImportQueueUiTest.booksAreMadeOneAtATimeAndAQueuedBookCanBeDraggedUp`
 
 ## Maintainers
 

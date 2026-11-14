@@ -132,7 +132,7 @@ class ImportQueueUiTest {
         // Only the first is being made; the others are queued, with their place in line.
         compose.waitUntil(60_000) { Library.books.value.count { it.status == Status.READING } == 1 }
         compose.onNodeWithTag("section-importing").assertIsDisplayed()
-        compose.waitUntil(30_000) { exists("status-queue-one") && !text("status-queue-one").startsWith("Queued") }
+        compose.waitUntil(30_000) { exists("stage-bar-READ-queue-one") }
         assertEquals("Queued · position 2", text("status-queue-two"))
         assertEquals("Queued · position 3", text("status-queue-three"))
         assertEquals(1, Library.books.value.count { it.status == Status.READING })

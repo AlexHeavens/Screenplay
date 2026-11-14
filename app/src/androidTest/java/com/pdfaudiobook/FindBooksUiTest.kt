@@ -204,9 +204,9 @@ class FindBooksUiTest {
         }
     }
 
-    private fun barRange(title: String) = compose.onNodeWithTag("download-bar-$title", useUnmergedTree = true).fetchSemanticsNode().config[SemanticsProperties.ProgressBarRangeInfo]
+    private fun barRange(title: String) = compose.onNodeWithTag("stage-bar-DOWNLOAD-$title", useUnmergedTree = true).fetchSemanticsNode().config[SemanticsProperties.ProgressBarRangeInfo]
 
-    private fun waitForBar(title: String, value: ProgressBarRangeInfo) = compose.waitUntil(30_000) { exists("download-bar-$title") && barRange(title) == value }
+    private fun waitForBar(title: String, value: ProgressBarRangeInfo) = compose.waitUntil(30_000) { exists("stage-bar-DOWNLOAD-$title") && barRange(title) == value }
 
     @Smoke @Test
     fun aBookDownloadedOnItsOwnTurnShowsItsProgressOnItsResultAndItsRowAndThenCarriesOn() {
@@ -223,10 +223,10 @@ class FindBooksUiTest {
 
         compose.onNodeWithTag("find-back").performClick()
         waitForBar("Harbour Notes", ProgressBarRangeInfo(0.5f, 0f..1f))
-        compose.onNodeWithTag("status-Harbour Notes", useUnmergedTree = true).assertTextContains("Downloading 50% · 1.9 of 3.8 MB")
+        compose.onNodeWithTag("stage-text-DOWNLOAD-Harbour Notes", useUnmergedTree = true).assertTextContains("50% · 1.9/3.8 MB")
 
         mayFinish.complete(Unit)
-        compose.waitUntil(30_000) { !exists("download-bar-Harbour Notes") }
+        compose.waitUntil(30_000) { !exists("stage-bar-DOWNLOAD-Harbour Notes") }
         compose.waitUntil(120_000) { Library.books.value.singleOrNull()?.status == Status.READY }
     }
 
@@ -246,11 +246,11 @@ class FindBooksUiTest {
         compose.onNodeWithTag("find-back").performClick()
 
         waitForBar("Quiet Shore", ProgressBarRangeInfo(0.5f, 0f..1f))
-        compose.onNodeWithTag("status-Quiet Shore", useUnmergedTree = true).assertTextContains("Downloading 50%", substring = true)
-        assertTrue("the book being made has its file and shows no download bar", !exists("download-bar-Harbour Notes"))
+        compose.onNodeWithTag("stage-text-DOWNLOAD-Quiet Shore", useUnmergedTree = true).assertTextContains("50%", substring = true)
+        assertTrue("the book being made has its file and shows no download bar", !exists("stage-bar-DOWNLOAD-Harbour Notes"))
 
         mayFinish.complete(Unit)
-        compose.waitUntil(30_000) { !exists("download-bar-Quiet Shore") }
+        compose.waitUntil(30_000) { !exists("stage-bar-DOWNLOAD-Quiet Shore") }
         compose.onNodeWithTag("status-Quiet Shore", useUnmergedTree = true).assertTextContains("Queued · position 2")
 
         speechMayGo.complete(Unit)
@@ -271,10 +271,10 @@ class FindBooksUiTest {
         compose.onNodeWithTag("find-back").performClick()
 
         waitForBar("Harbour Notes", ProgressBarRangeInfo.Indeterminate)
-        compose.onNodeWithTag("status-Harbour Notes", useUnmergedTree = true).assertTextContains("Downloading 1.0 MB")
+        compose.onNodeWithTag("stage-text-DOWNLOAD-Harbour Notes", useUnmergedTree = true).assertTextContains("1.0 MB")
 
         mayFinish.complete(Unit)
-        compose.waitUntil(30_000) { !exists("download-bar-Harbour Notes") }
+        compose.waitUntil(30_000) { !exists("stage-bar-DOWNLOAD-Harbour Notes") }
     }
 
     @Smoke @Test

@@ -50,7 +50,7 @@ class ImportQueueTest {
         val books = listOf(book("a", Status.READING), book("b", order = 1), book("c", order = 2))
         assertEquals("Queued · position 2", ImportQueue.label(books, books[1]))
         assertEquals("Queued · position 3", ImportQueue.label(books, books[2]))
-        assertEquals(books[0].label(), ImportQueue.label(books, books[0]))
+        assertEquals("a book being made has no words: its stages show how far it has come", "", ImportQueue.label(books, books[0]))
     }
 
     private fun remote(id: String, order: Long = 0, status: Status = Status.QUEUED, fetched: Boolean = false) =
@@ -85,10 +85,9 @@ class ImportQueueTest {
     }
 
     @Test
-    fun theRowSaysDownloadingWhileItsFileIsFetchedAndShowsAFailureWithItsPlace() {
+    fun theRowSaysNothingWhileItsFileIsFetchedAndShowsAFailureWithItsPlace() {
         val books = listOf(book("a", Status.READING), remote("b", order = 1), remote("c", order = 2).copy(error = "No connection"))
-        assertEquals("Downloading…", ImportQueue.label(books, books[1], downloading = mapOf("b" to DownloadProgress(0, -1))))
-        assertEquals("Downloading 50% · 1 of 2 KB", ImportQueue.label(books, books[1], downloading = mapOf("b" to DownloadProgress(1024, 2048))))
+        assertEquals("the stages show a fetch", "", ImportQueue.label(books, books[1], downloading = mapOf("b" to DownloadProgress(1024, 2048))))
         assertEquals("Queued · position 2", ImportQueue.label(books, books[1]))
         assertEquals("Queued · position 3 · Download failed: No connection", ImportQueue.label(books, books[2]))
     }

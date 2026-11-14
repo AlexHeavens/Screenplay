@@ -22,6 +22,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -213,13 +214,10 @@ private fun BookRow(b: Book, label: String, onOpen: (String) -> Unit, onDelete: 
             overlineContent = if (b.author.isEmpty()) null else ({ Text(b.author, Modifier.testTag("author-${b.title}")) }),
             supportingContent = {
                 Column {
-                    Text(label, Modifier.testTag("status-${b.title}"))
-                    // The bar of a book being fetched; filled by the bytes received, or running without end when the server gave no length.
-                    if (download != null) {
-                        val bar = Modifier.fillMaxWidth().padding(top = 4.dp).testTag("download-bar-${b.title}")
-                        val fraction = download.fraction
-                        if (fraction == null) LinearProgressIndicator(bar) else LinearProgressIndicator(progress = { fraction }, modifier = bar)
-                    }
+                    if (label.isNotEmpty()) Text(label, Modifier.testTag("status-${b.title}"))
+                    // A book in the import queue shows its stages instead of words: an icon each, and a bar with its percentage on the one running.
+                    val stages = Stages.of(b, download)
+                    if (stages.isNotEmpty()) StageStrip(b.title, stages)
                 }
             },
             // Three lines is the Menu icon: the drag-handle icon is in the extended icon set, which is not worth its size for one glyph.
@@ -233,7 +231,7 @@ private fun BookRow(b: Book, label: String, onOpen: (String) -> Unit, onDelete: 
                 .clickable(enabled = b.openable) { onOpen(b.id) },
             trailingContent = {
                 Row {
-                    TextButton(onClick = onDelete, modifier = Modifier.testTag("delete-${b.title}")) { Text("Delete") }
+                    IconButton(onClick = onDelete, modifier = Modifier.testTag("delete-${b.title}")) { Icon(Icons.Filled.Delete, contentDescription = "Delete ${b.title}") }
                 }
             },
         )

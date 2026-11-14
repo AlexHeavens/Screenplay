@@ -35,6 +35,13 @@ data class DownloadProgress(val received: Long, val expected: Long) {
         else -> "Downloading…"
     }
 
+    /** The stage's text: "42% · 3.1/7.4 MB"; with no length "3.1 MB"; "0%" before the first byte. */
+    val counts: String get() = when {
+        expected > 0 -> "$percent% · ${size(received, expected)}/${size(expected, expected)} ${unit(expected)}"
+        received > 0 -> "${size(received, received)} ${unit(received)}"
+        else -> "0%"
+    }
+
     private val percent: Int get() = (received * 100 / expected).coerceIn(0, 100).toInt()
 
     /**
