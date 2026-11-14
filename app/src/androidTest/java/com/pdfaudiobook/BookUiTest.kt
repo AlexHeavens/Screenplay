@@ -168,6 +168,8 @@ class BookUiTest {
         waitForSearchCount("No matches")
         compose.onNodeWithTag("search-field").performTextClearance()
         waitFor(what = "empty counter", matcher = SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "search-count").and(hasText("")))
+        // With a keyboard on screen (redroid) the first Back only hides it, so hide it first and let Back close the search.
+        runCatching { androidx.test.espresso.Espresso.closeSoftKeyboard() }
         androidx.test.espresso.Espresso.pressBack()
         compose.onAllNodesWithTag("search-field").assertCountEquals(0)
         compose.onNodeWithTag("title").assertIsDisplayed()

@@ -2,7 +2,9 @@
 # Runs the device tests through adb rather than `gradle connectedDebugAndroidTest`, skipping
 # Gradle's per-run test-platform setup. No JUnit report; CI keeps the Gradle task.
 # Uses the warm emulator from scripts/emulator.sh (started if down, stopped after 30 idle minutes), or ANDROID_SERIAL if set.
-# Runs are serialised, so several sessions can share the emulator. Optional arg: `smoke` (the always-run tests), Class or Class#method.
+# With POOL_SERIALS="serial ..." (for example from scripts/redroid-pool.sh), claims the first device of the pool that no other run holds,
+# and waits when all are busy. Each device has its own lock, so runs on different devices go in parallel; runs on one device queue.
+# Optional arg: `smoke` (the always-run tests), Class or Class#method.
 set -o pipefail
 cd "$(dirname "$0")/.."
 adb=${ANDROID_HOME:+$ANDROID_HOME/platform-tools/}adb
@@ -10,10 +12,26 @@ start=$(date +%s)
 # Build only the target's CPU type (the warm emulator is x86_64); another ANDROID_SERIAL device is asked for its own.
 abi=x86_64
 [ -n "$ANDROID_SERIAL" ] && abi=$($adb shell getprop ro.product.cpu.abi | tr -d '\r')
+[ -n "$POOL_SERIALS" ] && abi=x86_64
 ./gradlew -q ${abi:+-Pabi=$abi} assembleDebug assembleDebugAndroidTest || { echo "EXIT=1 WALL=$(( $(date +%s) - start ))s"; exit 1; }
 state=${XDG_CACHE_HOME:-$HOME/.cache}/pdfaudiobook-emulator
-mkdir -p "$state"; exec 9>"$state/run.lock"; flock 9
-export ANDROID_SERIAL=${ANDROID_SERIAL:-$(scripts/emulator.sh ensure)}
+mkdir -p "$state"
+if [ -n "$POOL_SERIALS" ]; then
+    # Fd 9 holds the claimed device's lock until this script exits.
+    claimed=
+    until [ -n "$claimed" ]; do
+        for s in $POOL_SERIALS; do
+            exec 9>"$state/run-${s//[:\/]/_}.lock"
+            flock --nonblock 9 && { claimed=$s; break; }
+        done
+        [ -n "$claimed" ] || sleep 2
+    done
+    export ANDROID_SERIAL=$claimed
+else
+    exec 9>"$state/run.lock"; flock 9
+    # Close the lock in the emulator daemon, or it would hold the lock after this script exits.
+    export ANDROID_SERIAL=${ANDROID_SERIAL:-$(scripts/emulator.sh ensure 9>&-)}
+fi
 trap 'touch "$state/last-used"' EXIT
 $adb install -r -t app/build/outputs/apk/debug/app-debug.apk >/dev/null &&
 $adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk >/dev/null || exit 1

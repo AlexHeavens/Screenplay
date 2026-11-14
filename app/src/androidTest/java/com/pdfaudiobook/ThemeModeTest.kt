@@ -12,11 +12,13 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -77,10 +79,18 @@ class ThemeModeTest {
         for ((mode, scheme) in listOf(ThemeMode.DARK to DarkColors, ThemeMode.LIGHT to LightColors)) {
             pick(mode)
             expect(mode.name.lowercase())
+            // A taller font on some devices (redroid) pushes the chips below the screen edge, where the capture is blank: scroll them into view.
+            runCatching { compose.onNodeWithTag("theme-${mode.name}").performScrollTo() }
+            compose.waitForIdle()
             val bmp = compose.onNodeWithTag("theme-${mode.name}").captureToImage().asAndroidBitmap()
             // Just inside the left edge, at mid height: fill, clear of the label and the rounded corners.
             val rgb = bmp.getPixel((8 * ctx.resources.displayMetrics.density).toInt(), bmp.height / 2) and 0xFFFFFF
-            assertEquals("${mode.name} chip fill", scheme.primaryContainer.toArgb() and 0xFFFFFF, rgb)
+            // Software rendering (redroid) lands a few units off the exact colour per channel, so compare with a small tolerance.
+            val want = scheme.primaryContainer.toArgb() and 0xFFFFFF
+            for (shift in listOf(16, 8, 0)) {
+                val diff = Math.abs(((want shr shift) and 0xFF) - ((rgb shr shift) and 0xFF))
+                assertTrue("${mode.name} chip fill expected ${"%06x".format(want)} but was ${"%06x".format(rgb)}", diff <= 6)
+            }
         }
     }
 

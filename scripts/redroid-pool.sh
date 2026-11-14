@@ -18,6 +18,8 @@ case "${1:-}" in
     for i in $(seq 1 "$n"); do
       s=127.0.0.1:$((base_port + i - 1)); $adb connect "$s" >/dev/null
       until [ "$($adb -s "$s" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; do sleep 1; done
+      # Gestural navigation, as on the emulator: the three-button bar would take screen height and push the options chips off the bottom.
+      $adb -s "$s" shell cmd overlay enable-exclusive --category com.android.internal.systemui.navbar.gestural >/dev/null 2>&1
       echo "$s"
     done | paste -sd' ' ;;
   stop) docker ps --format '{{.Names}}' | grep -E '^rd[0-9]+$' | xargs -r docker rm --force >/dev/null ;;

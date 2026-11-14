@@ -82,17 +82,26 @@ The host has 4 threads. The baseline leaves about half of them idle, which is wh
 
 ## Failures and what they mean
 
+These are the failures of the measurement runs, before the hardening below.
+
 | Failure | Where | Meaning |
 |---|---|---|
-| `BookUiTest.backupSharesAZipOfPdfAudioTranscriptAndNotes`, `RootViewWithoutFocusException` | Emulator, 4 of 4 runs | Pre-existing on the emulator, passes on redroid. A focus or share-sheet problem on this AVD. Not caused by pooling. |
-| `BookUiTest.searchWithNoMatchEmptyQueryRotationAndBack`, same exception | Emulator runs (seen in baseline 1 and pool 2 run 1) and redroid runs 1, 2a and 3 (the redroid 2b log does not name the test) | Fails after rotation on both platforms. Not caused by pooling. |
-| `BookUiTest.theNotesPanelHasNoAddButton`, `Failed to inject touch input` | Emulator pool 2, run 1 only | New under load. Flaky when the CPU is 88% busy. |
-| `ControlsCentredTest`, `IllegalStateException` | Baseline 1 and redroid pool of 3 only | Flaky: passed in baseline 2 and elsewhere. |
-| `ThemeModeTest.themeChipsFollowTheActiveScheme`: `DARK chip fill expected:<2047859> but was:<15330545>` | Every redroid run, never on the emulator | Redroid differs from the AOSP ATD image in night-mode or theme setup. Needs a fix or a device setting before redroid can replace the emulator. |
-| `MediaNotificationTest` | Redroid 1, one run; passes alone (`OK (1 test)`) | Flaky in a full run. |
-| `ChaptersWithoutAudioTest`, `ImportProgressTest`, `ImportQueueUiTest` ×2 (no test count), `ControlsCentredTest`, `ThemeModeTest`, `BookUiTest` | Redroid pool of 3 only | Instrumentation failed under 98% CPU and full swap. A pool of 3 is too much for this host. |
+| `BookUiTest.backupSharesAZipOfPdfAudioTranscriptAndNotes`, `RootViewWithoutFocusException` | Emulator, 4 of 4 runs | Passes on redroid. A focus or share-sheet problem on this AVD. |
+| `BookUiTest.searchWithNoMatchEmptyQueryRotationAndBack` | Emulator and redroid | Fails on both platforms. |
+| `BookUiTest.theNotesPanelHasNoAddButton`, `Failed to inject touch input` | Emulator pool 2, run 1 only | Flaky when the CPU is 88% busy. |
+| `ControlsCentredTest`, `IllegalStateException` | Baseline 1 and redroid pool of 3 only | Flaky. |
+| `ThemeModeTest.themeChipsFollowTheActiveScheme`: `DARK chip fill expected:<2047859> but was:<15330545>` | Every redroid run | See the hardening below. |
+| `MediaNotificationTest` | Redroid 1, one run | Flaky in a full run. |
+| Seven classes, no test count | Redroid pool of 3 only | Instrumentation failed under 98% CPU and full swap. A pool of 3 is too much for this host. |
 
-A test that passes on one setup and fails on another is a finding: the backup test (emulator only), the theme test (redroid only), and the touch-injection test (loaded emulator pool only). The runner reports `rc=1` for the whole set because of the two deterministic failures, so a clean `EXIT=0` was not reached in any setup. I did not fix tests.
+## Hardening for redroid
+
+Result: the smoke set (26 classes) passes on a pool of 2 redroid containers (`EXIT=0`, 365 s wall), and a whole `BookUiTest` passes (31 tests) three times in a row. One earlier smoke run had 2 failed classes (one was `MediaNotificationTest`, `performMeasureAndLayout called during measure layout`, a Compose race under load); the rerun passed. Treat that error as a flake.
+
+- **Navigation bar.** Redroid boots with three-button navigation. The bar takes screen height and pushes the options chips off the bottom, where `captureToImage` returns a blank bitmap. This was the `ThemeModeTest` failure. `redroid-pool.sh start` now enables gestural navigation, as on the emulator: `cmd overlay enable-exclusive --category com.android.internal.systemui.navbar.gestural`.
+- **Colour tolerance.** Software rendering lands a few units off the exact colour. `ThemeModeTest` compares each channel with a tolerance of 6 and scrolls the chip into view first.
+- **Back with a keyboard.** With the soft keyboard open (redroid), the first Back only hides it. `BookUiTest.searchWithNoMatchEmptyQueryRotationAndBack` now closes the keyboard first, then presses Back. The test passes on redroid.
+- **Not re-run on the emulator in full.** `ThemeModeTest` passes there after the change (3 tests). The two emulator-only failures in the table above were not part of this work.
 
 ## Finding on the shared lock
 
@@ -111,10 +120,9 @@ The hub's lock stall was a leak, not a long test run. A command started under `f
 2. **Do not use an emulator pool.** It saves less (−24%) and doubles the memory to 5.8 GB, which swaps.
 3. **Do not use 3 instances** on this host.
 4. **Before switching:**
-   - Fix `ThemeModeTest` on redroid (dark-mode setup) or run that class on the emulator.
    - Make `binder_linux` and the binderfs mount persistent across reboots (needs root; Alex).
-   - Decide what to do about the two deterministic `BookUiTest` failures, which exist today.
-5. **Change `scripts/ui-tests.sh`** (not done here; Alex has not agreed to replace it): replace the single global `run.lock` with one lock per device. A run claims the first free device from the pool (`flock --nonblock` over the devices), so two sessions run at once instead of queueing, and use `flock --close` wherever a daemon is started. Add the pool's `start`/idle-stop to `emulator.sh` or call `redroid-pool.sh`. Containers cost nothing while stopped (`docker rm`), so stop the pool after 30 idle minutes like the emulator.
+   - Decide what to do about the emulator-only backup-test failure, which exists today.
+5. **Per-device locks (done in `scripts/ui-tests.sh`).** With `POOL_SERIALS="serial ..."` set, a run claims the first device whose lock (`run-<serial>.lock`) is free (`flock --nonblock`) and waits when all are busy. Without it, the script behaves as before (single `run.lock`, warm emulator); `emulator.sh ensure` now starts with `9>&-`, so the emulator cannot inherit the lock. Tested on a pool of 2 with three overlapping `BookUiTest` runs: two ran at once (106 s and 111 s), the third waited and ran after (170 s wall), all passed, and the locks were free afterwards. Not done: start and idle-stop of the pool from `emulator.sh`. Containers cost nothing while stopped, so `redroid-pool.sh stop` after use is enough for now.
 6. **Habits for other sessions:** hold no lock while building (`ui-tests.sh` already builds before it locks); never start long-lived processes inside `flock … command`; give a per-class run (`ui-tests.sh Class`) priority over a full smoke run.
 
 `docker checkpoint` (CRIU): one attempt, `docker checkpoint create rd1 cp1` →
