@@ -27,7 +27,7 @@ class CatalogueErrorTest {
     }
 
     private fun failureAt(url: String): CatalogueException = runBlocking {
-        try { Gutendex.fetch(url, "Screenplay/test", ByteArrayOutputStream()); fail("expected a failure") } catch (e: CatalogueException) { return@runBlocking e }
+        try { Gutendex.fetch(url, "Screenplay/test", ByteArrayOutputStream()) { _, _ -> }; fail("expected a failure") } catch (e: CatalogueException) { return@runBlocking e }
         throw AssertionError()
     }
 
@@ -55,7 +55,7 @@ class CatalogueErrorTest {
     fun anAnswerThatIsNotTheCatalogueSaysItCannotBeRead() = runBlocking {
         val saved = Engines.httpGet
         try {
-            Engines.httpGet = { _, _, out -> out.write("<html>maintenance</html>".toByteArray()) }
+            Engines.httpGet = { _, _, out, _ -> out.write("<html>maintenance</html>".toByteArray()) }
             try { CatalogueClient("Screenplay/test").search(Gutendex.Query("dickens")); fail("expected a failure") } catch (e: CatalogueException) {
                 assertEquals("The book catalogue sent an answer this app cannot read.", e.message)
             }

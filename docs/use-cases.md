@@ -881,6 +881,9 @@ Tests:
 - `FindBooksUiTest.aBookDownloadedAheadShowsItsProgressWhileTheBookBeingMadeShowsNoneAndReturnsToQueued`
 - `FindBooksUiTest.aDownloadOfUnknownLengthShowsAnIndeterminateBarAndTheBytesSoFar`
 - `DownloadProgressTest.aKnownLengthGivesAFractionAndAPercentWithBothSizes`
+- `DownloadProgressTest.anUnknownLengthGivesNoFractionAndOnlyTheBytesReceived`
+- `DownloadProgressTest.theFractionAndPercentStayWithinTheBarWhenTheServerSendsMoreThanItAnnounced`
+- `DownloadProgressTest.theThrottleHandlesAnUnknownLengthByTenthsOfAMegabyte`
 - `DownloadProgressTest.theThrottlePassesOnlyReportsThatChangeWhatTheReaderSees`
 - `GutendexTest.aDownloadReportsTheBytesReceivedAndTheAnnouncedLengthAndKeepsTheFileOnlyWhenWhole`
 - `ImportQueueTest.theHighestWaitingBookWithoutItsFileIsFetchedNext`
@@ -2245,6 +2248,13 @@ Goal: not hear a scanned book's footnotes in the middle of a paragraph, and stil
 Tests:
 - `FootnotesTest.takesAFootnoteOutOfThePageAndMatchesItToTheParagraphThatCitesIt`
 - `FootnotesTest.aNumberedListIsNotAFootnote`
+- `FootnotesTest.aFootnoteGoesWithItsParagraphWhenAnEarlierOneIsDropped`
+- `FootnotesTest.aNoteInBodySizedTypeIsFoundByItsLabel`
+- `FootnotesTest.aNumberedItemIsANoteWhenTheBodyCitesItsNumber`
+- `FootnotesTest.aPageOfNothingButNotesIsLeftAsText`
+- `FootnotesTest.aSymbolNoteNeedsItsSymbolInTheBody`
+- `FootnotesTest.anotherFootnoteIsPlacedAfterTheFirst`
+- `FootnotesTest.placesTheFootnoteUnderTheCitingParagraphAmongTheWholeTranscript`
 - `FootnotesTest.aFigureCaptionIsNotAFootnote`
 - `FootnotesTest.anUnmatchedFootnoteStaysWithTheLastParagraphOnThePage`
 - `FootnotesTest.twoFootnotesOnOnePageAreEachMatched`
