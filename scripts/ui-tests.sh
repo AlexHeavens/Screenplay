@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Runs the device tests through adb rather than `gradle connectedDebugAndroidTest`, skipping
 # Gradle's per-run test-platform setup. No JUnit report; CI keeps the Gradle task.
-# Uses the warm emulator from scripts/emulator.sh (started if down, stopped after 30 idle minutes), or ANDROID_SERIAL if set.
+# Default: a pool of 2 redroid containers (scripts/redroid-pool.sh, started if down, stopped after 30 idle minutes).
+# Without binderfs, or with USE_EMULATOR=1, it uses the warm emulator from scripts/emulator.sh instead; ANDROID_SERIAL picks one device.
 # With POOL_SERIALS="serial ..." (for example from scripts/redroid-pool.sh), claims the first device of the pool that no other run holds,
 # and waits when all are busy. Each device has its own lock, so runs on different devices go in parallel; runs on one device queue.
 # Optional arg: `smoke` (the always-run tests), Class or Class#method.
@@ -12,6 +13,8 @@ start=$(date +%s)
 # Build only the target's CPU type (the warm emulator is x86_64); another ANDROID_SERIAL device is asked for its own.
 abi=x86_64
 [ -n "$ANDROID_SERIAL" ] && abi=$($adb shell getprop ro.product.cpu.abi | tr -d '\r')
+# Redroid is the default when the host has binderfs and no device was named.
+[ -z "$USE_EMULATOR" ] && [ -z "$ANDROID_SERIAL" ] && [ -z "$POOL_SERIALS" ] && [ -e /dev/binderfs/binder ] && POOL_SERIALS=$(scripts/redroid-pool.sh ensure 2 9>&-)
 [ -n "$POOL_SERIALS" ] && abi=x86_64
 ./gradlew -q ${abi:+-Pabi=$abi} assembleDebug assembleDebugAndroidTest || { echo "EXIT=1 WALL=$(( $(date +%s) - start ))s"; exit 1; }
 state=${XDG_CACHE_HOME:-$HOME/.cache}/pdfaudiobook-emulator
