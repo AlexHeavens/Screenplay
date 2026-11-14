@@ -68,20 +68,24 @@ object Footnotes {
         val notes = group(trailing + noted)
         if (notes.isEmpty()) return PageText(paragraphs)
         val rewritten = body.toMutableList()
-        val footnotes = notes.map { note ->
-            val regex = marker(note)?.let { citation(it.key) }
-            val at = regex?.let { r -> rewritten.indexOfFirst { r.containsMatchIn(it) } } ?: -1
-            if (regex != null && at >= 0) {
-                val text = rewritten[at]
-                val cited = regex.find(text)!!
-                rewritten[at] = text.removeRange(cited.range).replace(Regex(" {2,}"), " ").trim()
-                Footnote(anchorBefore(text.substring(0, cited.range.first)), note)
-            } else {
-                // No marker found: the note belongs to the last paragraph on the page.
-                Footnote(rewritten.lastOrNull()?.let { anchorBefore(it) }.orEmpty(), note)
-            }
-        }
+        val footnotes = notes.map { cite(rewritten, it) }
         return PageText(rewritten.filter { it.isNotBlank() }, footnotes)
+    }
+
+    /**
+     * Matches [note] to the paragraph of [body] that cites it, takes the marker out of that paragraph, and returns the footnote. Only [body] up to
+     * index [last], the paragraph the note follows, is searched: from the start, or from [last] backwards when [nearest]. A note with no marker
+     * in that range goes with the paragraph at [last].
+     */
+    fun cite(body: MutableList<String>, note: String, last: Int = body.lastIndex, nearest: Boolean = false): Footnote {
+        val regex = marker(note)?.let { citation(it.key) }
+        val range = if (nearest) last downTo 0 else 0..last
+        val at = regex?.let { r -> range.firstOrNull { r.containsMatchIn(body[it]) } }
+        if (regex == null || at == null) return Footnote(body.getOrNull(last)?.let { anchorBefore(it) }.orEmpty(), note)
+        val text = body[at]
+        val cited = regex.find(text)!!
+        body[at] = text.removeRange(cited.range).replace(Regex(" {2,}"), " ").trim()
+        return Footnote(anchorBefore(text.substring(0, cited.range.first)), note)
     }
 
     /** The trailing paragraphs that are notes: each opens with a label, a symbol or plain number is cited in the body, and a body paragraph precedes them. */

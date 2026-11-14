@@ -24,8 +24,9 @@ class EpubException(message: String) : Exception(message)
  * [paragraphs] are in reading order, with each chapter's title as a paragraph of its own where the text does not open with it;
  * [chapters] are those titles, in order. [marks] name the same chapters by the index of their heading among the [Epub.speakable] sentences,
  * which is where the book's own contents put them, so nothing needs to look for them in the text again.
+ * [footnotes] are the notes the book marks as such (when asked for), taken out of [paragraphs] and matched to the paragraph that cites them.
  */
-data class EpubBook(val title: String, val author: String, val paragraphs: List<String>, val chapters: List<String>, val marks: List<ChapterMark> = emptyList())
+data class EpubBook(val title: String, val author: String, val paragraphs: List<String>, val chapters: List<String>, val marks: List<ChapterMark> = emptyList(), val footnotes: List<Footnote> = emptyList())
 
 /**
  * Reads an EPUB 2 or 3 with `java.util.zip` and SAX, which both the JVM and Android have, so a JVM test can run it.
@@ -44,9 +45,9 @@ object Epub {
     private val fontAlgorithms = setOf("http://www.idpf.org/2008/embedding", "http://ns.adobe.com/pdf/enc#RC")
 
     /** Reads the book at [file]; [onDoc] counts the spine's documents as each is read. Throws [EpubException] with a message for the user. */
-    fun read(file: File, onDoc: (done: Int, total: Int) -> Unit = { _, _ -> }): EpubBook {
+    fun read(file: File, footnotes: Boolean = false, onDoc: (done: Int, total: Int) -> Unit = { _, _ -> }): EpubBook {
         try {
-            ZipFile(file).use { return read(it, onDoc) }
+            ZipFile(file).use { return read(it, footnotes, onDoc) }
         } catch (e: ZipException) {
             throw EpubException("This is not an EPUB: the file is not a zip archive.")
         } catch (e: IOException) {
@@ -54,7 +55,7 @@ object Epub {
         }
     }
 
-    private fun read(zip: ZipFile, onDoc: (Int, Int) -> Unit): EpubBook {
+    private fun read(zip: ZipFile, footnotes: Boolean, onDoc: (Int, Int) -> Unit): EpubBook {
         zip.text("META-INF/encryption.xml")?.let { xml ->
             val algorithms = Regex("Algorithm\\s*=\\s*[\"']([^\"']+)[\"']").findAll(xml).map { it.groupValues[1] }
             if (algorithms.any { it !in fontAlgorithms }) throw EpubException("This EPUB is protected by DRM, so it cannot be imported.")
@@ -70,7 +71,7 @@ object Epub {
             onDoc(n, spine.size)
             val path = resolve(opfPath, item.href).first
             val xml = zip.text(path) ?: continue // A listed file the zip lacks costs that file only.
-            docs += path to Doc().also { parse(xml, it) }.also { it.finish() }
+            docs += path to Doc(footnotes).also { parse(xml, it) }.also { it.finish() }
         }
         onDoc(spine.size, spine.size)
 
@@ -103,7 +104,7 @@ object Epub {
         }
         val sentencesBefore = IntArray(all.size + 1) // Sentences speech makes of the paragraphs before each one, so a heading's index survives the splitting of long paragraphs.
         for ((i, p) in all.withIndex()) sentencesBefore[i + 1] = sentencesBefore[i] + speakable(listOf(p)).size
-        return EpubBook(opf.title, opf.creators.joinToString(", "), all, marks.map { it.second }, headings.map { (i, title) -> ChapterMark(sentencesBefore[i], title) })
+        return EpubBook(opf.title, opf.creators.joinToString(", "), all, marks.map { it.second }, headings.map { (i, title) -> ChapterMark(sentencesBefore[i], title) }, docs.flatMap { it.second.footnotes })
     }
 
     /** Paragraphs a speech engine takes: any longer than [MAX_PARAGRAPH] is split into sentences. */
@@ -274,8 +275,12 @@ object Epub {
     private fun tidy(s: String) = s.replace("\u00AD", "").replace(space, " ").trim()
 
     /** One content document: its paragraphs, and where each `id` sits among them. */
-    private class Doc : DefaultHandler() {
+    private class Doc(private val withNotes: Boolean) : DefaultHandler() {
         val paragraphs = ArrayList<String>()
+        /** The notes the document marks as footnotes, when asked for: kept out of [paragraphs], each matched to the paragraph before it that cites it. */
+        val footnotes = ArrayList<Footnote>()
+        private val noted = ArrayList<Pair<Int, String>>()
+        private var inNote = 0
         val anchors = HashMap<String, Int>()
         /** The first h1 to h3 paragraph, for a book whose nav gives no chapters. */
         var firstHeading: Int? = null
@@ -290,6 +295,7 @@ object Epub {
                 "figure", "figcaption", "table", "tr", "td", "th", "caption", "pre", "hr", "body", "nav", "address",
             )
             val headings = setOf("h1", "h2", "h3")
+            val noteWords = setOf("footnote", "endnote", "rearnote")
         }
 
         override fun startElement(uri: String, local: String, qName: String, atts: Attributes) {
@@ -297,6 +303,8 @@ object Epub {
             atts.attr("id")?.let { anchors.putIfAbsent(it, paragraphs.size) }
             if (n in skipped) skip++
             if (skip > 0) return
+            if (inNote > 0) { inNote++; return }
+            if (withNotes && n in blocks && isNote(atts)) { flush(); inNote = 1; return }
             if (n in blocks) flush()
             if (n in headings) inHeading = true
             if (n == "br") buf.append(' ')
@@ -308,6 +316,7 @@ object Epub {
             val n = name(local, qName)
             if (n in skipped) { skip--; return }
             if (skip > 0) return
+            if (inNote > 0) { if (--inNote == 0) flushNote(); return }
             if (n in blocks) flush()
             if (n in headings) inHeading = false
         }
@@ -320,6 +329,20 @@ object Epub {
             paragraphs += p
         }
 
-        fun finish() = flush()
+        private fun flushNote() {
+            val p = tidy(buf.toString())
+            buf.setLength(0)
+            if (p.any { it.isLetterOrDigit() }) noted += paragraphs.size to p
+        }
+
+        /** A block the book marks as a footnote, by class (Project Gutenberg), `epub:type` (EPUB 3) or ARIA role. */
+        private fun isNote(atts: Attributes): Boolean =
+            atts.attr("class")?.split(' ')?.any { it in noteWords } == true ||
+                atts.attr("type")?.split(' ')?.any { it in noteWords } == true || atts.attr("role")?.removePrefix("doc-") in noteWords
+
+        fun finish() {
+            flush()
+            for ((before, text) in noted) footnotes += Footnotes.cite(paragraphs, text, before - 1, nearest = true)
+        }
     }
 }

@@ -80,7 +80,7 @@ class FootnoteUiTest {
     }
 
     private fun openBook() {
-        compose.onNodeWithTag("book-${Fixtures.TITLE}").performClick()
+        compose.onNodeWithTag("book-${Library.books.value.single().title}").performClick()
         compose.waitUntil(30_000) { compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "sentence-0")).fetchSemanticsNodes().isNotEmpty() }
     }
 
@@ -140,5 +140,50 @@ class FootnoteUiTest {
         compose.onNodeWithTag("opt-footnotes").performClick()
         compose.onNodeWithTag("opt-footnotes").assertIsOff()
         assertFalse(Options.load(ctx).footnotes)
+    }
+
+    /** A chapter as Project Gutenberg's EPUB of The Prince marks it: a linked `[3]` in the text and the note as `<p class="footnote">` after its paragraph. */
+    private fun gutenbergEpub(): File = File(ctx.cacheDir, "prince.epub").also { book ->
+        java.util.zip.ZipOutputStream(book.outputStream()).use { z ->
+            fun put(name: String, text: String) { z.putNextEntry(java.util.zip.ZipEntry(name)); z.write(text.toByteArray()); z.closeEntry() }
+            put("META-INF/container.xml", """<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container" version="1.0"><rootfiles><rootfile full-path="c.opf" media-type="application/oebps-package+xml"/></rootfiles></container>""")
+            put("c.opf", """<package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Footnoted Prince</dc:title><dc:creator>N. M.</dc:creator></metadata>
+                <manifest><item id="a" href="a.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="a"/></spine></package>""")
+            put("a.xhtml", """<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><h2>CHAPTER III</h2>
+                <p>The Venetians had called the French into Italy to win half of Lombardy for themselves.</p>
+                <p>King Louis made five mistakes in Italy, for he allowed<a href="#fn-3.1" id="fnref-3.1"><sup>[3]</sup></a> the weaker powers to be destroyed.</p>
+                <p class="footnote"><a id="fn-3.1"/> <a href="#fnref-3.1">[3]</a> $FOOT_TEXT</p><p>He then went on to lose the whole of it again.</p></body></html>""")
+        }
+    }
+
+    private val FOOT_TEXT = "Louis XII entered Italy in 1499 at the invitation of the Venetians."
+
+    private fun importEpub(options: Options) {
+        options.save(ctx)
+        scenario = ActivityScenario.launch(
+            Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
+                .setDataAndType(androidx.core.content.FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", gutenbergEpub()), "application/epub+zip"),
+        )
+        compose.waitUntil(120_000) { compose.onAllNodes(hasText("Ready", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test
+    fun anEpubFootnoteIsAnAnnotationUnderItsParagraphAndIsNeverSpoken() {
+        importEpub(Options(footnotes = true))
+        val id = bookId()
+        val texts = Library.segments(ctx, id).map { it.text }
+        assertTrue("the footnote must not be in the transcript: $texts", texts.none { "Louis XII" in it || "[3]" in it })
+        assertTrue("the footnote must not be spoken: $spoken", spoken.none { "Louis XII" in it || "[3]" in it })
+        assertEquals(listOf("[3] $FOOT_TEXT"), Library.footnotes(ctx, id).map { it.text })
+        openBook()
+        val at = citingParagraph()
+        compose.onNodeWithTag("footnote-$at", useUnmergedTree = true).assertTextContains("[3] $FOOT_TEXT")
+    }
+
+    @Test
+    fun anEpubWithTheOptionOffSpeaksItsFootnoteAsBefore() {
+        importEpub(Options(footnotes = false))
+        assertTrue("the footnote is read aloud as before: $spoken", spoken.any { "Louis XII" in it })
+        assertTrue(Library.footnotes(ctx, bookId()).isEmpty())
     }
 }

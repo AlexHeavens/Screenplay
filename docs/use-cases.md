@@ -2344,7 +2344,8 @@ Goal: not hear a scanned book's footnotes in the middle of a paragraph, and stil
 - The reader shows the annotation under its paragraph in small muted type. It is read-only, is not the reader's own paragraph note, and a tap on it does not start the audio.
 - The annotation is never spoken, and is not in the transcript, so the audio has no gap for it, and search, chapters and word counts do not see it. A footnote with no marker in the text goes with the last paragraph of its page; none is dropped.
 - The footnotes are kept in `footnotes.json` with the book, so they survive a restart, and they travel in a backup. A backup made by an older build has none and restores without them.
-- EPUB export leaves the annotations out, so the exported book reads back as the same paragraphs. An EPUB import is unchanged.
+- An EPUB's footnotes are kept the same way when the book marks them: a block with class `footnote`, `endnote` or `rearnote`, `epub:type` footnote, endnote or rearnote, or ARIA role `doc-footnote` or `doc-endnote` (Project Gutenberg marks them so). The note goes with the nearest paragraph before it that cites it, and its `[3]` marker is taken out of that paragraph.
+- EPUB export leaves the annotations out, so the exported book reads back as the same paragraphs.
 - The option applies to books made from now on: a book already made keeps its text. With the option off, a book reads exactly as it did before the option existed.
 
 Tests:
@@ -2366,6 +2367,11 @@ Tests:
 - `FootnoteUiTest.aFootnoteIsAnAnnotationUnderItsParagraphAndIsNeverSpoken`
 - `FootnoteUiTest.withTheOptionOffTheFootnoteIsSpokenAsBefore`
 - `FootnoteUiTest.theFootnoteOptionIsOnByDefaultAndSavedWithTheOthers`
+- `FootnoteUiTest.anEpubFootnoteIsAnAnnotationUnderItsParagraphAndIsNeverSpoken`
+- `FootnoteUiTest.anEpubWithTheOptionOffSpeaksItsFootnoteAsBefore`
+- `EpubTest.aMarkedFootnoteIsTakenOutOfTheTextAndMatchedToTheParagraphThatCitesIt`
+- `EpubTest.withTheOptionOffAMarkedFootnoteIsReadAsBefore`
+- `EpubTest.anEpub3NoteIsFoundByItsTypeAndAnUnlabelledOneGoesWithTheParagraphBefore`
 - `FootnoteUiTest.aBackupCarriesTheFootnotesAndRestoresThemWithTheBook`
 
 ### UC-52 See the stages of an import

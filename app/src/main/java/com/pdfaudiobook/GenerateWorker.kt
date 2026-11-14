@@ -135,7 +135,8 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             val epub = File(dir, Files.EPUB)
             if (epub.exists()) {
                 // An EPUB has its text already: no OCR, no cleaning that would cut a real chapter, and the chapters come from its own contents.
-                val book = withContext(Dispatchers.IO) { Epub.read(epub) { done, total -> progress.page(done, total) } }
+                val book = withContext(Dispatchers.IO) { Epub.read(epub, options.footnotes) { done, total -> progress.page(done, total) } }
+                if (book.footnotes.isNotEmpty()) Library.saveFootnotes(ctx, id, book.footnotes)
                 Library.update(ctx, id) { it.copy(title = book.title.ifBlank { it.title }, author = book.author, contents = book.chapters, chapters = book.marks.ifEmpty { null }) }
                 emitChecked(Epub.speakable(book.paragraphs), last = true)
                 progress.readingDone(wordsAfter.lastOrNull() ?: error("No text found in this EPUB"))

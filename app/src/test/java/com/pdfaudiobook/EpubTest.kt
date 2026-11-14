@@ -127,6 +127,50 @@ class EpubTest {
         assertEquals(listOf("Café au lait1.", "Cell", "Note text."), Epub.read(f).paragraphs)
     }
 
+    /** One chapter as Project Gutenberg marks it: a linked `[n]` in the text, and the note as `<p class="footnote">` straight after its paragraph. */
+    private fun gutenberg() = epub(
+        "META-INF/container.xml" to container,
+        "OEBPS/content.opf" to opf("""<item id="a" href="a.xhtml" media-type="application/xhtml+xml"/>""", """<itemref idref="a"/>"""),
+        "OEBPS/a.xhtml" to xhtml(
+            """<h2>CHAPTER III</h2><p>The Venetians had called the French into Italy to win half of Lombardy for themselves.</p>""" +
+                """<p>King Louis made five mistakes in Italy, for he allowed<a href="#fn-3.1" id="fnref-3.1" class="pginternal"><sup>[3]</sup></a> the weaker powers to be destroyed.</p>""" +
+                """<p class="footnote"><a id="fn-3.1"/> <a href="#fnref-3.1" class="pginternal">[3]</a> Louis XII entered Italy in 1499 at the invitation of the Venetians.</p>""" +
+                """<p>He then went on to lose the whole of it again.</p>""",
+        ),
+    )
+
+    @Test
+    fun aMarkedFootnoteIsTakenOutOfTheTextAndMatchedToTheParagraphThatCitesIt() {
+        val b = Epub.read(gutenberg(), footnotes = true)
+        assertEquals(
+            listOf("CHAPTER III", "The Venetians had called the French into Italy to win half of Lombardy for themselves.",
+                "King Louis made five mistakes in Italy, for he allowed the weaker powers to be destroyed.", "He then went on to lose the whole of it again."),
+            b.paragraphs,
+        )
+        assertEquals(listOf("[3] Louis XII entered Italy in 1499 at the invitation of the Venetians."), b.footnotes.map { it.text })
+        assertEquals(mapOf(2 to listOf(b.footnotes.single().text)), Footnotes.place(b.footnotes, b.paragraphs))
+    }
+
+    @Test
+    fun withTheOptionOffAMarkedFootnoteIsReadAsBefore() {
+        val b = Epub.read(gutenberg())
+        assertTrue(b.footnotes.isEmpty())
+        assertTrue(b.paragraphs.any { it.startsWith("[3] Louis XII") })
+        assertTrue(b.paragraphs.any { "allowed[3] the weaker" in it })
+    }
+
+    @Test
+    fun anEpub3NoteIsFoundByItsTypeAndAnUnlabelledOneGoesWithTheParagraphBefore() {
+        val f = epub(
+            "META-INF/container.xml" to container,
+            "OEBPS/content.opf" to opf("""<item id="a" href="a.xhtml" media-type="application/xhtml+xml"/>""", """<itemref idref="a"/>"""),
+            "OEBPS/a.xhtml" to xhtml("""<p>A paragraph that ends the argument here.</p><aside xmlns:epub="http://www.idpf.org/2007/ops" epub:type="footnote"><p>See the author's own preface.</p></aside><p>The next one.</p>"""),
+        )
+        val b = Epub.read(f, footnotes = true)
+        assertEquals(listOf("A paragraph that ends the argument here.", "The next one."), b.paragraphs)
+        assertEquals(mapOf(0 to listOf("See the author's own preface.")), Footnotes.place(b.footnotes, b.paragraphs))
+    }
+
     @Test
     fun aDrmEpubIsRefusedWithAClearMessage() {
         val enc = """<encryption xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><EncryptedData><EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#aes128-cbc"/><CipherData><CipherReference URI="OEBPS/a.xhtml"/></CipherData></EncryptedData></encryption>"""
