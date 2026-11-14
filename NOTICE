@@ -19,7 +19,7 @@ Test book: app/src/androidTest/assets/epub/lighthouse.epub
   Licence: CC0 1.0 Universal, https://creativecommons.org/publicdomain/zero/1.0/
 
 Test scans: app/src/androidTest/assets/ocr/{origin,gibbon,james,varieties}*
-  Page images: Wikimedia Commons scans of public-domain books ("Origin of Species 1859 facsimile.djvu",
+  Page images: Wikimedia Commons scans of public-domain books, each marked "Public domain" and not copyrighted in its Commons metadata (checked 2026-11-14) ("Origin of Species 1859 facsimile.djvu",
   "Decline and Fall of the Roman Empire vol 1 (1897).djvu", "The varieties of religious experience, a study in human nature.djvu").
   Expected text: Wikisource transcriptions of the same pages, which Wikisource publishes under CC BY-SA 4.0,
   https://creativecommons.org/licenses/by-sa/4.0/ . Their contributors are credited through the page histories on Wikisource.
@@ -34,13 +34,13 @@ Copyleft code inside a built library (unverified, see "Open licensing questions"
   The native library in the sherpa-onnx AAR contains espeak-ng phonemizer code (strings such as "phondata" and "mbrola").
 
 Voices downloaded on first use, not shipped in the APK (from https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models)
-  Kokoro (int8, English v0.19): Apache-2.0 as stated by the model's publisher; not verified here.
+  Kokoro (int8, English v0.19): Apache-2.0, per the model card on Hugging Face (hexgrad/Kokoro-82M, checked 2026-11-14).
   Piper en_US libritts_r medium: voices trained on LibriTTS-R, CC BY 4.0, https://creativecommons.org/licenses/by/4.0/
     Credit: LibriTTS-R, Y. Koizumi et al.; Piper voice by Rhasspy, https://huggingface.co/rhasspy/piper-voices (not verified here).
   espeak-ng-data inside both model archives: GPL-3.0-or-later.
 
 Web services the app calls at run time
-  Project Gutenberg catalogue via Gutendex: see docs/gutenberg.md. Open Library book lookup by ISBN: terms not yet read.
+  Project Gutenberg catalogue via Gutendex (code MIT; the public instance states no terms): see docs/gutenberg.md. Open Library book lookup by ISBN (one request per user action; its API page asks regular callers to send a User-Agent with a contact, which this call does not yet do, and says the APIs are not a backend for third-party services).
 
 Open licensing questions (not legal advice; unresolved)
   1. A built APK would combine MPL-2.0 code, GPL-3.0 espeak-ng code and proprietary ML Kit libraries. GPL-3.0 does not
