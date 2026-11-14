@@ -30,4 +30,4 @@ The e2e tests use the real app, OCR, AAC encoder, player and share intent. Only 
 
 ## Licence
 
-Mozilla Public License 2.0 ([LICENSE](LICENSE)). Third-party material and its licences are listed in [NOTICE](NOTICE).
+Mozilla Public License 2.0 ([LICENSE](LICENSE)). [LICENCE.md](LICENCE.md) explains why each tool and data source is allowed. Credits are in [NOTICE](NOTICE).
