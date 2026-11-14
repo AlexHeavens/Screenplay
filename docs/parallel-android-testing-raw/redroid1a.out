@@ -1,0 +1,59 @@
+AppIconTest	127.0.0.1:5601	OK (1 test)	1s	rc=0
+AppLabelTest	127.0.0.1:5601	OK (1 test)	2s	rc=0
+BackgroundPriorityTest	127.0.0.1:5601	OK (1 test)	1s	rc=0
+BackupImportTest	127.0.0.1:5601	OK (3 tests)	8s	rc=0
+BookHeaderTest	127.0.0.1:5601	OK (1 test)	2s	rc=0
+BookUiTest+full	127.0.0.1:5601	Tests run: 31,  Failures: 1	78s	rc=1
+BookUiTest	127.0.0.1:5601	OK (17 tests)	44s	rc=0
+ChaptersWithoutAudioTest	127.0.0.1:5601	OK (1 test)	4s	rc=0
+ControlsCentredTest	127.0.0.1:5601	OK (1 test)	7s	rc=0
+DeleteConfirmTest	127.0.0.1:5601	OK (1 test)	3s	rc=0
+EpubUiTest	127.0.0.1:5601	OK (4 tests)	11s	rc=0
+ExportTest	127.0.0.1:5601	OK (1 test)	7s	rc=0
+FindBooksUiTest+full	127.0.0.1:5601	OK (7 tests)	18s	rc=0
+FindBooksUiTest	127.0.0.1:5601	OK (4 tests)	10s	rc=0
+ForceStopTest	127.0.0.1:5601		11s	rc=0
+HighlightUiTest	127.0.0.1:5601	OK (3 tests)	16s	rc=0
+ImportProgressTest	127.0.0.1:5601	OK (1 test)	32s	rc=0
+ImportQueueUiTest+full	127.0.0.1:5601	OK (1 test)	123s	rc=0
+ImportQueueUiTest	127.0.0.1:5601	OK (1 test)	121s	rc=0
+IsbnImportTest	127.0.0.1:5601	OK (2 tests)	8s	rc=0
+LibraryTitleTest	127.0.0.1:5601	OK (2 tests)	3s	rc=0
+MediaNotificationTest	127.0.0.1:5601	Tests run: 1,  Failures: 1	6s	rc=1
+OcrFixtureTest	127.0.0.1:5601	OK (5 tests)	24s	rc=0
+ParagraphMenuUiTest	127.0.0.1:5601	OK (3 tests)	18s	rc=0
+PlaceRestoredTest	127.0.0.1:5601	OK (1 test)	8s	rc=0
+SleepTimerUiTest	127.0.0.1:5601	OK (1 test)	16s	rc=0
+SpokenYearsTest	127.0.0.1:5601	OK (1 test)	4s	rc=0
+StreamingImportTest	127.0.0.1:5601	OK (1 test)	32s	rc=0
+ThemeModeTest	127.0.0.1:5601	Tests run: 2,  Failures: 1	7s	rc=1
+--- fail.BookUiTest+full.log
+Error in searchWithNoMatchEmptyQueryRotationAndBack(com.pdfaudiobook.BookUiTest):
+java.lang.AssertionError: Failed to assert count of nodes.
+Time: 77.481
+1) searchWithNoMatchEmptyQueryRotationAndBack(com.pdfaudiobook.BookUiTest)
+java.lang.AssertionError: Failed to assert count of nodes.
+FAILURES!!!
+Tests run: 31,  Failures: 1
+--- fail.MediaNotificationTest.log
+Error in theNotificationShowsTheBookAndItsButtonsAndSeekAndHeadsetKeysDriveThePlayer(com.pdfaudiobook.MediaNotificationTest):
+java.lang.RuntimeException: java.util.concurrent.ExecutionException: java.lang.IllegalArgumentException: performMeasureAndLayout called during measure layout
+Caused by: java.util.concurrent.ExecutionException: java.lang.IllegalArgumentException: performMeasureAndLayout called during measure layout
+Caused by: java.lang.IllegalArgumentException: performMeasureAndLayout called during measure layout
+	at androidx.compose.ui.internal.InlineClassHelperKt.throwIllegalArgumentException(InlineClassHelper.kt:34)
+Time: 4.471
+1) theNotificationShowsTheBookAndItsButtonsAndSeekAndHeadsetKeysDriveThePlayer(com.pdfaudiobook.MediaNotificationTest)
+java.lang.RuntimeException: java.util.concurrent.ExecutionException: java.lang.IllegalArgumentException: performMeasureAndLayout called during measure layout
+Caused by: java.util.concurrent.ExecutionException: java.lang.IllegalArgumentException: performMeasureAndLayout called during measure layout
+Caused by: java.lang.IllegalArgumentException: performMeasureAndLayout called during measure layout
+	at androidx.compose.ui.internal.InlineClassHelperKt.throwIllegalArgumentException(InlineClassHelper.kt:34)
+FAILURES!!!
+--- fail.ThemeModeTest.log
+Error in themeChipsFollowTheActiveScheme(com.pdfaudiobook.ThemeModeTest):
+java.lang.AssertionError: DARK chip fill expected:<2047859> but was:<15330545>
+Time: 6.465
+1) themeChipsFollowTheActiveScheme(com.pdfaudiobook.ThemeModeTest)
+java.lang.AssertionError: DARK chip fill expected:<2047859> but was:<15330545>
+FAILURES!!!
+Tests run: 2,  Failures: 1
+EXIT=1 devices=1 classes=29 failed=3 BUILD=17s INSTALL=2s RUN=630s WALL=649s

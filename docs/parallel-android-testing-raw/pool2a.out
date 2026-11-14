@@ -1,0 +1,56 @@
+AppIconTest	emulator-5582	OK (1 test)	2s	rc=0
+AppLabelTest	emulator-5582	OK (1 test)	2s	rc=0
+BackgroundPriorityTest	emulator-5582	OK (1 test)	2s	rc=0
+BackupImportTest	emulator-5582	OK (3 tests)	11s	rc=0
+BookHeaderTest	emulator-5582	OK (1 test)	3s	rc=0
+BookUiTest+full	emulator-5584	Tests run: 31,  Failures: 2	182s	rc=1
+BookUiTest	emulator-5584	Tests run: 17,  Failures: 2	88s	rc=1
+ChaptersWithoutAudioTest	emulator-5582	OK (1 test)	6s	rc=0
+ControlsCentredTest	emulator-5582	OK (1 test)	19s	rc=0
+DeleteConfirmTest	emulator-5584	OK (1 test)	5s	rc=0
+EpubUiTest	emulator-5582	OK (4 tests)	19s	rc=0
+ExportTest	emulator-5584	OK (1 test)	14s	rc=0
+FindBooksUiTest+full	emulator-5584	OK (7 tests)	28s	rc=0
+FindBooksUiTest	emulator-5584	OK (4 tests)	16s	rc=0
+ForceStopTest	emulator-5582		26s	rc=0
+HighlightUiTest	emulator-5584	OK (3 tests)	46s	rc=0
+ImportProgressTest	emulator-5582	OK (1 test)	73s	rc=0
+ImportQueueUiTest+full	emulator-5582	OK (1 test)	257s	rc=0
+ImportQueueUiTest	emulator-5584	OK (1 test)	279s	rc=0
+IsbnImportTest	emulator-5582	OK (2 tests)	19s	rc=0
+LibraryTitleTest	emulator-5582	OK (2 tests)	4s	rc=0
+MediaNotificationTest	emulator-5582	OK (1 test)	23s	rc=0
+OcrFixtureTest	emulator-5582	OK (5 tests)	55s	rc=0
+ParagraphMenuUiTest	emulator-5582	OK (3 tests)	49s	rc=0
+PlaceRestoredTest	emulator-5582	OK (1 test)	20s	rc=0
+SleepTimerUiTest	emulator-5582	OK (1 test)	29s	rc=0
+SpokenYearsTest	emulator-5582	OK (1 test)	16s	rc=0
+StreamingImportTest	emulator-5582	OK (1 test)	56s	rc=0
+ThemeModeTest	emulator-5584	OK (2 tests)	13s	rc=0
+--- fail.BookUiTest+full.log
+Error in backupSharesAZipOfPdfAudioTranscriptAndNotes(com.pdfaudiobook.BookUiTest):
+androidx.test.espresso.base.RootViewPicker$RootViewWithoutFocusException: Waited for the root of the view hierarchy to have window focus and not request layout for 10 seconds. If you specified a non default root matcher, it may be picking a root that never takes focus. Root:
+	at androidx.test.espresso.base.EspressoExceptionHandler.handleSafely(EspressoExceptionHandler.java:34)
+	at androidx.test.espresso.base.EspressoExceptionHandler.handleSafely(EspressoExceptionHandler.java:26)
+Error in searchWithNoMatchEmptyQueryRotationAndBack(com.pdfaudiobook.BookUiTest):
+androidx.test.espresso.base.RootViewPicker$RootViewWithoutFocusException: Waited for the root of the view hierarchy to have window focus and not request layout for 10 seconds. If you specified a non default root matcher, it may be picking a root that never takes focus. Root:
+	at androidx.test.espresso.base.EspressoExceptionHandler.handleSafely(EspressoExceptionHandler.java:34)
+	at androidx.test.espresso.base.EspressoExceptionHandler.handleSafely(EspressoExceptionHandler.java:26)
+Time: 179.571
+1) backupSharesAZipOfPdfAudioTranscriptAndNotes(com.pdfaudiobook.BookUiTest)
+androidx.test.espresso.base.RootViewPicker$RootViewWithoutFocusException: Waited for the root of the view hierarchy to have window focus and not request layout for 10 seconds. If you specified a non default root matcher, it may be picking a root that never takes focus. Root:
+	at androidx.test.espresso.base.EspressoExceptionHandler.handleSafely(EspressoExceptionHandler.java:34)
+--- fail.BookUiTest.log
+Error in backupSharesAZipOfPdfAudioTranscriptAndNotes(com.pdfaudiobook.BookUiTest):
+androidx.test.espresso.base.RootViewPicker$RootViewWithoutFocusException: Waited for the root of the view hierarchy to have window focus and not request layout for 10 seconds. If you specified a non default root matcher, it may be picking a root that never takes focus. Root:
+	at androidx.test.espresso.base.EspressoExceptionHandler.handleSafely(EspressoExceptionHandler.java:34)
+	at androidx.test.espresso.base.EspressoExceptionHandler.handleSafely(EspressoExceptionHandler.java:26)
+Error in theNotesPanelHasNoAddButton(com.pdfaudiobook.BookUiTest):
+java.lang.AssertionError: Failed to inject touch input.
+1) Node #1418 at (l=0.0, t=263.0, r=1080.0, b=452.0)px, Tag: 'book-fixture'
+2) Node #1434 at (l=0.0, t=452.0, r=1080.0, b=641.0)px, Tag: 'book-fixture'
+Time: 85.308
+1) backupSharesAZipOfPdfAudioTranscriptAndNotes(com.pdfaudiobook.BookUiTest)
+androidx.test.espresso.base.RootViewPicker$RootViewWithoutFocusException: Waited for the root of the view hierarchy to have window focus and not request layout for 10 seconds. If you specified a non default root matcher, it may be picking a root that never takes focus. Root:
+	at androidx.test.espresso.base.EspressoExceptionHandler.handleSafely(EspressoExceptionHandler.java:34)
+EXIT=1 devices=2 classes=29 failed=2 BUILD=16s INSTALL=2s RUN=693s WALL=711s

@@ -1,0 +1,76 @@
+AppIconTest	127.0.0.1:5602	OK (1 test)	3s	rc=0
+AppLabelTest	127.0.0.1:5602	OK (1 test)	2s	rc=0
+BackgroundPriorityTest	127.0.0.1:5603	OK (1 test)	2s	rc=0
+BackupImportTest	127.0.0.1:5602	OK (3 tests)	17s	rc=0
+BookHeaderTest	127.0.0.1:5603	OK (1 test)	5s	rc=0
+BookUiTest+full	127.0.0.1:5601	Tests run: 31,  Failures: 1	169s	rc=1
+BookUiTest	127.0.0.1:5602	OK (17 tests)	100s	rc=0
+ChaptersWithoutAudioTest	127.0.0.1:5603	Tests run: 1,  Failures: 1	38s	rc=1
+ControlsCentredTest	127.0.0.1:5602		12s	rc=1
+DeleteConfirmTest	127.0.0.1:5602	OK (1 test)	5s	rc=0
+EpubUiTest	127.0.0.1:5601	OK (4 tests)	17s	rc=0
+ExportTest	127.0.0.1:5602	OK (1 test)	11s	rc=0
+FindBooksUiTest+full	127.0.0.1:5602	OK (7 tests)	35s	rc=0
+FindBooksUiTest	127.0.0.1:5603	OK (4 tests)	20s	rc=0
+ForceStopTest	127.0.0.1:5602		28s	rc=0
+HighlightUiTest	127.0.0.1:5601	OK (3 tests)	54s	rc=0
+ImportProgressTest	127.0.0.1:5603	Tests run: 1,  Failures: 1	78s	rc=1
+ImportQueueUiTest+full	127.0.0.1:5603		140s	rc=1
+ImportQueueUiTest	127.0.0.1:5602		238s	rc=1
+IsbnImportTest	127.0.0.1:5601	OK (2 tests)	22s	rc=0
+LibraryTitleTest	127.0.0.1:5601	OK (2 tests)	8s	rc=0
+MediaNotificationTest	127.0.0.1:5601	OK (1 test)	33s	rc=0
+OcrFixtureTest	127.0.0.1:5603	OK (5 tests)	66s	rc=0
+ParagraphMenuUiTest	127.0.0.1:5601	OK (3 tests)	65s	rc=0
+PlaceRestoredTest	127.0.0.1:5603	OK (1 test)	23s	rc=0
+SleepTimerUiTest	127.0.0.1:5601	OK (1 test)	35s	rc=0
+SpokenYearsTest	127.0.0.1:5603	OK (1 test)	15s	rc=0
+StreamingImportTest	127.0.0.1:5603	OK (1 test)	74s	rc=0
+ThemeModeTest	127.0.0.1:5601	Tests run: 2,  Failures: 1	19s	rc=1
+--- fail.BookUiTest+full.log
+Error in searchWithNoMatchEmptyQueryRotationAndBack(com.pdfaudiobook.BookUiTest):
+java.lang.AssertionError: Failed to assert count of nodes.
+Time: 167.419
+1) searchWithNoMatchEmptyQueryRotationAndBack(com.pdfaudiobook.BookUiTest)
+java.lang.AssertionError: Failed to assert count of nodes.
+FAILURES!!!
+Tests run: 31,  Failures: 1
+--- fail.ChaptersWithoutAudioTest.log
+Error in aBookReadButNotSpokenListsItsChaptersAndJumpsToOne(com.pdfaudiobook.ChaptersWithoutAudioTest):
+androidx.compose.ui.test.ComposeTimeoutException: Condition still not satisfied after 30000 ms
+Time: 33.557
+1) aBookReadButNotSpokenListsItsChaptersAndJumpsToOne(com.pdfaudiobook.ChaptersWithoutAudioTest)
+androidx.compose.ui.test.ComposeTimeoutException: Condition still not satisfied after 30000 ms
+FAILURES!!!
+Tests run: 1,  Failures: 1
+--- fail.ControlsCentredTest.log
+java.lang.IllegalStateException: Size(1080 x 2147483647) is out of range. Each dimension must be between 0 and 16777215.
+	at androidx.compose.ui.internal.InlineClassHelperKt.throwIllegalStateException(InlineClassHelper.kt:26)
+--- fail.ImportProgressTest.log
+Error in readerGreysOutPlayUntilSpeechExistsAndShowsPageAndSpeechProgressWhileImporting(com.pdfaudiobook.ImportProgressTest):
+java.lang.RuntimeException: java.util.concurrent.ExecutionException: java.lang.IllegalArgumentException: performMeasureAndLayout called during measure layout
+Caused by: java.util.concurrent.ExecutionException: java.lang.IllegalArgumentException: performMeasureAndLayout called during measure layout
+Caused by: java.lang.IllegalArgumentException: performMeasureAndLayout called during measure layout
+	at androidx.compose.ui.internal.InlineClassHelperKt.throwIllegalArgumentException(InlineClassHelper.kt:34)
+Time: 76.354
+1) readerGreysOutPlayUntilSpeechExistsAndShowsPageAndSpeechProgressWhileImporting(com.pdfaudiobook.ImportProgressTest)
+java.lang.RuntimeException: java.util.concurrent.ExecutionException: java.lang.IllegalArgumentException: performMeasureAndLayout called during measure layout
+Caused by: java.util.concurrent.ExecutionException: java.lang.IllegalArgumentException: performMeasureAndLayout called during measure layout
+Caused by: java.lang.IllegalArgumentException: performMeasureAndLayout called during measure layout
+	at androidx.compose.ui.internal.InlineClassHelperKt.throwIllegalArgumentException(InlineClassHelper.kt:34)
+FAILURES!!!
+--- fail.ImportQueueUiTest+full.log
+java.lang.IllegalArgumentException: performMeasureAndLayout called during measure layout
+	at androidx.compose.ui.internal.InlineClassHelperKt.throwIllegalArgumentException(InlineClassHelper.kt:34)
+--- fail.ImportQueueUiTest.log
+java.lang.IllegalArgumentException: performMeasureAndLayout called during measure layout
+	at androidx.compose.ui.internal.InlineClassHelperKt.throwIllegalArgumentException(InlineClassHelper.kt:34)
+--- fail.ThemeModeTest.log
+Error in themeChipsFollowTheActiveScheme(com.pdfaudiobook.ThemeModeTest):
+java.lang.AssertionError: DARK chip fill expected:<2047859> but was:<15330545>
+Time: 16.48
+1) themeChipsFollowTheActiveScheme(com.pdfaudiobook.ThemeModeTest)
+java.lang.AssertionError: DARK chip fill expected:<2047859> but was:<15330545>
+FAILURES!!!
+Tests run: 2,  Failures: 1
+EXIT=1 devices=3 classes=29 failed=7 BUILD=2s INSTALL=2s RUN=463s WALL=467s
