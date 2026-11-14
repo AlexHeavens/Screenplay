@@ -30,7 +30,7 @@ Goal: turn a PDF on my phone into an audiobook with a transcript.
 
 Tests:
 - `BookUiTest.importedPdfBecomesAnAudiobookWithTranscript`
-- `ImportQueueUiTest.booksAreMadeOneAtATimeAndAQueuedBookCanMoveUp`
+- `ImportQueueUiTest.booksAreMadeOneAtATimeAndAQueuedBookCanBeDraggedUp`
 
 Unchecked: OCR and speech on the phone itself, with a real scan.
 
@@ -160,7 +160,7 @@ Goal: pick many books and leave the phone to work.
 - When all are made, the section goes and the books sit under "Imported".
 
 Tests:
-- `ImportQueueUiTest.booksAreMadeOneAtATimeAndAQueuedBookCanMoveUp`
+- `ImportQueueUiTest.booksAreMadeOneAtATimeAndAQueuedBookCanBeDraggedUp`
 - `ImportQueueTest.booksAreMadeOneAtATimeInQueueOrder`
 - `ImportQueueTest.aFailedBookLeavesTheQueueAndTheNextIsMade`
 - `ImportQueueTest.aWaitingBookIsNotMadeWhileAnotherIsHeld`
@@ -172,13 +172,13 @@ Tests:
 Goal: have the book I want next made next.
 
 - Every book in the queue has a drag handle, the book being made too. Holding the handle starts the drag at once; a long press on the row works as well.
-- A waiting book also has a "move up" button. It never takes a waiting book above the book being made.
+- While a book is held, a line on the edge of the row it would sit against shows where it lands when released; before it moves, the line is above its own row. There is no "move up" button.
 - Whatever is dropped first is made first. A book being made that is passed, or dragged down, is stopped and waits in its new place.
 - A stopped book keeps the speech it made: when it is made again it carries on after it.
 
 Tests:
-- `ImportQueueUiTest.booksAreMadeOneAtATimeAndAQueuedBookCanMoveUp`
-- `ImportQueueTest.movingUpSwapsWithTheWaitingBookAheadAndTheButtonNeverPassesTheBookBeingMade`
+- `ImportQueueUiTest.booksAreMadeOneAtATimeAndAQueuedBookCanBeDraggedUp`
+- `ImportQueueTest.theDropPlaceIsTheRowsDraggedAwayAndStaysInsideTheLine`
 - `ImportQueueTest.aWaitingBookDroppedBetweenWaitingBooksTakesThatPlaceAndTheRunningBookKeepsRunning`
 - `ImportQueueTest.aBookDroppedFirstIsMadeFirstAndTheRunningBookItPassedIsStoppedAndWaitsNextInLine`
 - `ImportQueueTest.theRunningBookDraggedDownIsStoppedAndTheBookItPassedIsMadeInsteadOfIt`

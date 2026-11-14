@@ -54,8 +54,12 @@ object ImportQueue {
         return "Queued · position $place" + (book.error?.let { " · Download failed: $it" } ?: "")
     }
 
-    /** Only a waiting book with another waiting book ahead of it can move up: nothing goes above the book being made. */
-    fun canMoveUp(books: List<Book>, id: String) = waitingIndex(books, id) > 0
+    /** The place in [line] that [id] takes if dropped [rows] rows from where it stands (negative is up); -1 when it is not in the line. */
+    fun dropPlace(books: List<Book>, id: String, rows: Int): Int {
+        val line = line(books)
+        val at = line.indexOfFirst { it.id == id }
+        return if (at < 0) -1 else (at + rows).coerceIn(0, line.lastIndex)
+    }
 
     /** Where [id] stands among the waiting books, 0 for the next to be made; -1 when it is not waiting. */
     fun waitingIndex(books: List<Book>, id: String) = waiting(books).indexOfFirst { it.id == id }

@@ -208,12 +208,6 @@ object Library {
         update(ctx, id) { it.copy(status = Status.QUEUED) }
     }
 
-    /** Moves a waiting book one place up the import queue; the first waiting book stays behind the book being made. */
-    fun moveUp(ctx: Context, id: String) {
-        refresh(ctx)
-        if (ImportQueue.canMoveUp(state.value, id)) moveTo(ctx, id, ImportQueue.lineIndex(state.value, id) - 1)
-    }
-
     fun delete(ctx: Context, id: String) {
         ImportQueue.cancel(id)
         dir(ctx, id).deleteRecursively()

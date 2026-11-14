@@ -93,7 +93,7 @@ class ImportQueueUiTest {
     private fun uriOf(f: File) = FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", f)
 
     @Smoke @Test
-    fun booksAreMadeOneAtATimeAndAQueuedBookCanMoveUp() {
+    fun booksAreMadeOneAtATimeAndAQueuedBookCanBeDraggedUp() {
         val names = listOf("queue-one", "queue-two", "queue-three")
         val files = names.map { n -> File(ctx.cacheDir, "$n.pdf").also { f -> assets.open("ocr/varieties-preface.pdf").use { i -> f.outputStream().use { i.copyTo(it) } } } }
         val pages = ParcelFileDescriptor.open(files[0], ParcelFileDescriptor.MODE_READ_ONLY).use { fd -> PdfRenderer(fd).use { it.pageCount } }
@@ -139,16 +139,15 @@ class ImportQueueUiTest {
         assertEquals(2, Library.books.value.count { it.status == Status.QUEUED })
         assertTrue("nothing is imported yet", !exists("section-imported"))
 
-        // The book being made and the first in line cannot move up; the last can.
-        assertTrue(!exists("move-up-queue-one"))
-        assertTrue(!exists("move-up-queue-two"))
+        // There is no Move up button: a book moves only by being dragged.
+        assertTrue(names.none { exists("move-up-$it") })
+        assertTrue("no drop line while nothing is dragged", names.none { exists("drop-line-$it") })
         assertTrue(top("book-queue-two") < top("book-queue-three"))
-        compose.onNodeWithTag("move-up-queue-three", useUnmergedTree = true).performClick()
+        dragBy("book-queue-three", top("book-queue-two") - top("book-queue-three"))
         compose.waitUntil(30_000) { top("book-queue-three") < top("book-queue-two") }
         assertEquals("Queued · position 2", text("status-queue-three"))
         assertEquals("Queued · position 3", text("status-queue-two"))
         assertTrue(top("book-queue-one") < top("book-queue-three"))
-        assertTrue(!exists("move-up-queue-three") && exists("move-up-queue-two"))
 
         // Every book in the queue shows a drag handle, the one being made too.
         assertTrue(names.all { exists("drag-handle-$it") })
@@ -160,14 +159,20 @@ class ImportQueueUiTest {
         compose.onNodeWithTag("book-queue-two", useUnmergedTree = true).performTouchInput {
             down(center)
             advanceEventTime(viewConfiguration.longPressTimeoutMillis + 200)
+        }
+        // Held but not yet moved, the row has its own line, above it.
+        compose.waitUntil(10_000) { exists("drop-line-queue-two") }
+        compose.onNodeWithTag("book-queue-two", useUnmergedTree = true).performTouchInput {
             moveBy(androidx.compose.ui.geometry.Offset(0f, -rowHeight / 2), delayMillis = 50)
             moveBy(androidx.compose.ui.geometry.Offset(0f, -rowHeight / 2), delayMillis = 50)
         }
-        // While held the row is lifted (selected) and Move up and Delete are still there; letting go clears it.
+        // While held the row is lifted (selected) and a line above the row it would pass shows where it lands; letting go clears both.
         compose.onNodeWithTag("book-queue-two", useUnmergedTree = true).assertIsSelected()
-        assertTrue(exists("move-up-queue-two") || exists("delete-queue-two"))
+        compose.waitUntil(10_000) { exists("drop-line-queue-three") }
+        assertTrue("one line only", names.count { exists("drop-line-$it") } == 1)
         compose.onNodeWithTag("book-queue-two", useUnmergedTree = true).performTouchInput { up() }
         compose.onNodeWithTag("book-queue-two", useUnmergedTree = true).assertIsNotSelected()
+        compose.waitUntil(10_000) { names.none { exists("drop-line-$it") } }
         compose.waitUntil(30_000) { top("book-queue-two") < top("book-queue-three") }
         assertEquals("Queued · position 2", text("status-queue-two"))
         assertTrue(top("book-queue-one") < top("book-queue-two"))

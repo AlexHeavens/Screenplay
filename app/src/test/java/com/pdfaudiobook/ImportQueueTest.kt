@@ -103,11 +103,13 @@ class ImportQueueTest {
     private val running = listOf(book("a", Status.READING), book("b", order = 100), book("c", order = 200), book("d", order = 300))
 
     @Test
-    fun movingUpSwapsWithTheWaitingBookAheadAndTheButtonNeverPassesTheBookBeingMade() {
-        assertFalse("the running book cannot move up", ImportQueue.canMoveUp(running, "a"))
-        assertFalse("the first waiting book stays behind the running one", ImportQueue.canMoveUp(running, "b"))
-        assertTrue(ImportQueue.canMoveUp(running, "d"))
-        assertEquals(listOf("a", "b", "d", "c") to emptyList<String>(), after(running, "d", ImportQueue.lineIndex(running, "d") - 1))
+    fun theDropPlaceIsTheRowsDraggedAwayAndStaysInsideTheLine() {
+        assertEquals("one row up", 2, ImportQueue.dropPlace(running, "d", -1))
+        assertEquals("one row down", 3, ImportQueue.dropPlace(running, "c", 1))
+        assertEquals("past the top", 0, ImportQueue.dropPlace(running, "d", -9))
+        assertEquals("past the bottom", 3, ImportQueue.dropPlace(running, "b", 9))
+        assertEquals("not in the line", -1, ImportQueue.dropPlace(running, "gone", 1))
+        assertEquals(listOf("a", "b", "d", "c") to emptyList<String>(), after(running, "d", ImportQueue.dropPlace(running, "d", -1)))
     }
 
     @Test

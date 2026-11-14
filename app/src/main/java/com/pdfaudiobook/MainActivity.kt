@@ -35,6 +35,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.height
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.background
@@ -185,14 +186,12 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
             if (importing.isNotEmpty()) {
                 item(key = "header-importing") { SectionHeader("Importing", "section-importing") }
                 items(importing, key = { it.id }) { b ->
-                    BookRow(b, ImportQueue.label(books, b, downloading), onOpen, onDelete = { toDelete = b },
-                        onMoveUp = if (ImportQueue.canMoveUp(books, b.id)) ({ Library.moveUp(ctx, b.id) }) else null,
-                        drag = drag)
+                    BookRow(b, ImportQueue.label(books, b, downloading), onOpen, onDelete = { toDelete = b }, drag = drag)
                 }
             }
             if (imported.isNotEmpty()) {
                 item(key = "header-imported") { SectionHeader("Imported", "section-imported") }
-                items(imported, key = { it.id }) { b -> BookRow(b, b.label(), onOpen, onDelete = { toDelete = b }, onMoveUp = null, drag = null) }
+                items(imported, key = { it.id }) { b -> BookRow(b, b.label(), onOpen, onDelete = { toDelete = b }, drag = null) }
             }
         }
     }
@@ -203,30 +202,34 @@ private fun SectionHeader(text: String, tag: String) {
     Text(text, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag(tag).semantics { heading() }, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
 }
 
-/** One book on the shelf. A book in the import queue can be dragged ([drag]), and a waiting one behind another waiting one has [onMoveUp]; finished books have neither. */
+/** One book on the shelf. A book in the import queue can be dragged ([drag]); while one is dragged, a line shows the place it takes if released. Finished books have neither. */
 @Composable
-private fun BookRow(b: Book, label: String, onOpen: (String) -> Unit, onDelete: () -> Unit, onMoveUp: (() -> Unit)?, drag: QueueDrag?) {
+private fun BookRow(b: Book, label: String, onOpen: (String) -> Unit, onDelete: () -> Unit, drag: QueueDrag?) {
     val dragging = drag?.isDragging(b.id) == true
-    ListItem(
-        headlineContent = { Text(b.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-        overlineContent = if (b.author.isEmpty()) null else ({ Text(b.author, Modifier.testTag("author-${b.title}")) }),
-        supportingContent = { Text(label, Modifier.testTag("status-${b.title}")) },
-        // Three lines is the Menu icon: the drag-handle icon is in the extended icon set, which is not worth its size for one glyph.
-        leadingContent = if (drag == null) null else ({
-            Icon(Icons.Filled.Menu, contentDescription = "Drag to reorder ${b.title}", Modifier.testTag("drag-handle-${b.title}").then(drag.handle(b.id)).padding(8.dp))
-        }),
-        colors = ListItemDefaults.colors(containerColor = if (dragging) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface),
-        // Selected is the state the lifted row exposes to accessibility and tests; only rows that can be dragged have it.
-        modifier = Modifier.testTag("book-${b.title}").then(drag?.modifier(b.id) ?: Modifier)
-            .semantics { if (drag != null) selected = dragging }
-            .clickable(enabled = b.openable) { onOpen(b.id) },
-        trailingContent = {
-            Row {
-                if (onMoveUp != null) TextButton(onClick = onMoveUp, modifier = Modifier.testTag("move-up-${b.title}").semantics { contentDescription = "Move ${b.title} up the queue" }) { Text("Move up") }
-                TextButton(onClick = onDelete, modifier = Modifier.testTag("delete-${b.title}")) { Text("Delete") }
-            }
-        },
-    )
+    val above = drag?.dropLineAbove(b.id)
+    Box {
+        ListItem(
+            headlineContent = { Text(b.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+            overlineContent = if (b.author.isEmpty()) null else ({ Text(b.author, Modifier.testTag("author-${b.title}")) }),
+            supportingContent = { Text(label, Modifier.testTag("status-${b.title}")) },
+            // Three lines is the Menu icon: the drag-handle icon is in the extended icon set, which is not worth its size for one glyph.
+            leadingContent = if (drag == null) null else ({
+                Icon(Icons.Filled.Menu, contentDescription = "Drag to reorder ${b.title}", Modifier.testTag("drag-handle-${b.title}").then(drag.handle(b.id)).padding(8.dp))
+            }),
+            colors = ListItemDefaults.colors(containerColor = if (dragging) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface),
+            // Selected is the state the lifted row exposes to accessibility and tests; only rows that can be dragged have it.
+            modifier = Modifier.testTag("book-${b.title}").then(drag?.modifier(b.id) ?: Modifier)
+                .semantics { if (drag != null) selected = dragging }
+                .clickable(enabled = b.openable) { onOpen(b.id) },
+            trailingContent = {
+                Row {
+                    TextButton(onClick = onDelete, modifier = Modifier.testTag("delete-${b.title}")) { Text("Delete") }
+                }
+            },
+        )
+        // Where the dragged book lands if released: a line on the edge of this row it would sit against.
+        if (above != null) Box(Modifier.fillMaxWidth().height(2.dp).background(MaterialTheme.colorScheme.primary).align(if (above) Alignment.TopStart else Alignment.BottomStart).testTag("drop-line-${b.title}"))
+    }
 }
 
 /** Asks before a book and everything made from it goes; nothing is deleted until [onConfirm]. */

@@ -41,12 +41,25 @@ class QueueDrag(
 
     private fun cancel() { dragging = null; offset = 0f }
 
+    /** One row of drag is one place; the rows sit in line order, one below the other. */
+    private fun rows() = if (rowHeight > 0f) (offset / rowHeight).roundToInt() else 0
+
     private fun end(id: String) {
-        // One row of drag is one place; the rows sit in line order, one below the other.
-        val places = if (rowHeight > 0f) (offset / rowHeight).roundToInt() else 0
-        val at = ImportQueue.lineIndex(books(), id)
+        val rows = rows()
+        val to = ImportQueue.dropPlace(books(), id, rows)
         cancel()
-        if (places != 0 && at >= 0) onDrop(id, at + places)
+        if (rows != 0 && to >= 0) onDrop(id, to)
+    }
+
+    /** While a row is dragged: true for the row where a line above it marks the drop place, false for a line below it, null for no line. A row left where it was has its own line, above it. */
+    fun dropLineAbove(id: String): Boolean? {
+        val moving = dragging ?: return null
+        val line = books()
+        val from = ImportQueue.lineIndex(line, moving)
+        val to = ImportQueue.dropPlace(line, moving, rows())
+        if (from < 0 || ImportQueue.lineIndex(line, id) != to) return null
+        // Moving up, the dragged row lands above the row now there; moving down, below it.
+        return to <= from
     }
 
     fun modifier(id: String): Modifier = Modifier
