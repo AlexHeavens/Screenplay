@@ -40,7 +40,7 @@ Voices downloaded on first use, not shipped in the APK (from https://github.com/
   espeak-ng-data inside both model archives: GPL-3.0-or-later.
 
 Web services the app calls at run time
-  Project Gutenberg catalogue via Gutendex (code MIT; the public instance states no terms): see docs/gutenberg.md. Open Library book lookup by ISBN (one request per user action; its API page asks regular callers to send a User-Agent with a contact, which this call does not yet do, and says the APIs are not a backend for third-party services).
+  Project Gutenberg catalogue via Gutendex (code MIT; the public instance states no terms): see docs/gutenberg.md. Open Library book lookup by ISBN (one request per user action; its API page asks regular callers to send a User-Agent with a contact, which this call does with the project URL, and says the APIs are not a backend for third-party services).
 
 Open licensing questions (not legal advice; unresolved)
   1. A built APK would combine MPL-2.0 code, GPL-3.0 espeak-ng code and proprietary ML Kit libraries. GPL-3.0 does not

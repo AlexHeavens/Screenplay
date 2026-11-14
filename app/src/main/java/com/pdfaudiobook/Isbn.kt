@@ -57,6 +57,8 @@ object Isbn {
     fun openLibrary(isbn: String): BookInfo? {
         val c = URL("https://openlibrary.org/api/books?bibkeys=ISBN:$isbn&format=json&jscmd=data").openConnection() as HttpURLConnection
         try {
+            // Open Library asks callers to say who they are, with a way to reach them.
+            c.setRequestProperty("User-Agent", "Screenplay (+${Gutendex.PROJECT_URL})")
             c.connectTimeout = 8_000
             c.readTimeout = 8_000
             return parse(isbn, c.inputStream.bufferedReader().readText())

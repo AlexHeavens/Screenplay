@@ -25,7 +25,7 @@ object Gutendex {
     /** The only place the service's address is written, so a different host can replace it. */
     const val BASE_URL = "https://gutendex.com/books/"
     const val SITE_URL = "https://www.gutenberg.org/"
-    private const val PROJECT_URL = "https://github.com/AlexHeavens/Screenplay"
+    const val PROJECT_URL = "https://github.com/AlexHeavens/Screenplay"
 
     /** Gutenberg asks every automated client to name itself and give a contact address. */
     fun userAgent(version: String) = "Screenplay/$version (+$PROJECT_URL)"
