@@ -1,0 +1,114 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+import java.net.URI
+
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+
+android {
+    namespace = "com.pdfaudiobook"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.pdfaudiobook"
+        minSdk = 26
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
+        // The speech runtime ships native code for these only: a phone, and the emulator.
+        // `-Pabi=x86_64` keeps one, for a faster emulator build.
+        ndk { abiFilters += providers.gradleProperty("abi").map { listOf(it) }.getOrElse(listOf("arm64-v8a", "x86_64")) }
+        testInstrumentationRunner = "com.pdfaudiobook.TestRunner"
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+    buildFeatures {
+        compose = true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.14"
+    }
+    // Fixture checks that run on the device (real OCR) and in the JVM (saved OCR) share one source file.
+    sourceSets {
+        getByName("test").java.srcDir("src/sharedTest/java")
+        getByName("androidTest").java.srcDir("src/sharedTest/java")
+    }
+    testOptions {
+        animationsDisabled = true
+        managedDevices {
+            localDevices {
+                create("pixel6Api34") {
+                    device = "Pixel 6"
+                    apiLevel = 34
+                    systemImageSource = "aosp-atd"
+                }
+            }
+        }
+    }
+}
+
+// The natural voice's runtime (sherpa-onnx, Apache-2.0) is published as an AAR on GitHub releases only, so it is fetched once into app/libs.
+val sherpaVersion = "1.13.8"
+val sherpaAar = layout.projectDirectory.file("libs/sherpa-onnx-$sherpaVersion.aar").asFile
+val fetchSherpa by tasks.registering {
+    // Locals, not the script's properties: the configuration cache cannot serialise the script object.
+    val aar = sherpaAar
+    val url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/v$sherpaVersion/sherpa-onnx-$sherpaVersion.aar"
+    outputs.file(aar)
+    doLast {
+        if (!aar.exists()) {
+            aar.parentFile.mkdirs()
+            val part = File(aar.path + ".part")
+            URI(url).toURL().openStream().use { i -> part.outputStream().use { i.copyTo(it) } }
+            part.renameTo(aar)
+        }
+    }
+}
+tasks.named("preBuild") { dependsOn(fetchSherpa) }
+
+// Fails the unit tests when docs/use-cases.md names a test that no longer exists, so the document cannot rot.
+val checkUseCases by tasks.registering(Exec::class) {
+    workingDir = rootDir
+    commandLine("bash", "scripts/check-use-cases.sh")
+    inputs.file(rootDir.resolve("docs/use-cases.md"))
+    inputs.dir("src/test")
+    inputs.dir("src/androidTest")
+    outputs.upToDateWhen { true }
+}
+tasks.matching { it.name == "testDebugUnitTest" }.configureEach { dependsOn(checkUseCases) }
+
+dependencies {
+    implementation(files(sherpaAar))
+    // Unpacks the natural voice's .tar.bz2 download.
+    implementation("org.apache.commons:commons-compress:1.26.2")
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.activity:activity-compose:1.9.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.2")
+    implementation(platform("androidx.compose:compose-bom:2024.09.00"))
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+    // Bundled model: OCR runs offline and needs no Google Play services.
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
+
+    androidTestImplementation(platform("androidx.compose:compose-bom:2024.09.00"))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test:runner:1.6.1")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test.espresso:espresso-intents:3.6.1")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+}

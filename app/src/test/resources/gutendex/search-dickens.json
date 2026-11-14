@@ -1,0 +1,151 @@
+{
+ "count": 231,
+ "next": "https://gutendex.com/books/?page=2&search=dickens",
+ "previous": null,
+ "results": [
+  {
+   "id": 98,
+   "title": "A Tale of Two Cities",
+   "authors": [
+    {
+     "name": "Dickens, Charles",
+     "birth_year": 1812,
+     "death_year": 1870
+    }
+   ],
+   "summaries": [],
+   "editors": [],
+   "translators": [],
+   "subjects": [
+    "British -- France -- Paris -- Fiction",
+    "Executions and executioners -- Fiction"
+   ],
+   "bookshelves": [
+    "Category: British Literature",
+    "Category: Classics of Literature",
+    "Category: Historical Novels",
+    "Historical Fiction"
+   ],
+   "languages": [
+    "en"
+   ],
+   "copyright": false,
+   "media_type": "Text",
+   "formats": {
+    "text/html": "https://www.gutenberg.org/ebooks/98.html.images",
+    "application/epub+zip": "https://www.gutenberg.org/ebooks/98.epub3.images",
+    "application/x-mobipocket-ebook": "https://www.gutenberg.org/ebooks/98.kf8.images",
+    "application/rdf+xml": "https://www.gutenberg.org/ebooks/98.rdf",
+    "image/jpeg": "https://www.gutenberg.org/cache/epub/98/pg98.cover.medium.jpg",
+    "application/octet-stream": "https://www.gutenberg.org/cache/epub/98/pg98-h.zip",
+    "text/plain; charset=utf-8": "https://www.gutenberg.org/ebooks/98.txt.utf-8"
+   },
+   "download_count": 50704
+  },
+  {
+   "id": 1400,
+   "title": "Great Expectations",
+   "authors": [
+    {
+     "name": "Dickens, Charles",
+     "birth_year": 1812,
+     "death_year": 1870
+    }
+   ],
+   "summaries": [],
+   "editors": [],
+   "translators": [],
+   "subjects": [
+    "Benefactors -- Fiction",
+    "Bildungsromans"
+   ],
+   "bookshelves": [
+    "Best Books Ever Listings",
+    "Category: British Literature",
+    "Category: Classics of Literature",
+    "Category: Novels"
+   ],
+   "languages": [
+    "en"
+   ],
+   "copyright": false,
+   "media_type": "Text",
+   "formats": {
+    "text/html": "https://www.gutenberg.org/ebooks/1400.html.images",
+    "application/epub+zip": "https://www.gutenberg.org/ebooks/1400.epub3.images",
+    "application/x-mobipocket-ebook": "https://www.gutenberg.org/ebooks/1400.kf8.images",
+    "application/rdf+xml": "https://www.gutenberg.org/ebooks/1400.rdf",
+    "image/jpeg": "https://www.gutenberg.org/cache/epub/1400/pg1400.cover.medium.jpg",
+    "application/octet-stream": "https://www.gutenberg.org/cache/epub/1400/pg1400-h.zip",
+    "text/plain; charset=utf-8": "https://www.gutenberg.org/ebooks/1400.txt.utf-8",
+    "text/plain; charset=us-ascii": "https://www.gutenberg.org/files/1400/1400-0.txt"
+   },
+   "download_count": 38268
+  },
+  {
+   "id": 9695,
+   "title": "Bleak House",
+   "authors": [
+    {
+     "name": "Dickens, Charles",
+     "birth_year": 1812,
+     "death_year": 1870
+    }
+   ],
+   "summaries": [],
+   "editors": [],
+   "translators": [],
+   "subjects": [
+    "Bildungsromans",
+    "Domestic fiction"
+   ],
+   "bookshelves": [],
+   "languages": [
+    "en"
+   ],
+   "copyright": true,
+   "media_type": "Sound",
+   "formats": {
+    "text/plain; charset=us-ascii": "https://www.gutenberg.org/files/9695/9695-readme.txt",
+    "text/html": "https://www.gutenberg.org/files/9695/9695-index.htm",
+    "audio/mpeg": "https://www.gutenberg.org/files/9695/mp3/9695-000.mp3",
+    "application/rdf+xml": "https://www.gutenberg.org/ebooks/9695.rdf",
+    "image/jpeg": "https://www.gutenberg.org/cache/epub/9695/pg9695.cover.medium.jpg",
+    "application/octet-stream": "https://www.gutenberg.org/files/9695/9695-mp3.zip"
+   },
+   "download_count": 4497
+  },
+  {
+   "id": 28198,
+   "title": "A Budget of Christmas Tales by Charles Dickens and Others",
+   "authors": [],
+   "summaries": [],
+   "editors": [],
+   "translators": [],
+   "subjects": [
+    "Christmas stories"
+   ],
+   "bookshelves": [
+    "Category: British Literature",
+    "Category: Short Stories",
+    "Christmas"
+   ],
+   "languages": [
+    "en"
+   ],
+   "copyright": false,
+   "media_type": "Text",
+   "formats": {
+    "text/html": "https://www.gutenberg.org/ebooks/28198.html.images",
+    "application/epub+zip": "https://www.gutenberg.org/ebooks/28198.epub3.images",
+    "application/x-mobipocket-ebook": "https://www.gutenberg.org/ebooks/28198.kf8.images",
+    "application/octet-stream": "https://www.gutenberg.org/files/28198/28198-page-images/f0009-image1.jpg",
+    "application/rdf+xml": "https://www.gutenberg.org/ebooks/28198.rdf",
+    "image/jpeg": "https://www.gutenberg.org/cache/epub/28198/pg28198.cover.medium.jpg",
+    "text/plain; charset=utf-8": "https://www.gutenberg.org/ebooks/28198.txt.utf-8",
+    "text/plain; charset=us-ascii": "https://www.gutenberg.org/files/28198/28198-8.txt"
+   },
+   "download_count": 2450
+  }
+ ]
+}

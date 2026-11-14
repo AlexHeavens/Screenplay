@@ -1,0 +1,94 @@
+{
+ "name": "text-layer",
+ "engine": "text-layer",
+ "settings": {},
+ "host": "desktop x86_64 4 cores",
+ "commit": "94d4b39",
+ "date": "2026-11-14",
+ "cases": {
+  "origin": {
+   "pages": 5,
+   "render_s": 0.0,
+   "recognise_s": 0.0006163696001749486,
+   "layout_ms": 0,
+   "text": "\n\n\n\n"
+  },
+  "gibbon": {
+   "pages": 2,
+   "render_s": 0.0,
+   "recognise_s": 0.0005715154984500259,
+   "layout_ms": 0,
+   "text": "\n"
+  },
+  "james": {
+   "pages": 2,
+   "render_s": 0.0,
+   "recognise_s": 0.0005873559857718647,
+   "layout_ms": 0,
+   "text": "\n"
+  },
+  "varieties-preface": {
+   "pages": 4,
+   "render_s": 0.0,
+   "recognise_s": 0.0006307084986474365,
+   "layout_ms": 0,
+   "text": "\n\n\n"
+  },
+  "clean-scan": {
+   "pages": 1,
+   "render_s": 0.0,
+   "recognise_s": 0.001247478008735925,
+   "layout_ms": 0,
+   "text": ""
+  },
+  "poor-scan": {
+   "pages": 1,
+   "render_s": 0.0,
+   "recognise_s": 0.0004155159986112267,
+   "layout_ms": 0,
+   "text": ""
+  },
+  "text-layer": {
+   "pages": 1,
+   "render_s": 0.0,
+   "recognise_s": 0.009064650977961719,
+   "layout_ms": 0,
+   "text": "Mr. Collins was not left long to the silent contemplation\nof his successful love; for Mrs. Bennet, having dawdled\nabout in the vestibule to watch for the end of the\nconference, no sooner saw Elizabeth open the door and\nwith quick step pass her towards the staircase, than she\nentered the breakfast-room, and congratulated both him\nand herself in warm terms on the happy prospect of their\nnearer connection. Mr. Collins received and returned\nthese felicitations with equal pleasure, and then\nproceeded to relate the particulars of their interview,\nwith the result of which he trusted he had every reason\nto be satisfied, since the refusal which his cousin had\nsteadfastly given him would naturally flow from her\nbashful modesty and the genuine delicacy of her\ncharacter. This information, however, startled Mrs.\nBennet: she would have been glad to be equally satisfied\nthat her daughter had meant to encourage him by\nprotesting against his proposals, but she dared not\nbelieve it, and could not help saying so. “But depend\nupon it, Mr. Collins,” she added, “that Lizzy shall be\nbrought to reason. I will speak to her about it myself\ndirectly. She is a very headstrong, foolish girl, and does\nnot know her own interest; but I will make her know it.”\n“Pardon me for interrupting you, madam,” cried Mr.\nCollins; “but if she is really headstrong and foolish, I\nknow not whether she would altogether be a very\ndesirable wife to a man in my situation, who naturally\nlooks for happiness in the marriage state. If, therefore,\nshe actually persists in rejecting my suit, perhaps it were\nbetter not to force her into accepting me, because, if\nliable to such defects of temper, she could not contribute\nmuch to my felicity.” “Sir, you quite misunderstand me,”\nsaid Mrs. Bennet, alarmed. “Lizzy is only headstrong in\nsuch matters as these. In everything else she is as\ngood-natured a girl as ever lived. I will go directly to Mr.\nBennet, and we shall very soon settle it with her, I am\nsure.” She would not give him time to reply, but hurrying\ninstantly to her husband, called out, as she entered the\nlibrary,-- “Oh, Mr. Bennet, you are wanted immediately;\nwe are all in an uproar. You must come and make Lizzy\nmarry Mr. Collins, for she vows she will not have him;\n"
+  },
+  "small-print": {
+   "pages": 1,
+   "render_s": 0.0,
+   "recognise_s": 0.0019865490030497313,
+   "layout_ms": 0,
+   "text": ""
+  },
+  "headers-footnotes": {
+   "pages": 1,
+   "render_s": 0.0,
+   "recognise_s": 0.0011622169986367226,
+   "layout_ms": 0,
+   "text": ""
+  },
+  "two-column": {
+   "pages": 1,
+   "render_s": 0.0,
+   "recognise_s": 0.002578334999270737,
+   "layout_ms": 0,
+   "text": ""
+  },
+  "french": {
+   "pages": 1,
+   "render_s": 0.0,
+   "recognise_s": 0.0012603270006366074,
+   "layout_ms": 0,
+   "text": ""
+  },
+  "russian": {
+   "pages": 1,
+   "render_s": 0.0,
+   "recognise_s": 0.0008122519939206541,
+   "layout_ms": 0,
+   "text": ""
+  }
+ }
+}

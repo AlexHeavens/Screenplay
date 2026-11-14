@@ -1,0 +1,204 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+package com.pdfaudiobook
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
+
+class EpubTest {
+    @get:Rule
+    val tmp = TemporaryFolder()
+
+    private val container = """<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>"""
+
+    private fun xhtml(body: String) = """<?xml version="1.0"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>$body</body></html>"""
+
+    private fun opf(manifest: String, spine: String, extra: String = "") = """<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Tiny Book</dc:title><dc:creator>Ann Author</dc:creator><dc:creator>Bo Co-Author</dc:creator></metadata><manifest>$manifest</manifest><spine $extra>$spine</spine></package>"""
+
+    private fun epub(vararg entries: Pair<String, String>): File = tmp.newFile().also { f ->
+        ZipOutputStream(f.outputStream()).use { z -> entries.forEach { (n, c) -> z.putNextEntry(ZipEntry(n)); z.write(c.toByteArray()); z.closeEntry() } }
+    }
+
+    private fun failure(file: File): String {
+        try { Epub.read(file) } catch (e: EpubException) { return e.message!! }
+        fail("expected the EPUB to be refused")
+        return ""
+    }
+
+    /** The checked-in test book, which the device tests import. */
+    private val lighthouse = File("src/androidTest/assets/epub/lighthouse.epub")
+
+    private val lighthouseParagraphs = listOf(
+        "Part One", "The almanac of a small lighthouse begins with the weather.",
+        "The Lamp", "Every evening the keeper climbed ninety steps to light the lamp.", "The lamp was old, but it never failed. Not once in forty years.",
+        "Ships passed in the night and never knew his name.",
+        "The Fog", "On the foggy mornings he rang the bell instead.", "Bell", "Two strokes a minute",
+    )
+
+    @Test
+    fun readsTheTitleAuthorParagraphsAndNestedChapters() {
+        val b = Epub.read(lighthouse)
+        assertEquals("The Lighthouse Almanac", b.title)
+        assertEquals("Ada Example", b.author)
+        assertEquals(listOf("Part One", "The Lamp", "The Fog"), b.chapters)
+        assertEquals(lighthouseParagraphs, b.paragraphs)
+    }
+
+    @Test
+    fun joinsSeveralAuthorsAndFollowsTheSpineNotTheManifest() {
+        val f = epub(
+            "META-INF/container.xml" to container,
+            "OEBPS/content.opf" to opf("""<item id="b" href="b.xhtml" media-type="application/xhtml+xml"/><item id="a" href="a.xhtml" media-type="application/xhtml+xml"/>""", """<itemref idref="a"/><itemref idref="b"/>"""),
+            "OEBPS/a.xhtml" to xhtml("<p>First.</p>"), "OEBPS/b.xhtml" to xhtml("<p>Second.</p>"),
+        )
+        val b = Epub.read(f)
+        assertEquals("Ann Author, Bo Co-Author", b.author)
+        assertEquals(listOf("First.", "Second."), b.paragraphs)
+    }
+
+    @Test
+    fun anEpubWithNoNavGetsItsChaptersFromTheHeadings() {
+        val f = epub(
+            "META-INF/container.xml" to container,
+            "OEBPS/content.opf" to opf("""<item id="a" href="a.xhtml" media-type="application/xhtml+xml"/><item id="b" href="b.xhtml" media-type="application/xhtml+xml"/><item id="c" href="c.xhtml" media-type="application/xhtml+xml"/>""", """<itemref idref="a"/><itemref idref="b"/><itemref idref="c"/>"""),
+            "OEBPS/a.xhtml" to xhtml("<h1>Dawn</h1><p>It was early.</p>"),
+            "OEBPS/b.xhtml" to xhtml("<p>No heading here.</p>"),
+            "OEBPS/c.xhtml" to xhtml("<h2>Dusk</h2><p>It was late.</p>"),
+        )
+        val b = Epub.read(f)
+        assertEquals(listOf("Dawn", "Dusk"), b.chapters)
+        assertEquals(listOf("Dawn", "It was early.", "No heading here.", "Dusk", "It was late."), b.paragraphs)
+    }
+
+    @Test
+    fun marksNameEachChapterHeadingByItsSentenceNotItsContentsListEntry() {
+        val longParagraph = (1..40).joinToString(" ") { "A sentence of some length number $it." }
+        val nav = """<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><ol>
+            <li><a href="a.xhtml#one">Chapter 1. Dawn</a></li><li><a href="a.xhtml#two">Chapter 2. Dusk</a></li></ol></nav></body></html>"""
+        val f = epub(
+            "META-INF/container.xml" to container,
+            "OEBPS/content.opf" to opf("""<item id="nav" href="nav.xhtml" properties="nav" media-type="application/xhtml+xml"/><item id="a" href="a.xhtml" media-type="application/xhtml+xml"/>""", """<itemref idref="a"/>"""),
+            "OEBPS/nav.xhtml" to nav,
+            // The book prints its own contents list ahead of the chapters, as Project Gutenberg's do.
+            "OEBPS/a.xhtml" to xhtml("""<p>Chapter 1. Dawn</p><p>Chapter 2. Dusk</p><h2 id="one">Chapter 1. Dawn</h2><p>$longParagraph</p><h2 id="two">Chapter 2. Dusk</h2><p>It was late.</p>"""),
+        )
+        val b = Epub.read(f)
+        val sentences = Epub.speakable(b.paragraphs)
+        assertTrue(sentences.size > b.paragraphs.size)
+        assertEquals(listOf("Chapter 1. Dawn", "Chapter 2. Dusk"), b.marks.map { it.title })
+        assertEquals(listOf("Chapter 1. Dawn", "Chapter 2. Dusk"), b.marks.map { sentences[it.index] })
+        assertEquals(listOf(2, sentences.indexOf("It was late.") - 1), b.marks.map { it.index })
+    }
+
+    @Test
+    fun anEpub2UsesItsNcxAndAnAnchorInsideAFile() {
+        val ncx = """<?xml version="1.0"?><ncx xmlns="http://www.daisy.org/z3986/2005/ncx/"><docTitle><text>Tiny Book</text></docTitle><navMap>
+            <navPoint id="n1"><navLabel><text>Opening</text></navLabel><content src="all.xhtml"/>
+              <navPoint id="n2"><navLabel><text>The Turn</text></navLabel><content src="all.xhtml#turn"/></navPoint></navPoint></navMap></ncx>"""
+        val f = epub(
+            "META-INF/container.xml" to container,
+            "OEBPS/content.opf" to opf("""<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/><item id="a" href="all.xhtml" media-type="application/xhtml+xml"/>""", """<itemref idref="a"/>""", """toc="ncx""""),
+            "OEBPS/toc.ncx" to ncx,
+            "OEBPS/all.xhtml" to xhtml("""<p>One.</p><p>Two.</p><p id="turn">Three.</p><p>Four.</p>"""),
+        )
+        val b = Epub.read(f)
+        assertEquals(listOf("Opening", "The Turn"), b.chapters)
+        assertEquals(listOf("Opening", "One.", "Two.", "The Turn", "Three.", "Four."), b.paragraphs)
+    }
+
+    @Test
+    fun keepsTheTextOfTablesNotesAndEntitiesButNotScriptsOrImages() {
+        val f = epub(
+            "META-INF/container.xml" to container,
+            "OEBPS/content.opf" to opf("""<item id="a" href="a.xhtml" media-type="application/xhtml+xml"/>""", """<itemref idref="a"/>"""),
+            "OEBPS/a.xhtml" to xhtml("""<script>var x = "no";</script><p>Caf&eacute;&nbsp;au lait<a href="#n1"><sup>1</sup></a>.</p><img src="x.png" alt="pic"/><table><tr><td>Cell</td></tr></table><aside id="n1">Note text.</aside><p>* * *</p>"""),
+        )
+        assertEquals(listOf("Café au lait1.", "Cell", "Note text."), Epub.read(f).paragraphs)
+    }
+
+    @Test
+    fun aDrmEpubIsRefusedWithAClearMessage() {
+        val enc = """<encryption xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><EncryptedData><EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#aes128-cbc"/><CipherData><CipherReference URI="OEBPS/a.xhtml"/></CipherData></EncryptedData></encryption>"""
+        val f = epub(
+            "META-INF/container.xml" to container, "META-INF/encryption.xml" to enc,
+            "OEBPS/content.opf" to opf("""<item id="a" href="a.xhtml" media-type="application/xhtml+xml"/>""", """<itemref idref="a"/>"""), "OEBPS/a.xhtml" to "scrambled",
+        )
+        assertEquals("This EPUB is protected by DRM, so it cannot be imported.", failure(f))
+    }
+
+    @Test
+    fun anObfuscatedFontIsNotDrm() {
+        val enc = """<encryption xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><EncryptedData><EncryptionMethod Algorithm="http://www.idpf.org/2008/embedding"/><CipherData><CipherReference URI="OEBPS/f.otf"/></CipherData></EncryptedData></encryption>"""
+        val f = epub(
+            "META-INF/container.xml" to container, "META-INF/encryption.xml" to enc,
+            "OEBPS/content.opf" to opf("""<item id="a" href="a.xhtml" media-type="application/xhtml+xml"/>""", """<itemref idref="a"/>"""), "OEBPS/a.xhtml" to xhtml("<p>Readable.</p>"),
+        )
+        assertEquals(listOf("Readable."), Epub.read(f).paragraphs)
+    }
+
+    @Test
+    fun malformedFilesAreRefusedNotCrashedOn() {
+        assertTrue(failure(tmp.newFile().also { it.writeText("not a zip at all") }).contains("not a zip"))
+        assertTrue(failure(tmp.newFile()).contains("not a zip")) // empty
+        assertTrue(failure(epub("readme.txt" to "x")).contains("container.xml"))
+        assertTrue(failure(epub("META-INF/container.xml" to container)).contains("content.opf is missing"))
+        assertTrue(failure(epub("META-INF/container.xml" to container, "OEBPS/content.opf" to "<package><metadata>")).contains("damaged"))
+        val empty = epub(
+            "META-INF/container.xml" to container,
+            "OEBPS/content.opf" to opf("""<item id="a" href="a.xhtml" media-type="application/xhtml+xml"/>""", """<itemref idref="a"/>"""), "OEBPS/a.xhtml" to xhtml("<img src='x'/>"),
+        )
+        assertEquals("This EPUB has no readable text.", failure(empty))
+    }
+
+    @Test
+    fun aRoundTripKeepsTitleAuthorChaptersAndParagraphs() {
+        val original = Epub.read(lighthouse)
+        val segments = original.paragraphs.mapIndexed { i, p -> Segment(i * 1000L, i * 1000L + 1000, p) }
+        val out = ByteArrayOutputStream()
+        EpubWriter.write(out, original.title, original.author, "en", "urn:uuid:x", "2026-11-13T00:00:00Z", EpubWriter.chapters(segments, original.chapters, original.title))
+        val again = Epub.read(tmp.newFile().also { it.writeBytes(out.toByteArray()) })
+        assertEquals(original, again)
+    }
+
+    @Test
+    fun aRoundTripKeepsTextBeforeTheFirstChapterOutOfTheContents() {
+        val segments = listOf("A dedication.", "Chapter 1", "Opening line.", "Chapter 2", "Closing line.").mapIndexed { i, t -> Segment(i * 1000L, i * 1000L + 1000, t) }
+        val out = ByteArrayOutputStream()
+        EpubWriter.write(out, "T & <U>", "A \"B\"", "en", "urn:uuid:x", "2026-11-13T00:00:00Z", EpubWriter.chapters(segments, emptyList(), "T & <U>"))
+        val b = Epub.read(tmp.newFile().also { it.writeBytes(out.toByteArray()) })
+        assertEquals("T & <U>", b.title)
+        assertEquals("A \"B\"", b.author)
+        assertEquals(listOf("Chapter 1", "Chapter 2"), b.chapters)
+        assertEquals(segments.map { it.text }, b.paragraphs)
+    }
+
+    @Test
+    fun theWrittenFileIsAnEpub3Container() {
+        val out = ByteArrayOutputStream()
+        EpubWriter.write(out, "Title", "Author", "en", "urn:uuid:x", "2026-11-13T00:00:00Z", listOf(EpubChapter("One", listOf("Hello.")), EpubChapter("Two", listOf("Bye."))))
+        val f = tmp.newFile().also { it.writeBytes(out.toByteArray()) }
+        ZipFile(f).use { z ->
+            val names = z.entries().toList()
+            assertEquals("mimetype", names.first().name)
+            assertEquals(ZipEntry.STORED, names.first().method)
+            assertEquals("application/epub+zip", z.getInputStream(names.first()).readBytes().toString(Charsets.UTF_8))
+            assertEquals(0, names.first().extra?.size ?: 0)
+            val opf = z.getInputStream(z.getEntry("OEBPS/content.opf")).readBytes().toString(Charsets.UTF_8)
+            for (needle in listOf("version=\"3.0\"", "<dc:title>Title</dc:title>", "<dc:creator>Author</dc:creator>", "<dc:language>en</dc:language>", "dcterms:modified", "properties=\"nav\"")) assertTrue(needle, needle in opf)
+            val nav = z.getInputStream(z.getEntry("OEBPS/nav.xhtml")).readBytes().toString(Charsets.UTF_8)
+            assertTrue(nav.contains("epub:type=\"toc\"") && nav.contains(">One</a>") && nav.contains(">Two</a>"))
+            assertTrue(z.getInputStream(z.getEntry("OEBPS/chapter-001.xhtml")).readBytes().toString(Charsets.UTF_8).contains("<h1>One</h1>\n<p>Hello.</p>"))
+        }
+    }
+}

@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.Screenplay" parent="Theme.Screenplay.Dark" />
+</resources>
