@@ -198,11 +198,22 @@ object Library {
         refresh(ctx)
     }
 
-    fun segments(ctx: Context, id: String): List<Segment> {
-        val f = File(dir(ctx, id), Files.TRANSCRIPT)
+    fun segments(ctx: Context, id: String): List<Segment> = readSegments(File(dir(ctx, id), Files.TRANSCRIPT)) ?: emptyList()
+
+    /**
+     * The transcript in [f], or null when it is missing or unreadable. Never throws on bad content: a transcript from an older build
+     * could be cut short mid-write, and a reader that crashes on it makes the book impossible to open.
+     */
+    fun readSegments(f: File): List<Segment>? {
         if (!f.exists()) return emptyList()
-        val a = JSONArray(f.readText())
-        return List(a.length()) { val o = a.getJSONObject(it); Segment(o.getLong("start"), o.getLong("end"), o.getString("text")) }
+        return try {
+            val a = JSONArray(f.readText())
+            List(a.length()) { val o = a.getJSONObject(it); Segment(o.getLong("start"), o.getLong("end"), o.getString("text")) }
+        } catch (e: org.json.JSONException) {
+            null
+        } catch (e: java.io.IOException) {
+            null
+        }
     }
 
     /** Sentences read but maybe not yet spoken. Only whole lines count, as the file can be mid-append. */
@@ -231,13 +242,14 @@ object Library {
     /**
      * Applies an edit of one paragraph ([ParagraphEdit]) to the transcript and to everything that points into it: the paragraph notes,
      * the highlights and the stored chapters. Each file is replaced atomically; the transcript goes first, and notes and highlights find
-     * their paragraph by text again if a kill lands between the files. Returns the new state, or null when the book is gone.
+     * their paragraph by text again if a kill lands between the files. Returns the new state, or null when the book is gone or its transcript
+     * is unreadable (an edit would otherwise overwrite it with an empty one).
      * Only for a finished book: while one is being made the speech worker owns the transcript.
      */
     @Synchronized
     fun editTranscript(ctx: Context, id: String, change: (TranscriptState) -> TranscriptState): TranscriptState? {
         val book = readBook(dir(ctx, id)) ?: return null
-        val edited = change(TranscriptState(segments(ctx, id), ParagraphNotes.load(ctx, id), Highlights.load(ctx, id), book.chapters))
+        val edited = change(TranscriptState(readSegments(File(dir(ctx, id), Files.TRANSCRIPT)) ?: return null, ParagraphNotes.load(ctx, id), Highlights.load(ctx, id), book.chapters))
         saveSegments(ctx, id, edited.segments)
         ParagraphNotes.save(ctx, id, edited.paragraphNotes)
         Highlights.save(ctx, id, edited.highlights)

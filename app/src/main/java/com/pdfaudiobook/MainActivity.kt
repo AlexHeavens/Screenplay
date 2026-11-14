@@ -59,6 +59,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 class MainActivity : ComponentActivity() {
     private var opened by mutableStateOf<String?>(null)
@@ -387,7 +388,8 @@ fun Reader(id: String, onBack: () -> Unit) {
         while (true) {
             delay(2000)
             Library.refresh(ctx)
-            Library.segments(ctx, id).let { if (it != segments) segments = it }
+            // Parsed off the main thread, and a transcript that cannot be read right now keeps what is shown.
+            withContext(Dispatchers.IO) { Library.readSegments(File(Library.dir(ctx, id), Files.TRANSCRIPT)) }?.let { if (it != segments) segments = it }
             Library.queued(ctx, id).drop(segments.size).let { if (it != queued) queued = it }
         }
     }
