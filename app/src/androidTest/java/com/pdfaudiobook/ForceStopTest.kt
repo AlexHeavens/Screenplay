@@ -9,7 +9,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertTextContains
-import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -60,7 +60,7 @@ class ForceStopTest {
         ActivityScenario.launch<MainActivity>(
             Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setDataAndType(Fixtures.pdf(ctx), "application/pdf"),
         )
-        compose.waitUntil(120_000) { compose.onAllNodes(hasText("Ready", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(120_000) { compose.onAllNodes(hasContentDescription("Listened")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("book-${Fixtures.TITLE}").performClick()
         compose.waitUntil(60_000) { compose.onAllNodesWithTag("sentence-2").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("sentence-1").performClick()
@@ -91,8 +91,8 @@ class ForceStopTest {
         compose.waitUntil(30_000) { compose.onAllNodesWithTag("book-${Fixtures.TITLE}").fetchSemanticsNodes().isNotEmpty() }
         val book = Library.books.value.first()
         assertEquals(expected.getLong("position"), book.positionMs)
-        compose.onNodeWithTag("status-${Fixtures.TITLE}", useUnmergedTree = true)
-            .assertTextContains("${expected.getInt("percent")}% played", substring = true)
+        compose.onNodeWithTag("stage-text-LISTEN-${Fixtures.TITLE}", useUnmergedTree = true)
+            .assertTextContains("${expected.getInt("percent")}%", substring = true)
         compose.onNodeWithTag("book-${Fixtures.TITLE}").performClick()
         compose.waitUntil(60_000) { compose.onAllNodesWithTag("sentence-1").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("sentence-${Library.segmentStarts(ctx, book.id).indexOf(expected.getLong("position"))}").assert(selected())

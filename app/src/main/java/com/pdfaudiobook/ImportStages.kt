@@ -12,10 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -26,32 +23,37 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
-enum class StageKind(val label: String) { DOWNLOAD("Download"), READ("Reading"), SPEAK("Speaking"), ENCODE("Encoding") }
+enum class StageKind(val label: String) { DOWNLOAD("Download"), READ("Reading"), SPEAK("Speaking"), ENCODE("Encoding"), LISTEN("Listened") }
 
 /** [NEXT] has not started but is the stage that starts next; [ONGOING] is running; [DONE] is over. */
 enum class StageState(val description: String) { NEXT("next"), ONGOING("in progress"), DONE("done") }
 
 /**
- * One stage of making a book, as its row shows it. An ongoing stage has [fraction] (null when its size is unknown, so the bar runs
- * without end) and [text], its percentage and its absolute total, e.g. "42% · 1,200/3,000 words"; the others have neither.
+ * One stage of making a book, as its row shows it. A stage with [text] (its percentage and its absolute total, e.g. "42% · 1,200/3,000 words")
+ * also has a bar: [fraction] is how full it is, null when its size is unknown, so the bar runs without end. A stage waiting has neither.
  */
 data class ImportStage(val kind: StageKind, val state: StageState, val fraction: Float? = null, val text: String = "")
 
-/** The stages a book in the import queue goes through, in order: fetching its file (only a book from "Find books"), reading, speaking, encoding. */
+/**
+ * The stages a book in the import queue goes through, in order: fetching its file (done at once for a file the reader picked), reading, speaking, encoding.
+ * An imported book has one: how far it has been listened to, with a bar and text but no icon.
+ */
 object Stages {
     /**
      * The stages to show for [book], [download] being its fetch in progress. Those over and the one running come first, then the first not
-     * started; later ones stay hidden. Reading and speaking overlap, so both can run at once. A book whose import is over has none.
+     * started; later ones stay hidden. Reading and speaking overlap, so both can run at once. A ready book has its listening; a failed one none.
      */
-    fun of(book: Book, download: DownloadProgress?): List<ImportStage> {
+    fun of(book: Book, download: DownloadProgress?, chapter: String? = null): List<ImportStage> {
+        if (book.status == Status.READY) return listOf(listened(book, chapter))
         if (!book.importing) return emptyList()
         val all = buildList {
-            if (book.downloadUrl.isNotEmpty()) add(fetching(book, download))
+            add(fetching(book, download))
             add(reading(book))
             add(speaking(book))
             add(encoding(book))
@@ -60,11 +62,19 @@ object Stages {
         return if (next < 0) all else all.take(next + 1)
     }
 
+    /** Time listened over the book's length and the [chapter] reached, e.g. "42% · 1:24/3:20 · Chapter 3"; a book never played reads 0%, a finished one its whole length. */
+    private fun listened(book: Book, chapter: String?): ImportStage {
+        val at = if (book.finished) book.durationMs else (book.positionMs ?: 0L).coerceIn(0L, book.durationMs)
+        val fraction = (book.playedPercent ?: 0) / 100f
+        return ImportStage(StageKind.LISTEN, StageState.DONE, fraction, "${percent(fraction)}% · ${clock(at)}/${clock(book.durationMs)}" + (chapter?.let { " · $it" } ?: ""))
+    }
+
     private fun percent(fraction: Float) = (fraction * 100).toInt().coerceIn(0, 100)
 
     private fun fetching(book: Book, download: DownloadProgress?) = when {
         download != null -> ImportStage(StageKind.DOWNLOAD, StageState.ONGOING, download.fraction, download.counts)
         book.awaitingDownload -> ImportStage(StageKind.DOWNLOAD, StageState.NEXT)
+        // A file the reader picked is on the device already, so its fetch counts as done.
         else -> ImportStage(StageKind.DOWNLOAD, StageState.DONE)
     }
 
@@ -98,16 +108,18 @@ object Stages {
     }
 }
 
-private fun icon(kind: StageKind): ImageVector = when (kind) {
-    StageKind.DOWNLOAD -> Icons.Filled.KeyboardArrowDown
+private fun icon(kind: StageKind): ImageVector? = when (kind) {
+    StageKind.DOWNLOAD -> StageIcons.ArrowDown
     StageKind.READ -> Icons.Filled.Search
-    StageKind.SPEAK -> Icons.Filled.PlayArrow
-    StageKind.ENCODE -> Icons.Filled.Settings
+    StageKind.SPEAK -> StageIcons.Speaker
+    StageKind.ENCODE -> StageIcons.MusicNote
+    StageKind.LISTEN -> null
 }
 
 /**
- * The stages of [title] in a row: an icon each, grey when next, blue while running, white once done. A running stage also has a thin
- * bar and its percentage with its total. Each stage's icon (or, when running, its bar and text) carries a `stage-…` test tag.
+ * The stages of [title] in a row. Above, the percentage text and a thin bar of each stage that has them (more than one when reading and speaking
+ * run together); below, an icon for every stage, grey when next, blue while running, white once done. Tags: `stage-<KIND>-<title>` for an icon,
+ * `stage-text-…` and `stage-bar-…` for the text and the bar.
  */
 @Composable
 fun StageStrip(title: String, stages: List<ImportStage>, modifier: Modifier = Modifier) {
@@ -115,23 +127,21 @@ fun StageStrip(title: String, stages: List<ImportStage>, modifier: Modifier = Mo
     val blue = Color(0xFF4DA3FF)
     // White is the finished colour on the dark theme; on a light one it would vanish, so the text colour stands in.
     val done = if (isDarkTheme()) Color.White else MaterialTheme.colorScheme.onSurface
-    Row(modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        for (s in stages) {
-            val tint = when (s.state) { StageState.NEXT -> grey; StageState.ONGOING -> blue; StageState.DONE -> done }
-            val name = "${s.kind.label} ${s.state.description}"
-            if (s.state != StageState.ONGOING) {
-                Icon(icon(s.kind), name, Modifier.size(20.dp).testTag("stage-${s.kind.name}-$title").semantics { stateDescription = s.state.description }, tint = tint)
-            } else {
-                Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(icon(s.kind), name, Modifier.size(20.dp).testTag("stage-${s.kind.name}-$title").semantics { stateDescription = s.state.description }, tint = tint)
-                        Text(s.text, Modifier.testTag("stage-text-${s.kind.name}-$title"), style = MaterialTheme.typography.labelSmall, color = blue, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    val bar = Modifier.fillMaxWidth().padding(top = 3.dp).height(3.dp).testTag("stage-bar-${s.kind.name}-$title")
-                    val fraction = s.fraction
-                    if (fraction == null) LinearProgressIndicator(bar, color = blue, trackColor = grey.copy(alpha = 0.3f))
-                    else LinearProgressIndicator({ fraction }, bar, color = blue, trackColor = grey.copy(alpha = 0.3f))
-                }
+    Column(modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        for (s in stages.filter { it.text.isNotEmpty() }) {
+            val tag = "${s.kind.name}-$title"
+            Text(s.text, Modifier.testTag("stage-text-$tag"), style = MaterialTheme.typography.labelSmall, color = blue, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val bar = Modifier.fillMaxWidth().height(3.dp).testTag("stage-bar-$tag").semantics { contentDescription = s.kind.label }
+            val fraction = s.fraction
+            if (fraction == null) LinearProgressIndicator(bar, color = blue, trackColor = grey.copy(alpha = 0.3f))
+            else LinearProgressIndicator({ fraction }, bar, color = blue, trackColor = grey.copy(alpha = 0.3f))
+        }
+        // Listening has no icon: its bar and text say it.
+        val icons = stages.filter { icon(it.kind) != null }
+        if (icons.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            for (s in icons) {
+                val tint = when (s.state) { StageState.NEXT -> grey; StageState.ONGOING -> blue; StageState.DONE -> done }
+                Icon(icon(s.kind)!!, "${s.kind.label} ${s.state.description}", Modifier.size(20.dp).testTag("stage-${s.kind.name}-$title").semantics { stateDescription = s.state.description }, tint = tint)
             }
         }
     }

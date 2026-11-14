@@ -9,6 +9,7 @@ import android.app.Instrumentation
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -82,7 +83,7 @@ class EpubUiTest {
     @Smoke @Test
     fun importsAnEpubWithItsTitleAuthorChaptersAndText() {
         importThroughThePicker(asset("lighthouse.epub"))
-        waitFor(hasText("Ready", substring = true))
+        waitFor(hasContentDescription("Listened"))
 
         val book = Library.books.value.single()
         assertEquals(title, book.title)
@@ -112,7 +113,7 @@ class EpubUiTest {
             put("a.xhtml", xhtml("""<p>CHAPTER 1. Loomings.</p><p>CHAPTER 2. The Carpet-Bag.</p><h2 id="one">CHAPTER 1. Loomings</h2><p>Call me Ishmael.</p><h2 id="two">CHAPTER 2. The Carpet-Bag</h2><p>I stuffed a shirt into my bag.</p>"""))
         }
         importThroughThePicker(book)
-        waitFor(hasText("Ready", substring = true))
+        waitFor(hasContentDescription("Listened"))
 
         val id = Library.books.value.single().id
         val segments = Library.segments(ctx, id)
@@ -125,7 +126,7 @@ class EpubUiTest {
     @Smoke @Test
     fun exportsAnEpubThatImportsAgainAsTheSameBook() {
         importThroughThePicker(asset("lighthouse.epub"))
-        waitFor(hasText("Ready", substring = true))
+        waitFor(hasContentDescription("Listened"))
         val original = Library.books.value.single()
         compose.onNodeWithTag("book-$title").performClick()
         waitFor(hasText("Export"))

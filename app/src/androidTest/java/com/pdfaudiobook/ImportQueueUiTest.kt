@@ -133,8 +133,7 @@ class ImportQueueUiTest {
         compose.waitUntil(60_000) { Library.books.value.count { it.status == Status.READING } == 1 }
         compose.onNodeWithTag("section-importing").assertIsDisplayed()
         compose.waitUntil(30_000) { exists("stage-bar-READ-queue-one") }
-        assertEquals("Queued · position 2", text("status-queue-two"))
-        assertEquals("Queued · position 3", text("status-queue-three"))
+        assertTrue("a waiting row says nothing in words: its place is its row", names.none { exists("status-$it") })
         assertEquals(1, Library.books.value.count { it.status == Status.READING })
         assertEquals(2, Library.books.value.count { it.status == Status.QUEUED })
         assertTrue("nothing is imported yet", !exists("section-imported"))
@@ -145,8 +144,6 @@ class ImportQueueUiTest {
         assertTrue(top("book-queue-two") < top("book-queue-three"))
         dragBy("book-queue-three", top("book-queue-two") - top("book-queue-three"))
         compose.waitUntil(30_000) { top("book-queue-three") < top("book-queue-two") }
-        assertEquals("Queued · position 2", text("status-queue-three"))
-        assertEquals("Queued · position 3", text("status-queue-two"))
         assertTrue(top("book-queue-one") < top("book-queue-three"))
 
         // Every book in the queue shows a drag handle, the one being made too.
@@ -174,7 +171,6 @@ class ImportQueueUiTest {
         compose.onNodeWithTag("book-queue-two", useUnmergedTree = true).assertIsNotSelected()
         compose.waitUntil(10_000) { names.none { exists("drop-line-$it") } }
         compose.waitUntil(30_000) { top("book-queue-two") < top("book-queue-three") }
-        assertEquals("Queued · position 2", text("status-queue-two"))
         assertTrue(top("book-queue-one") < top("book-queue-two"))
 
         // Dropping the first waiting book onto the book being made puts it first: it is made now, and the book it passed waits in its place.
@@ -183,14 +179,12 @@ class ImportQueueUiTest {
         // The book being made stops after the page it is reading, which can take a while on the emulator.
         compose.waitUntil(90_000) { Library.books.value.single { it.title == "queue-two" }.status != Status.QUEUED }
         compose.waitUntil(90_000) { Library.books.value.single { it.title == "queue-one" }.status == Status.QUEUED }
-        compose.waitUntil(30_000) { text("status-queue-one") == "Queued · position 2" }
-        assertEquals("Queued · position 3", text("status-queue-three"))
+        compose.waitUntil(30_000) { top("book-queue-two") < top("book-queue-one") && top("book-queue-one") < top("book-queue-three") }
         assertTrue(top("book-queue-two") < top("book-queue-one") && top("book-queue-one") < top("book-queue-three"))
 
         // Dropping a waiting book onto the last place works too.
         dragBy("book-queue-one", row)
-        compose.waitUntil(30_000) { text("status-queue-one") == "Queued · position 3" }
-        assertEquals("Queued · position 2", text("status-queue-three"))
+        compose.waitUntil(30_000) { top("book-queue-three") < top("book-queue-one") }
         assertTrue(top("book-queue-three") < top("book-queue-one"))
 
         // Let them go. The book being made speaks a few sentences, then the speech is held.
@@ -204,7 +198,7 @@ class ImportQueueUiTest {
         // and the speech it had made is kept.
         dragHandleBy("queue-two", top("book-queue-three") - top("book-queue-two"))
         compose.waitUntil(90_000) { book("queue-three").status != Status.QUEUED && book("queue-two").status == Status.QUEUED }
-        compose.waitUntil(30_000) { text("status-queue-two") == "Queued · position 2" }
+        compose.waitUntil(30_000) { top("book-queue-three") < top("book-queue-two") }
         assertTrue(top("book-queue-three") < top("book-queue-two") && top("book-queue-two") < top("book-queue-one"))
         val stopped = Library.segments(ctx, book("queue-two").id)
         assertEquals("the speech made so far is kept", kept, stopped.take(kept.size))

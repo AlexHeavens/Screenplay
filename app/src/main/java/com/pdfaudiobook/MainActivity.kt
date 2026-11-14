@@ -209,7 +209,11 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
             }
             if (imported.isNotEmpty()) {
                 item(key = "header-imported") { SectionHeader("Imported", "section-imported") }
-                items(imported, key = { it.id }) { b -> BookRow(b, b.label(), onOpen, onDelete = { toDelete = b }, drag = null) }
+                items(imported, key = { it.id }) { b ->
+                    // The chapter comes from files, so it is read off the main thread, again when the place or the chapters change.
+                    val chapter by produceState<String?>(null, b.id, b.positionMs, b.finished, b.chapters) { value = withContext(Dispatchers.IO) { Library.currentChapter(ctx, b) } }
+                    BookRow(b, if (b.status == Status.READY) "" else b.label(), onOpen, onDelete = { toDelete = b }, drag = null, chapter = chapter)
+                }
             }
         }
     }
@@ -222,7 +226,7 @@ private fun SectionHeader(text: String, tag: String) {
 
 /** One book on the shelf. A book in the import queue can be dragged ([drag]); while one is dragged, a line shows the place it takes if released. Finished books have neither. */
 @Composable
-private fun BookRow(b: Book, label: String, onOpen: (String) -> Unit, onDelete: () -> Unit, drag: QueueDrag?, download: DownloadProgress? = null) {
+private fun BookRow(b: Book, label: String, onOpen: (String) -> Unit, onDelete: () -> Unit, drag: QueueDrag?, download: DownloadProgress? = null, chapter: String? = null) {
     val dragging = drag?.isDragging(b.id) == true
     val above = drag?.dropLineAbove(b.id)
     Box {
@@ -232,8 +236,8 @@ private fun BookRow(b: Book, label: String, onOpen: (String) -> Unit, onDelete: 
             supportingContent = {
                 Column {
                     if (label.isNotEmpty()) Text(label, Modifier.testTag("status-${b.title}"))
-                    // A book in the import queue shows its stages instead of words: an icon each, and a bar with its percentage on the one running.
-                    val stages = Stages.of(b, download)
+                    // A book shows its stages instead of words: an icon each, and above them a bar with its percentage on each one running. A ready book shows its listening.
+                    val stages = Stages.of(b, download, chapter)
                     if (stages.isNotEmpty()) StageStrip(b.title, stages)
                 }
             },

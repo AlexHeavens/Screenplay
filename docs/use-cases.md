@@ -629,7 +629,7 @@ Tests:
 
 Goal: pick many books and leave the phone to work.
 
-- Books are made in queue order, one at a time. The book being made shows under "Importing" and the others wait as "Queued".
+- Books are made in queue order, one at a time. The book being made shows under "Importing".
 - A failed book leaves the queue and the next is made.
 - When all are made, the section goes and the books sit under "Imported".
 
@@ -639,7 +639,7 @@ Tests:
 - `ImportQueueTest.aFailedBookLeavesTheQueueAndTheNextIsMade`
 - `ImportQueueTest.aWaitingBookIsNotMadeWhileAnotherIsHeld`
 - `ImportQueueTest.anEmptyQueueHasNothingImportingSoTheShelfShowsNoImportingSection`
-- `ImportQueueTest.labelsShowPositionWithTheBookBeingMadeFirst`
+- `ImportQueueTest.aWaitingBookSaysNothingAndTheBookBeingMadeHasItsStages`
 
 #### UC-10a The queue lists the running book first
 
@@ -649,7 +649,7 @@ Goal: see what is made now and what is next.
 
 Tests:
 - `ImportQueueTest.theBookBeingMadeComesFirstThenTheWaitingOnesInTheirOrder`
-- `ImportQueueTest.labelsShowPositionWithTheBookBeingMadeFirst`
+- `ImportQueueTest.aWaitingBookSaysNothingAndTheBookBeingMadeHasItsStages`
 
 #### UC-10b An empty queue shows no Importing section
 
@@ -789,7 +789,7 @@ Tests:
 - `ImportQueueTest.theHighestWaitingBookWithoutItsFileIsFetchedNext`
 - `ImportQueueTest.fetchedBooksFileBooksAndTheBookBeingMadeAreSkipped`
 - `ImportQueueTest.aReorderChangesWhichBookIsFetchedNext`
-- `ImportQueueTest.theRowSaysNothingWhileItsFileIsFetchedAndShowsAFailureWithItsPlace`
+- `ImportQueueTest.theRowSaysNothingWhileItsFileIsFetchedAndShowsAFailure`
 - `GutenbergTest.theProjectGutenbergLicenceSurvivesReadingAndWritingTheBook`
 
 Unchecked: the real GitHub release and gutenberg.org, and a fetch cut short by a killed process. The tests use a fake network.
@@ -880,7 +880,7 @@ Tests:
 - `ImportQueueTest.theHighestWaitingBookWithoutItsFileIsFetchedNext`
 - `ImportQueueTest.fetchedBooksFileBooksAndTheBookBeingMadeAreSkipped`
 - `ImportQueueTest.aReorderChangesWhichBookIsFetchedNext`
-- `ImportQueueTest.theRowSaysNothingWhileItsFileIsFetchedAndShowsAFailureWithItsPlace`
+- `ImportQueueTest.theRowSaysNothingWhileItsFileIsFetchedAndShowsAFailure`
 
 #### UC-13h A failed download shows its error and leaves no partial file
 
@@ -889,7 +889,7 @@ Goal: see why a book did not download, and not keep a broken file.
 - A failed fetch shows its error on the row. The file is written under a `.part` name and renamed when whole, so a failure leaves no file that looks like a book.
 
 Tests:
-- `ImportQueueTest.theRowSaysNothingWhileItsFileIsFetchedAndShowsAFailureWithItsPlace`
+- `ImportQueueTest.theRowSaysNothingWhileItsFileIsFetchedAndShowsAFailure`
 - `GutenbergTest.aFailedDownloadLeavesNoFileAndAnEpubIsOnlyEverTheGutenbergLinkForTheBookId`
 
 #### UC-13i The book list cannot be downloaded
@@ -2378,20 +2378,22 @@ Tests:
 
 Goal: see at a glance how far a book in the queue has come, without reading text.
 
-- Each stage has an icon: fetching the file (only for a book from Find books), reading, speaking, encoding. It is grey when it is next but not started, blue while it runs, and white once done (the text colour on a light theme). Stages after the next one are not shown.
-- A running stage has a thin bar and its percentage with its total, such as "42% · 1,200/3,000 words" or "25% · 3/12 pages". Reading and speaking can run together. A fetch of unknown length has a bar that runs without end and shows the size so far.
-- A waiting book still says "Queued · position N" in words, with the error of a failed fetch; a book being made says nothing else.
+- Each stage has an icon: a down arrow for fetching the file (done at once for a file picked on the device), a magnifier for reading, a speaker for speaking, a musical note for encoding. The play triangle is kept for playing the audio. An icon is grey when its stage is next but not started, blue while it runs, and white once done (the text colour on a light theme). Stages after the next one are not shown.
+- Above the icons, each running stage has a thin bar and its percentage with its total, such as "42% · 1,200/3,000 words" or "25% · 3/12 pages". Reading and speaking can run together. A fetch of unknown length has a bar that runs without end and shows the size so far.
+- An imported book has no "Ready" word and no icon. A bar shows how far the book has been played, with the percentage and the time listened over the length, such as "42% · 1:24/3:20 · Chapter 3", the last part being the chapter reached. A book never played reads "0% · 0:00/3:20" with no chapter.
+- A waiting book says nothing in words: its place is its row. Only the error of a failed fetch shows, as "Download failed: …".
 - Delete is a bin icon on the row.
 
 Tests:
-- `StagesTest.aQueuedPdfShowsOnlyReadingAsNext`
+- `StagesTest.aQueuedPdfShowsItsFetchAsDoneAndReadingAsNext`
 - `StagesTest.aBookFromFindBooksStartsWithItsFetchAndShowsNothingLater`
 - `StagesTest.aFetchOfUnknownLengthHasNoFractionAndOnlyTheBytesSoFar`
 - `StagesTest.readingShowsItsPercentAndPagesAndSpeakingIsNextUntilItHasWords`
+- `StagesTest.aReadyBookShowsItsListeningAsTimeListenedOverItsLength`
 - `StagesTest.readingAndSpeakingRunTogetherAndEncodingIsNext`
 - `StagesTest.speakingShowsItsPercentAndWordsOutOfTheTotalWithReadingDone`
 - `StagesTest.encodingShowsItsPercentWithEverythingBeforeItDone`
-- `StagesTest.aBookWhoseImportIsOverShowsNoStages`
+- `StagesTest.aFailedBookShowsNoStages`
 - `FindBooksUiTest.aBookDownloadedOnItsOwnTurnShowsItsProgressOnItsResultAndItsRowAndThenCarriesOn`
 - `ImportQueueUiTest.booksAreMadeOneAtATimeAndAQueuedBookCanBeDraggedUp`
 

@@ -46,10 +46,10 @@ class ImportQueueTest {
     }
 
     @Test
-    fun labelsShowPositionWithTheBookBeingMadeFirst() {
+    fun aWaitingBookSaysNothingAndTheBookBeingMadeHasItsStages() {
         val books = listOf(book("a", Status.READING), book("b", order = 1), book("c", order = 2))
-        assertEquals("Queued · position 2", ImportQueue.label(books, books[1]))
-        assertEquals("Queued · position 3", ImportQueue.label(books, books[2]))
+        assertEquals("a waiting book's place is its row", "", ImportQueue.label(books, books[1]))
+        assertEquals("", ImportQueue.label(books, books[2]))
         assertEquals("a book being made has no words: its stages show how far it has come", "", ImportQueue.label(books, books[0]))
     }
 
@@ -85,11 +85,11 @@ class ImportQueueTest {
     }
 
     @Test
-    fun theRowSaysNothingWhileItsFileIsFetchedAndShowsAFailureWithItsPlace() {
+    fun theRowSaysNothingWhileItsFileIsFetchedAndShowsAFailure() {
         val books = listOf(book("a", Status.READING), remote("b", order = 1), remote("c", order = 2).copy(error = "No connection"))
         assertEquals("the stages show a fetch", "", ImportQueue.label(books, books[1], downloading = mapOf("b" to DownloadProgress(1024, 2048))))
-        assertEquals("Queued · position 2", ImportQueue.label(books, books[1]))
-        assertEquals("Queued · position 3 · Download failed: No connection", ImportQueue.label(books, books[2]))
+        assertEquals("", ImportQueue.label(books, books[1]))
+        assertEquals("Download failed: No connection", ImportQueue.label(books, books[2]))
     }
 
     /** The line after a reorder, as the shelf shows it once the books to stop have stopped and are waiting again. */

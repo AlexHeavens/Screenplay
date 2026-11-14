@@ -133,8 +133,17 @@ object Library {
     }
 
     /** The stored chapters with their audio times; a book stored before chapters were kept gets them detected on this first call. */
-    fun chapters(ctx: Context, id: String): List<Chapter> =
-        Chapters.place(readBook(dir(ctx, id))?.chapters ?: detectChapters(ctx, id), segments(ctx, id))
+    fun chapters(ctx: Context, id: String, segments: List<Segment> = segments(ctx, id)): List<Chapter> =
+        Chapters.place(readBook(dir(ctx, id))?.chapters ?: detectChapters(ctx, id), segments)
+
+    /** The title of the chapter [book] is at, from where listening stopped ("Start" before the first heading); null for a book never played or with no transcript. Reads files: call it off the main thread. */
+    fun currentChapter(ctx: Context, book: Book): String? {
+        if (book.positionMs == null && !book.finished) return null
+        val segments = segments(ctx, book.id)
+        if (segments.isEmpty()) return null
+        val index = if (book.finished) segments.lastIndex else Timeline.indexAt(segments, book.positionMs ?: 0L)
+        return Chapters.at(chapters(ctx, book.id, segments), index)?.title ?: "Start"
+    }
 
     /** Where each paragraph starts, in ms. */
     fun segmentStarts(ctx: Context, id: String): List<Long> = segments(ctx, id).map { it.start }

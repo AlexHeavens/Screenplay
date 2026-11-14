@@ -10,7 +10,7 @@ import android.content.Intent
 import android.media.MediaExtractor
 import android.media.MediaMetadataRetriever
 import androidx.compose.ui.test.SemanticsMatcher
-import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -56,7 +56,7 @@ class ExportTest {
         scenario = ActivityScenario.launch(
             Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setDataAndType(Fixtures.pdf(ctx), "application/pdf"),
         )
-        waitFor(hasText("Ready", substring = true))
+        waitFor(hasContentDescription("Listened"))
         // The ISBN lookup stores the author in the book's metadata.
         val meta = File(Library.dir(ctx, Library.books.value.single().id), Files.META)
         meta.writeText(JSONObject(meta.readText()).put("author", "Ada Author").toString())

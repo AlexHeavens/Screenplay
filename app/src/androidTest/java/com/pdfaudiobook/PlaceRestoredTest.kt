@@ -9,7 +9,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertTextContains
-import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -57,7 +57,7 @@ class PlaceRestoredTest {
         scenario = ActivityScenario.launch(
             Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setDataAndType(Fixtures.pdf(ctx), "application/pdf"),
         )
-        compose.waitUntil(120_000) { compose.onAllNodes(hasText("Ready", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(120_000) { compose.onAllNodes(hasContentDescription("Listened")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("book-${Fixtures.TITLE}").performClick()
         compose.waitUntil(60_000) { compose.onAllNodesWithTag("sentence-2").fetchSemanticsNodes().isNotEmpty() }
         // Play the second paragraph (a tap speaks it from its start) and wait for the save of it to reach the book's details.
@@ -69,7 +69,7 @@ class PlaceRestoredTest {
         scenario = ActivityScenario.launch(Intent(ctx, MainActivity::class.java))
         compose.waitUntil(30_000) { compose.onAllNodesWithTag("book-${Fixtures.TITLE}").fetchSemanticsNodes().isNotEmpty() }
         val played = Library.books.value.first().playedPercent!!
-        compose.onNodeWithTag("status-${Fixtures.TITLE}", useUnmergedTree = true).assertTextContains("$played% played", substring = true)
+        compose.onNodeWithTag("stage-text-LISTEN-${Fixtures.TITLE}", useUnmergedTree = true).assertTextContains("$played%", substring = true)
         compose.onNodeWithTag("book-${Fixtures.TITLE}").performClick()
         compose.waitUntil(60_000) { compose.onAllNodesWithTag("sentence-1").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("sentence-1").assert(selected())

@@ -8,7 +8,7 @@ import android.content.Intent
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.getBoundsInRoot
-import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -57,7 +57,7 @@ class ControlsCentredTest {
         scenario = ActivityScenario.launch(
             Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setDataAndType(Fixtures.pdf(ctx), "application/pdf"),
         )
-        compose.waitUntil(120_000) { compose.onAllNodes(hasText("Ready", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(120_000) { compose.onAllNodes(hasContentDescription("Listened")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("book-${Fixtures.TITLE}").performClick()
         compose.waitUntil(60_000) { compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "play")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("play").performClick()

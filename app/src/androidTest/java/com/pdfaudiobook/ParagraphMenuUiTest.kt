@@ -9,7 +9,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -63,7 +63,7 @@ class ParagraphMenuUiTest {
     private fun openBook() {
         val intent = Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setDataAndType(Fixtures.pdf(ctx), "application/pdf")
         scenario = ActivityScenario.launch(intent)
-        waitFor(hasText("Ready", substring = true))
+        waitFor(hasContentDescription("Listened"))
         compose.onNodeWithTag("book-${Fixtures.TITLE}").performClick()
         waitForTag("sentence-0")
     }

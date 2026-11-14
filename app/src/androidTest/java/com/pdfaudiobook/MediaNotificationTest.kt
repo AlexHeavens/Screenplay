@@ -13,7 +13,7 @@ import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import android.view.KeyEvent
 import androidx.compose.ui.test.assertTextEquals
-import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -83,7 +83,7 @@ class MediaNotificationTest {
         scenario = ActivityScenario.launch(
             Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setDataAndType(Fixtures.pdf(ctx), "application/pdf"),
         )
-        compose.waitUntil(120_000) { compose.onAllNodes(hasText("Ready", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(120_000) { compose.onAllNodes(hasContentDescription("Listened")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("book-${Fixtures.TITLE}").performClick()
         compose.waitUntil(60_000) { compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "sentence-0")).fetchSemanticsNodes().isNotEmpty() }
         playLabel().assertTextEquals("Play")

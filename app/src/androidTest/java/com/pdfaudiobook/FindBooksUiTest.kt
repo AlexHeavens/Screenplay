@@ -349,7 +349,7 @@ class FindBooksUiTest {
 
         mayFinish.complete(Unit)
         compose.waitUntil(30_000) { !exists("stage-bar-DOWNLOAD-Quiet Shore") }
-        compose.onNodeWithTag("status-Quiet Shore", useUnmergedTree = true).assertTextContains("Queued · position 2")
+        assertTrue("a waiting row says nothing in words once its file is fetched", !exists("status-Quiet Shore"))
 
         speechMayGo.complete(Unit)
         compose.waitUntil(120_000) { Library.books.value.size == 2 && Library.books.value.all { it.status == Status.READY } }

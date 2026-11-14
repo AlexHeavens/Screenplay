@@ -16,8 +16,8 @@ class StagesTest {
     private fun shown(book: Book, download: DownloadProgress? = null) = Stages.of(book, download).map { it.kind to it.state }
 
     @Test
-    fun aQueuedPdfShowsOnlyReadingAsNext() {
-        assertEquals(listOf(StageKind.READ to StageState.NEXT), shown(pdf))
+    fun aQueuedPdfShowsItsFetchAsDoneAndReadingAsNext() {
+        assertEquals(listOf(StageKind.DOWNLOAD to StageState.DONE, StageKind.READ to StageState.NEXT), shown(pdf))
     }
 
     @Test
@@ -42,36 +42,50 @@ class StagesTest {
     fun readingShowsItsPercentAndPagesAndSpeakingIsNextUntilItHasWords() {
         val reading = pdf.copy(status = Status.READING, pages = 3, pagesTotal = 12)
         val stages = Stages.of(reading, null)
-        assertEquals(listOf(StageKind.READ to StageState.ONGOING, StageKind.SPEAK to StageState.NEXT), stages.map { it.kind to it.state })
-        assertEquals("25% · 3/12 pages", stages[0].text)
+        assertEquals(listOf(StageKind.DOWNLOAD to StageState.DONE, StageKind.READ to StageState.ONGOING, StageKind.SPEAK to StageState.NEXT), stages.map { it.kind to it.state })
+        assertEquals("25% · 3/12 pages", stages[1].text)
     }
 
     @Test
     fun readingAndSpeakingRunTogetherAndEncodingIsNext() {
         val both = pdf.copy(status = Status.READING, pages = 6, pagesTotal = 12, words = 1200, wordsQueued = 2400)
         val stages = Stages.of(both, null)
-        assertEquals(listOf(StageState.ONGOING, StageState.ONGOING, StageState.NEXT), stages.map { it.state })
-        assertEquals("1,200 words", stages[1].text.substringAfter("% · "))
+        assertEquals(listOf(StageState.DONE, StageState.ONGOING, StageState.ONGOING, StageState.NEXT), stages.map { it.state })
+        assertEquals("1,200 words", stages[2].text.substringAfter("% · "))
     }
 
     @Test
     fun speakingShowsItsPercentAndWordsOutOfTheTotalWithReadingDone() {
         val speaking = pdf.copy(status = Status.SPEAKING, pages = 12, pagesTotal = 12, words = 500, wordsTotal = 2000)
         val stages = Stages.of(speaking, null)
-        assertEquals(listOf(StageState.DONE, StageState.ONGOING, StageState.NEXT), stages.map { it.state })
-        assertEquals("25% · 500/2,000 words", stages[1].text)
+        assertEquals(listOf(StageState.DONE, StageState.DONE, StageState.ONGOING, StageState.NEXT), stages.map { it.state })
+        assertEquals("25% · 500/2,000 words", stages[2].text)
     }
 
     @Test
     fun encodingShowsItsPercentWithEverythingBeforeItDone() {
         val stages = Stages.of(pdf.copy(status = Status.ENCODING, progress = 0.95f), null)
-        assertEquals(listOf(StageState.DONE, StageState.DONE, StageState.ONGOING), stages.map { it.state })
+        assertEquals(listOf(StageState.DONE, StageState.DONE, StageState.DONE, StageState.ONGOING), stages.map { it.state })
         assertEquals("50%", stages.last().text)
     }
 
     @Test
-    fun aBookWhoseImportIsOverShowsNoStages() {
-        assertTrue(Stages.of(pdf.copy(status = Status.READY), null).isEmpty())
+    fun aFailedBookShowsNoStages() {
         assertTrue(Stages.of(pdf.copy(status = Status.FAILED, error = "x"), null).isEmpty())
+    }
+
+    @Test
+    fun aReadyBookShowsItsListeningAsTimeListenedOverItsLength() {
+        val ready = pdf.copy(status = Status.READY, durationMs = 200_000)
+        val never = Stages.of(ready, null).single()
+        assertEquals(StageKind.LISTEN to StageState.DONE, never.kind to never.state)
+        assertEquals(0f, never.fraction)
+        assertEquals("0% · 0:00/3:20", never.text)
+        val half = Stages.of(ready.copy(positionMs = 84_000), null).single()
+        assertEquals(0.42f, half.fraction)
+        assertEquals("42% · 1:24/3:20", half.text)
+        assertEquals("42% · 1:24/3:20 · Chapter 3", Stages.of(ready.copy(positionMs = 84_000), null, "Chapter 3").single().text)
+        assertEquals("100% · 3:20/3:20", Stages.of(ready.copy(positionMs = 5_000, finished = true), null).single().text)
+        assertTrue("a failed book has no stages", Stages.of(pdf.copy(status = Status.FAILED, error = "x"), null).isEmpty())
     }
 }

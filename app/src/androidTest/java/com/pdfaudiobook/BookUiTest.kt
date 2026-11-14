@@ -31,6 +31,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -98,7 +99,7 @@ class BookUiTest {
 
     private fun openImportedBook() {
         launchWithPdf()
-        waitFor(what = "ready", matcher = hasText("Ready", substring = true))
+        waitFor(what = "ready", matcher = hasContentDescription("Listened"))
         openShelfBook()
     }
 
@@ -106,7 +107,7 @@ class BookUiTest {
     private fun openSeededBook() {
         Fixtures.seedSpokenBook(ctx)
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        waitFor(what = "shelf", matcher = hasText("Ready", substring = true))
+        waitFor(what = "shelf", matcher = hasContentDescription("Listened"))
         openShelfBook()
     }
 
@@ -209,7 +210,7 @@ class BookUiTest {
         Engines.neural = { _, voice -> Named(voice.name, used) }
         Engines.prepareNeural = { _, _, progress -> progress(1f) }
         launchWithPdf()
-        waitFor(what = "ready", matcher = hasText("Ready", substring = true))
+        waitFor(what = "ready", matcher = hasContentDescription("Listened"))
         return used.toSet()
     }
 
@@ -421,7 +422,7 @@ class BookUiTest {
         Library.saveSegments(ctx, id, saved.mapIndexed { i, s -> if (i == 0) s.copy(text = "Chapter One") else s })
         Library.update(ctx, id) { it.copy(chapters = null, estimates = listOf(ChapterEstimate("The Zebra Years", null, null, listOf(saved[2].text)))) }
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        waitFor(what = "shelf", matcher = hasText("Ready", substring = true))
+        waitFor(what = "shelf", matcher = hasContentDescription("Listened"))
         openShelfBook()
         waitFor(what = "second heading", unmerged = true, matcher = SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "chapter-2"))
 
@@ -447,7 +448,7 @@ class BookUiTest {
         Library.saveNotes(ctx, id, listOf(Note("early", segments[0].start + 100, "early remark")))
         ParagraphNotes.save(ctx, id, listOf(ParagraphNote(2, ParagraphNotes.hash(segments[2].text), "zebra claim")))
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        waitFor(what = "shelf", matcher = hasText("Ready", substring = true))
+        waitFor(what = "shelf", matcher = hasContentDescription("Listened"))
         openShelfBook()
         compose.onNodeWithTag("notes-panel").assertDoesNotExist()
 
@@ -549,7 +550,7 @@ class BookUiTest {
 
     private fun openBookAgain() {
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        waitFor(what = "ready", matcher = hasText("Ready", substring = true))
+        waitFor(what = "ready", matcher = hasContentDescription("Listened"))
         compose.onNodeWithTag("book-$title").performClick()
     }
 
@@ -610,7 +611,7 @@ class BookUiTest {
             Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_SEND).setType("application/pdf")
                 .putExtra(Intent.EXTRA_STREAM, Fixtures.pdf(ctx)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         )
-        waitFor(what = "ready", matcher = hasText("Ready", substring = true))
+        waitFor(what = "ready", matcher = hasContentDescription("Listened"))
         compose.onNodeWithText(title).assertIsDisplayed()
     }
 
@@ -641,7 +642,7 @@ class BookUiTest {
     @Test
     fun importingTheSamePdfTwiceMakesTwoBooksWithTheSameTitle() = withQuickOcr {
         launchWithPdf()
-        waitFor(what = "first ready", matcher = hasText("Ready", substring = true))
+        waitFor(what = "first ready", matcher = hasContentDescription("Listened"))
         val second = ActivityScenario.launch<MainActivity>(
             Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setDataAndType(Fixtures.pdf(ctx), "application/pdf")
         )
