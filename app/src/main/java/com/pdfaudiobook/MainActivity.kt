@@ -176,6 +176,7 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
             Box(Modifier.padding(pad).fillMaxSize().padding(24.dp)) { Text("No audiobooks yet. Import a PDF or EPUB.") }
         }
         val importing = ImportQueue.line(books)
+        val downloading by QueueDownload.active.collectAsState()
         val drag = rememberQueueDrag(books) { id, to -> Library.moveTo(ctx, id, to) }
         val imported = ImportQueue.imported(books)
         LazyColumn(Modifier.padding(pad)) {
@@ -183,7 +184,7 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
             if (importing.isNotEmpty()) {
                 item(key = "header-importing") { SectionHeader("Importing", "section-importing") }
                 items(importing, key = { it.id }) { b ->
-                    BookRow(b, ImportQueue.label(books, b), onOpen, onDelete = { toDelete = b },
+                    BookRow(b, ImportQueue.label(books, b, downloading), onOpen, onDelete = { toDelete = b },
                         onMoveUp = if (ImportQueue.canMoveUp(books, b.id)) ({ Library.moveUp(ctx, b.id) }) else null,
                         drag = drag)
                 }

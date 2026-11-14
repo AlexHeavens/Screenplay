@@ -72,6 +72,8 @@ object Library {
             finished = j.optBoolean("finished"),
             queueOrder = j.optLong("order"),
             source = j.optString("source"),
+            downloadUrl = j.optString("download"),
+            awaitingDownload = j.optString("download").isNotEmpty() && !File(dir, Files.EPUB).exists(),
         )
     }
 
@@ -101,6 +103,7 @@ object Library {
         if (b.finished) j.put("finished", true)
         if (b.queueOrder != 0L) j.put("order", b.queueOrder)
         if (b.source.isNotEmpty()) j.put("source", b.source)
+        if (b.downloadUrl.isNotEmpty()) j.put("download", b.downloadUrl)
         writeAtomically(File(dir, Files.META), j.toString())
         refresh(ctx)
     }
@@ -162,6 +165,23 @@ object Library {
                 refresh(ctx)
                 return@launch
             }
+            refresh(ctx)
+            ImportQueue.start(ctx)
+        }
+    }
+
+    /**
+     * Adds a catalogue book to the end of the import queue at once, without its file: [QueueDownload] fetches the EPUB from [url] when
+     * the book is the highest in line still to fetch, or when its turn comes. The file is not part of the book until it is whole.
+     */
+    fun enqueueDownload(ctx: Context, title: String, source: String, url: String) {
+        scope.launch {
+            val id = UUID.randomUUID().toString().take(8)
+            val dir = dir(ctx, id).apply { mkdirs() }
+            File(dir, Files.NOTES).writeText("[]")
+            val meta = JSONObject().put("title", title).put("created", System.currentTimeMillis()).put("order", System.currentTimeMillis())
+                .put("source", source).put("download", url).put("status", Status.QUEUED.name)
+            writeAtomically(File(dir, Files.META), meta.toString())
             refresh(ctx)
             ImportQueue.start(ctx)
         }

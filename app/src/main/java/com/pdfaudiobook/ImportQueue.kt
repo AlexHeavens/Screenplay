@@ -37,10 +37,21 @@ object ImportQueue {
     /** The next book to make, skipping those in [skip]. */
     fun next(books: List<Book>, skip: Set<String> = emptySet()): Book? = line(books).firstOrNull { it.id !in skip }
 
-    /** What the row says: "Queued" with the place in line (the book being made is first), else the book's own progress. */
-    fun label(books: List<Book>, book: Book): String {
+    /**
+     * The next book to fetch: the highest in [line] whose file is not on disk, skipping [skip] (books whose fetch failed this run).
+     * A book being made already has its file, so it is never chosen. Where the book stands decides, not when it was added: a reorder changes the answer.
+     */
+    fun nextDownload(books: List<Book>, skip: Set<String> = emptySet()): Book? = line(books).firstOrNull { it.awaitingDownload && it.id !in skip }
+
+    /**
+     * What the row says: "Downloading" while its file is being fetched, else "Queued" with the place in line (the book being made is first;
+     * a failed fetch adds its error), else the book's own progress.
+     */
+    fun label(books: List<Book>, book: Book, downloading: Set<String> = emptySet()): String {
+        if (book.status == Status.QUEUED && book.id in downloading) return "Downloading…"
         val place = line(books).indexOfFirst { it.id == book.id } + 1
-        return if (book.status == Status.QUEUED && place > 0) "Queued · position $place" else book.label()
+        if (book.status != Status.QUEUED || place <= 0) return book.label()
+        return "Queued · position $place" + (book.error?.let { " · Download failed: $it" } ?: "")
     }
 
     /** Only a waiting book with another waiting book ahead of it can move up: nothing goes above the book being made. */

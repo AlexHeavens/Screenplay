@@ -179,14 +179,15 @@ class GutendexTest {
     fun aBookWithoutAnEpubIsNeverRequestedAndAFailedDownloadLeavesNoFile() = runBlocking {
         val saved = Engines.httpGet
         val client = CatalogueClient("Screenplay/test")
-        val file = tmp.newFile("book.epub")
+        val file = java.io.File(tmp.root, "book.epub")
         try {
             Engines.httpGet = { _, _, _ -> error("no request expected") }
             try { client.download(Gutendex.Entry(1, "Lost", "a", emptyList(), 1, null), file); error("expected a refusal") } catch (e: CatalogueException) { assertTrue(e.message!!, "no EPUB" in e.message!!) }
 
             Engines.httpGet = { _, _, out -> out.write(1); throw CatalogueException("cut off") }
             try { client.download(Gutendex.Entry(1, "Cut", "a", emptyList(), 1, "https://www.gutenberg.org/ebooks/1.epub3.images"), file); error("expected a failure") } catch (e: CatalogueException) {}
-            assertFalse(file.exists())
+            assertFalse("a cut-off download never becomes the book's file", file.exists())
+            assertFalse("and leaves no temporary file", java.io.File(tmp.root, "book.epub.part").exists())
         } finally {
             Engines.httpGet = saved
         }

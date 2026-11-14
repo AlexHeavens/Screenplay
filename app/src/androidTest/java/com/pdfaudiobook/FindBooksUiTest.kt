@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -72,7 +73,7 @@ class FindBooksUiTest {
             requests += url
             agents += agent
             when {
-                url == epubLink -> out.write(book())
+                url.endsWith(".epub3.images") -> out.write(book())
                 "topic=" in url -> out.write(page(result(4242, "Harbour Notes", 30_000, epub = true), result(77, "Quiet Shore", 3_000, epub = true), result(88, "Text Only", 2_000, epub = false)).toByteArray())
                 else -> out.write(page(result(5, "Other Book", 100, epub = true)).toByteArray())
             }
@@ -131,6 +132,52 @@ class FindBooksUiTest {
 
         compose.onNodeWithTag("find-back").performClick()
         compose.onNodeWithTag("book-Harbour Notes").assertIsDisplayed()
+    }
+
+    @Test
+    fun theSecondBookIsDownloadedWhileTheFirstIsBeingMade() {
+        val firstLink = epubLink
+        val secondLink = "https://www.gutenberg.org/ebooks/77.epub3.images"
+        val inner = Engines.httpGet
+        val arrived = CopyOnWriteArrayList<String>()
+        val firstMayFinish = CompletableDeferred<Unit>()
+        Engines.httpGet = { url, agent, out ->
+            if (url.endsWith(".epub3.images")) arrived += url
+            if (url == firstLink) firstMayFinish.await()
+            inner(url, agent, out)
+        }
+        // Speech is held, so the first book stays "being made" until the test lets it go.
+        val speechMayGo = CompletableDeferred<Unit>()
+        Engines.synthesizer = {
+            val real = FakeSynthesizer()
+            object : Synthesizer {
+                override suspend fun speak(text: String, wav: File) { speechMayGo.await(); real.speak(text, wav) }
+                override fun close() = real.close()
+            }
+        }
+        fun bookFrom(source: String) = Library.books.value.single { it.source == source }
+
+        openFindBooks()
+        compose.onNodeWithTag("genre-SCIENCE_FICTION").performClick()
+        waitForTag("result-77")
+        compose.onNodeWithTag("result-4242").performClick()
+        compose.onNodeWithTag("result-77").performClick()
+        compose.waitUntil(30_000) { firstLink in arrived }
+        compose.waitUntil(30_000) { Library.books.value.size == 2 }
+        Thread.sleep(1_500)
+        assertEquals("one download at a time, in queue order", listOf(firstLink), arrived.toList())
+
+        firstMayFinish.complete(Unit)
+        compose.waitUntil(60_000) { bookFrom("gutenberg:4242").status != Status.QUEUED }
+        compose.waitUntil(60_000) { !bookFrom("gutenberg:77").awaitingDownload }
+        assertTrue("the first book is still being made", bookFrom("gutenberg:4242").status != Status.READY)
+        assertEquals(Status.QUEUED, bookFrom("gutenberg:77").status)
+        assertEquals(listOf(firstLink, secondLink), arrived.toList())
+
+        speechMayGo.complete(Unit)
+        compose.waitUntil(120_000) { Library.books.value.all { it.status == Status.READY } }
+        assertEquals("each book is downloaded once", listOf(firstLink, secondLink), arrived.toList())
+        assertTrue("no partial file is left", Library.books.value.all { b -> File(Library.dir(ctx, b.id), "source.epub.part").exists().not() })
     }
 
     @Smoke @Test

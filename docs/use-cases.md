@@ -202,13 +202,22 @@ Unchecked: a real process kill, and the foreground job that keeps a long book go
 Goal: get a book without hunting for a file.
 
 - "Find books" on the shelf searches Project Gutenberg through Gutendex, by genre and popularity.
-- Tapping a book adds it to the import queue as an EPUB. A book with no EPUB says so and sends no request.
+- Tapping a book adds it to the import queue at once, as an EPUB still to fetch. A book with no EPUB says so and sends no request.
+- While one book is made (compute bound), the highest book in line that has no file yet is fetched in the background (network bound), so it is ready when its turn comes. Its row says "Downloading…", then "Queued".
+- One fetch runs at a time, in queue order, and a reorder, an addition or a deletion is taken into account at the next fetch. A book is never fetched twice.
+- A failed fetch shows its error on the row and does not stop the book being made; the book's own turn retries it, and fails it with the reason if that fails too.
+- A fetch writes to a temporary name and renames it when whole, so a stopped worker or a killed app never leaves a partial file taken for a book.
 - When the catalogue cannot be reached, the screen shows a friendly message.
 - The app waits after a failure, honours the server's retry delay, and names itself in its user agent.
 
 Tests:
 - `FindBooksUiTest.searchesByGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
+- `FindBooksUiTest.theSecondBookIsDownloadedWhileTheFirstIsBeingMade`
 - `FindBooksUiTest.saysWhenABookHasNoEpubAndSendsNoRequestForIt`
+- `ImportQueueTest.theHighestWaitingBookWithoutItsFileIsFetchedNext`
+- `ImportQueueTest.fetchedBooksFileBooksAndTheBookBeingMadeAreSkipped`
+- `ImportQueueTest.aReorderChangesWhichBookIsFetchedNext`
+- `ImportQueueTest.theRowSaysDownloadingWhileItsFileIsFetchedAndShowsAFailureWithItsPlace`
 - `FindBooksUiTest.showsAFriendlyMessageWhenTheCatalogueCannotBeReached`
 - `GutendexTest.turnsFiltersIntoTheCatalogueRequest`
 - `GutendexTest.leavesOutBooksInCopyrightAndAnythingNotText`
@@ -216,7 +225,7 @@ Tests:
 - `GutendexTest.followsTheServersRetryAfterButNeverWaitsMoreThanTheLimit`
 - `GutendexTest.theProjectGutenbergLicenceSurvivesReadingAndWritingTheBook`
 
-Unchecked: the real Gutendex service. The tests use a fake network.
+Unchecked: the real Gutendex service, and a fetch cut short by a killed process. The tests use a fake network.
 
 ## Listening
 

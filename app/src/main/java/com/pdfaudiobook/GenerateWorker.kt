@@ -38,12 +38,20 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         // A refused foreground start only costs the notification; the work still runs.
         try { setForeground(foregroundInfo()) } catch (_: Exception) {}
         val ctx = applicationContext
-        ImportQueue.drain(
-            pick = { skip -> Library.refresh(ctx); ImportQueue.next(Library.books.value, skip)?.id },
-            run = { id -> make(id) },
-            // An Error too (out of memory): otherwise the job ends but the book shows its last stage for ever.
-            failed = { id, e -> Library.update(ctx, id) { it.copy(status = Status.FAILED, error = e.message ?: e.javaClass.simpleName) } },
-        )
+        coroutineScope {
+            // Fetching is network bound: it runs beside the book being made and ends with the run.
+            val prefetch = launch { QueueDownload.prefetch(ctx) }
+            try {
+                ImportQueue.drain(
+                    pick = { skip -> Library.refresh(ctx); ImportQueue.next(Library.books.value, skip)?.id },
+                    run = { id -> make(id) },
+                    // An Error too (out of memory): otherwise the job ends but the book shows its last stage for ever.
+                    failed = { id, e -> Library.update(ctx, id) { it.copy(status = Status.FAILED, error = e.message ?: e.javaClass.simpleName) } },
+                )
+            } finally {
+                prefetch.cancel()
+            }
+        }
         return Result.success()
     }
 
@@ -68,6 +76,8 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
      * it is still being read. A failure in either half fails the book.
      */
     private suspend fun generate(id: String) {
+        // A book from "Find books" whose turn comes before its file was fetched: fetch it now, or fail the book with the reason.
+        QueueDownload.ensure(applicationContext, id)
         try {
             generate(id, resume = true)
         } catch (e: StaleResume) {

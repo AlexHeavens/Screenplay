@@ -53,6 +53,45 @@ class ImportQueueTest {
         assertEquals(books[0].label(), ImportQueue.label(books, books[0]))
     }
 
+    private fun remote(id: String, order: Long = 0, status: Status = Status.QUEUED, fetched: Boolean = false) =
+        book(id, status, order).copy(downloadUrl = "https://example.test/$id.epub", awaitingDownload = !fetched)
+
+    @Test
+    fun theHighestWaitingBookWithoutItsFileIsFetchedNext() {
+        val books = listOf(remote("c", order = 3), remote("a", order = 1), remote("b", order = 2))
+        assertEquals("a", ImportQueue.nextDownload(books)?.id)
+    }
+
+    @Test
+    fun fetchedBooksFileBooksAndTheBookBeingMadeAreSkipped() {
+        val books = listOf(
+            book("running", Status.SPEAKING), book("picked", order = 1), remote("done", order = 2, fetched = true),
+            remote("next", order = 3), remote("later", order = 4),
+        )
+        assertEquals("next", ImportQueue.nextDownload(books)?.id)
+        assertEquals("later", ImportQueue.nextDownload(books, skip = setOf("next"))?.id)
+        assertEquals(null, ImportQueue.nextDownload(books, skip = setOf("next", "later")))
+        assertEquals(null, ImportQueue.nextDownload(listOf(book("a"), remote("b", fetched = true), remote("gone", status = Status.FAILED))))
+    }
+
+    @Test
+    fun aReorderChangesWhichBookIsFetchedNext() {
+        val books = listOf(remote("a", order = 1), remote("b", order = 2), remote("c", order = 3))
+        assertEquals("a", ImportQueue.nextDownload(books)?.id)
+        val change = ImportQueue.reorder(books, "c", 0)
+        val moved = books.map { b -> change.orders[b.id]?.let { b.copy(queueOrder = it) } ?: b }
+        assertEquals("c", ImportQueue.nextDownload(moved)?.id)
+        assertEquals("a", ImportQueue.nextDownload(moved.filter { it.id != "c" })?.id)
+    }
+
+    @Test
+    fun theRowSaysDownloadingWhileItsFileIsFetchedAndShowsAFailureWithItsPlace() {
+        val books = listOf(book("a", Status.READING), remote("b", order = 1), remote("c", order = 2).copy(error = "No connection"))
+        assertEquals("Downloading…", ImportQueue.label(books, books[1], downloading = setOf("b")))
+        assertEquals("Queued · position 2", ImportQueue.label(books, books[1]))
+        assertEquals("Queued · position 3 · Download failed: No connection", ImportQueue.label(books, books[2]))
+    }
+
     /** The line after a reorder, as the shelf shows it once the books to stop have stopped and are waiting again. */
     private fun after(books: List<Book>, id: String, to: Int): Pair<List<String>, List<String>> {
         val change = ImportQueue.reorder(books, id, to)

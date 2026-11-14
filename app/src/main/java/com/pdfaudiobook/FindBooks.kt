@@ -4,7 +4,6 @@
 
 package com.pdfaudiobook
 
-import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -49,11 +48,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import java.io.File
 
 /**
  * "Find books": searches Project Gutenberg's catalogue ([Gutendex]) and adds a tapped book to the import queue as an EPUB.
- * Nothing is requested until the reader searches or picks a genre, and each tap sends one request.
+ * Nothing is requested until the reader searches or picks a genre; a tap sends no request itself, the queue fetches the file ([QueueDownload]).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,7 +69,6 @@ fun FindBooks(onBack: () -> Unit) {
     var searched by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
-    var downloading by remember { mutableStateOf(setOf<Int>()) }
     var added by remember { mutableStateOf(setOf<Int>()) }
     BackHandler(onBack = onBack)
 
@@ -98,24 +95,13 @@ fun FindBooks(onBack: () -> Unit) {
     fun newSearch(text: String = "", genre: Gutendex.Genre? = null, englishOnly: Boolean = true) = search(Gutendex.Query(text, genre, englishOnly))
 
     fun add(entry: Gutendex.Entry) {
-        if (entry.id in downloading) return
-        downloading = downloading + entry.id
-        message = null
-        scope.launch {
-            val file = File(ctx.cacheDir, "gutenberg-${entry.id}.epub")
-            try {
-                client.download(entry, file)
-                Library.import(ctx, Uri.fromFile(file), source = "gutenberg:${entry.id}", title = entry.title, temporary = file)
-                added = added + entry.id
-                message = "Added “${entry.title}” to the import queue."
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                message = e.message ?: "The download failed."
-            } finally {
-                downloading = downloading - entry.id
-            }
-        }
+        val url = entry.epubUrl
+        if (url == null) { message = "“${entry.title}” has no EPUB, so it cannot be added."; return }
+        if (entry.id in added) return
+        // The book joins the queue at once; the queue fetches its file ([QueueDownload]), so taps never make parallel requests.
+        added = added + entry.id
+        Library.enqueueDownload(ctx, entry.title, "gutenberg:${entry.id}", url)
+        message = "Added “${entry.title}” to the import queue."
     }
 
     val shown = Gutendex.filter(entries, popularity)
@@ -152,7 +138,7 @@ fun FindBooks(onBack: () -> Unit) {
                 if (searched && shown.isEmpty() && !loading) item {
                     Text(if (entries.isEmpty()) "No books found." else "No books match this popularity. Choose Any to see all ${entries.size} found.", Modifier.padding(16.dp).testTag("find-empty"))
                 }
-                items(shown, key = { it.id }) { entry -> ResultRow(entry, entry.id in downloading, entry.id in added) { add(entry) } }
+                items(shown, key = { it.id }) { entry -> ResultRow(entry, entry.id in added) { add(entry) } }
                 val page = lastPage
                 if (page != null && Gutendex.hasMore(page, popularity)) item {
                     OutlinedButton({ search(Gutendex.Query(text, genre, englishOnly, pageNumber + 1)) }, Modifier.padding(16.dp).testTag("find-more"), enabled = !loading) { Text("More results") }
@@ -164,14 +150,13 @@ fun FindBooks(onBack: () -> Unit) {
 }
 
 @Composable
-private fun ResultRow(entry: Gutendex.Entry, downloading: Boolean, added: Boolean, onClick: () -> Unit) {
+private fun ResultRow(entry: Gutendex.Entry, added: Boolean, onClick: () -> Unit) {
     val state = when {
-        downloading -> "Downloading…"
         added -> "Added to the import queue"
         entry.epubUrl == null -> "No EPUB available"
         else -> null
     }
-    Column(Modifier.fillMaxWidth().clickable(enabled = !downloading, onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp).testTag("result-${entry.id}")) {
+    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp).testTag("result-${entry.id}")) {
         Text(entry.title, Modifier.testTag("result-title-${entry.id}"), style = MaterialTheme.typography.titleMedium, maxLines = 2)
         Text("${entry.author} · ${entry.languages.joinToString { it.uppercase() }} · ${"%,d".format(entry.downloads)} downloads", Modifier.testTag("result-detail-${entry.id}"), style = MaterialTheme.typography.bodyMedium)
         state?.let { Text(it, Modifier.testTag("result-state-${entry.id}"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }

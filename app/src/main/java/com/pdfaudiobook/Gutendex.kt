@@ -199,10 +199,23 @@ class CatalogueClient(private val userAgent: String, private val now: () -> Long
     /** Saves the book's EPUB to [file]; a file left by a failed download is removed. */
     suspend fun download(entry: Gutendex.Entry, file: File) {
         val url = entry.epubUrl ?: throw CatalogueException("“${entry.title}” has no EPUB, so it cannot be added.")
+        download(url, file)
+    }
+
+    /** How long a request must still wait after a failure; the queue waits this out rather than failing a book. */
+    fun backoffMs(): Long = backoff.waitMs(now())
+
+    /**
+     * Saves [url] to [file]. The body goes to a temporary name beside it and is renamed once whole, so a download cut short by a
+     * stopped worker or a killed app never leaves a partial file that looks like a book; a failed one removes its temporary file.
+     */
+    suspend fun download(url: String, file: File) {
+        val partial = File(file.parentFile, file.name + ".part")
         try {
-            file.outputStream().use { request(url, it) }
-        } catch (e: Exception) {
-            file.delete()
+            partial.outputStream().use { request(url, it) }
+            java.nio.file.Files.move(partial.toPath(), file.toPath(), java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        } catch (e: Throwable) {
+            partial.delete()
             throw e
         }
     }
