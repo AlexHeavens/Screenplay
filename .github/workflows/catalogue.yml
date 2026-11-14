@@ -1,0 +1,24 @@
+name: Book catalogue
+
+# Rebuilds the list "Find books" searches and publishes it to the release tagged `catalogue`. See scripts/publish-catalogue.sh.
+on:
+  schedule:
+    - cron: "17 5 * * *"   # Gutenberg rebuilds its bulk feed daily; once a day is as often as it changes
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: catalogue
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/publish-catalogue.sh
+        env:
+          GH_TOKEN: ${{ github.token }}

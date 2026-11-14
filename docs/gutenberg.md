@@ -1,33 +1,41 @@
 # Find books: Project Gutenberg and the law
 
-"Find books" searches the Project Gutenberg catalogue and adds a book to the import queue as an EPUB.
+"Find books" searches a stored copy of the Project Gutenberg catalogue and adds a book to the import queue as an EPUB.
 This note records what the feature does, what it assumes, and what to check before the app is published.
-It is not legal advice. The author read the pages named below on 2026-11-14. Nobody at Project Gutenberg or Gutendex was contacted.
+It is not legal advice. The author read the pages named below on 2026-11-14. Nobody at Project Gutenberg was contacted.
 
 ## What the feature does
 
-- It asks Gutendex (`Gutendex.BASE_URL`, one constant), a free third-party JSON service over the Project Gutenberg catalogue.
-  It never loads gutenberg.org pages and never scrapes a search page.
-- A search sends one request. It starts only when the reader taps Search or a genre. Changing the popularity filter sends none.
-  The screen opens with no request. Nothing runs in the background. Nothing is fetched ahead of a tap.
-- A tap on a result sends one request for that book's EPUB, using the link from the catalogue entry (`formats["application/epub+zip"]`).
-  The app fetches only `https` links on gutenberg.org. A book without an EPUB shows "No EPUB available" and sends no request.
+- **Once a day, a GitHub Actions workflow** (`.github/workflows/catalogue.yml`, also run by hand) runs `scripts/publish-catalogue.sh`.
+  It downloads Gutenberg's one bulk catalogue file, `feeds/rdf-files.tar.bz2` (about 127 MB), with one request.
+  `scripts/build-catalogue.py` reduces it to the public-domain text books that have an EPUB (about 77,700 books: id, title, authors,
+  languages, download count, bookshelves and subjects). The result is one xz file, `catalogue.tsv.xz` (about 2.2 MB; gzip and longer titles gave 3.5 MB).
+  Titles are cut to their first line and 80 characters, and summaries, credits and file lists are left out.
+  Its first line names the file format and the date Gutenberg built the feed.
+- **The file is published to one release** of this repository, tagged `catalogue`, with `gh release upload catalogue ... --clobber`.
+  The upload is skipped when the books are the same as the published ones. The app uses the fixed link
+  `https://github.com/AlexHeavens/Screenplay/releases/download/catalogue/catalogue.tsv.xz` (`Catalogue.URL`), never `releases/latest`.
+- **The app downloads the file once**, the first time "Find books" opens, and keeps it in its private files. It replaces the file
+  at most once a day, when the screen opens. A failed or unreadable refresh keeps the old file. The app never calls Gutenberg to search.
+- **Search runs on the device**: title and author words, genre chips (a bookshelf or subject that contains the genre word), English only
+  by default, and a popularity filter. It needs no network after the first download.
+- **A tap sends one request** for that book's EPUB to gutenberg.org, using `https://www.gutenberg.org/ebooks/<id>.epub3.images`, when the
+  book's turn comes in the import queue. The workflow keeps only books whose feed entry lists that file.
 - Every request carries `User-Agent: Screenplay/<version> (+https://github.com/AlexHeavens/Screenplay)`.
-  Gutenberg asks for a client name and a contact address (OPDS section of its terms).
-- Search results are cached in memory for 5 minutes. After a failed request the app refuses to send another for 2 s, doubling to 60 s,
-  or for the `Retry-After` the server gave. It never retries by itself.
+  After a failed request the app refuses to send another for 2 s, doubling to 60 s, or for the `Retry-After` the server gave.
+  It never retries by itself.
 - The EPUB is kept as downloaded, with its Project Gutenberg licence page. The import, the backup and the EPUB export keep that text
-  (`GutendexTest.theProjectGutenbergLicenceSurvivesReadingAndWritingTheBook`). The book keeps `source` = `gutenberg:<id>` in its details.
-- The screen says that the books come from Project Gutenberg, that the app is not made or endorsed by it, that the books are public
-  domain in the US only, and that the reader must check the law where they live. It links to gutenberg.org.
-  The app has no About screen yet, so this text is the attribution.
+  (`GutenbergTest.theProjectGutenbergLicenceSurvivesReadingAndWritingTheBook`). The book keeps `source` = `gutenberg:<id>` in its details.
+- The screen says that the books come from Project Gutenberg's catalogue data, copied daily to this app's GitHub page, that the app is not
+  made or endorsed by Project Gutenberg, that the books are public domain in the US only, and that the reader must check the law where
+  they live. It links to gutenberg.org. The app has no About screen yet, so this text is the attribution.
 
 ## What "rating" means
 
-Gutenberg and Gutendex have no ratings. The filter is **Popularity (downloads)** from the `download_count` field: Any, Popular
-(5,000 or more) and Very popular (20,000 or more). The limits come from two real first pages (2026-11-14):
+Gutenberg has no ratings. The filter is **Popularity (downloads)** from the catalogue's `pgterms:downloads` count: Any, Popular
+(5,000 or more) and Very popular (20,000 or more). The limits come from the first-page counts read on 2026-11-14:
 the 32 Dickens books had 2,435 to 50,704 downloads, and the 32 most downloaded English science fiction books had 6,782 to 182,729.
-Results are sorted by downloads. The filter works on the pages already loaded. Gutendex does not state what period the count covers.
+Gutenberg does not state what period the count covers. The count is the one in the feed on the day the list was built.
 
 ## What was read, and what it says
 
@@ -47,10 +55,12 @@ Results are sorted by downloads. The filter works on the pages already loaded. G
    `/cache/epub/<id>/...epub` and returned 200 for one manual `curl` with the user agent above and no referrer. Nobody tested it
    from the app at scale. Gutenberg may treat an app that downloads files on demand as the "mock front-end" or the deep-linking its terms forbid.
    A mirror or the harvest route might be the intended way. Ask Gutenberg before publishing.
-2. **Gutendex.** Its own terms, rate limits and long-term availability were not checked. Measured on 2026-11-14 from this machine: one request took
-   19 s, one 54 s, one 136 s, and one failed after 150 s. The client waits 60 s for a read, then shows a failure message.
-3. **Copyright.** Books with `copyright: true` and any `media_type` other than `Text` are hidden. A book with `copyright: null` is shown.
-   The catalogue can be wrong. The app cannot know the law in the reader's country.
+2. **The bulk catalogue and its copy.** Gutenberg offers `rdf-files.tar.bz2` for download and says the feeds may be fetched; the workflow
+   fetches it once a day, which is no faster than the feed changes. Republishing a reduced copy of the facts (titles, authors, counts) on
+   GitHub was not cleared with Gutenberg. GitHub release downloads have no stated rate limit for this use; a hosting change is one constant (`Catalogue.URL`).
+   The workflow itself has run only by hand so far (CI minutes were used up); the first file was published by running the same script locally.
+3. **Copyright.** The list holds only books whose `dcterms:rights` says "Public domain in the USA", of type Text. The catalogue can be wrong.
+   The app cannot know the law in the reader's country.
 4. **Verbatim copies.** The EPUB export is text only: it drops images and splits long paragraphs. Gutenberg calls a format change acceptable,
    but nobody confirmed this for a rebuilt EPUB. The licence text stays in the export.
 5. **Trademark.** The app is assumed to be free and to name Project Gutenberg only as a linked reference. If the app is sold, shows ads, or the
@@ -63,8 +73,9 @@ Results are sorted by downloads. The filter works on the pages already loaded. G
   Decide whether the app should use a mirror instead.
 - **Play Store content policy**: check the rules for apps that let users download books (copyright, user-generated and "impersonation"
   sections), and what the data-safety form needs.
-- **Privacy policy**: say that a search sends the search words and genre, and a tap sends the book's link, over the internet to gutendex.com
-  and gutenberg.org, with the app's user agent and the device's IP address. The app has no account, no analytics and no tracking.
+- **Privacy policy**: say that opening "Find books" downloads the book list from github.com (at most once a day), and a tap sends the book's
+  link to gutenberg.org, with the app's user agent and the device's IP address. Search words never leave the device. The app has no account, no analytics and no tracking.
 - **`INTERNET` permission**: the manifest comment says why. Only "Find books" uses the network.
 - **Store text**: do not put "Project Gutenberg" in the app name, icon or promotional text unless the trademark rules are met.
-- **Gutendex**: check its terms and whether it still runs. `Gutendex.BASE_URL` is the one line to change.
+- **Catalogue release**: check that the `catalogue` release still holds a current file (the workflow's last run) and that the repository is public
+  when the app is. `Catalogue.URL` is the one line to change if the file moves.

@@ -34,6 +34,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,67 +49,45 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
- * "Find books": searches Project Gutenberg's catalogue ([Gutendex]) and adds a tapped book to the import queue as an EPUB.
- * Nothing is requested until the reader searches or picks a genre; a tap sends no request itself, the queue fetches the file ([QueueDownload]).
+ * "Find books": searches the stored book list of Project Gutenberg ([Catalogue]) as the reader types, and adds a tapped book to the import
+ * queue as an EPUB. The list is downloaded the first time the screen opens and refreshed at most once a day; searching never uses the network.
+ * A tap sends no request itself, the queue fetches the file ([QueueDownload]).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FindBooks(onBack: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    val client = remember { Gutendex.client(ctx) }
     val books by Library.books.collectAsState()
     val downloading by QueueDownload.active.collectAsState()
+    val state by Catalogue.state.collectAsState()
     var text by remember { mutableStateOf("") }
-    var genre by remember { mutableStateOf<Gutendex.Genre?>(null) }
-    var popularity by remember { mutableStateOf(Gutendex.Popularity.ANY) }
+    var genre by remember { mutableStateOf<Genre?>(null) }
+    var popularity by remember { mutableStateOf(Popularity.ANY) }
     var englishOnly by remember { mutableStateOf(true) }
-    var entries by remember { mutableStateOf<List<Gutendex.Entry>>(emptyList()) }
-    var lastPage by remember { mutableStateOf<Gutendex.Page?>(null) }
-    var pageNumber by remember { mutableStateOf(1) }
-    var searched by remember { mutableStateOf(false) }
-    var loading by remember { mutableStateOf(false) }
+    var shownCount by remember(text, genre, popularity, englishOnly) { mutableStateOf(PAGE_SIZE) }
     var message by remember { mutableStateOf<String?>(null) }
     var added by remember { mutableStateOf(setOf<Int>()) }
     BackHandler(onBack = onBack)
+    LaunchedEffect(Unit) { Catalogue.open(ctx) }
 
-    fun search(query: Gutendex.Query) {
-        if (loading) return
-        loading = true
-        message = null
-        scope.launch {
-            try {
-                val page = client.search(query)
-                entries = if (query.page == 1) page.entries else entries + page.entries
-                lastPage = page
-                pageNumber = query.page
-                searched = true
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                message = e.message ?: "The search failed."
-            } finally {
-                loading = false
-            }
-        }
-    }
-    fun newSearch(text: String = "", genre: Gutendex.Genre? = null, englishOnly: Boolean = true) = search(Gutendex.Query(text, genre, englishOnly))
+    val data = (state as? Catalogue.State.Ready)?.data
+    val query = CatalogueQuery(text, genre, popularity, englishOnly)
+    val result by produceState<CatalogueResult?>(null, data, query, shownCount) { value = data?.let { withContext(Dispatchers.Default) { it.search(query, shownCount) } } }
 
-    fun add(entry: Gutendex.Entry) {
-        val url = entry.epubUrl
-        if (url == null) { message = "“${entry.title}” has no EPUB, so it cannot be added."; return }
+    fun add(entry: CatalogueEntry) {
         if (entry.id in added) return
         // The book joins the queue at once; the queue fetches its file ([QueueDownload]), so taps never make parallel requests.
         added = added + entry.id
-        Library.enqueueDownload(ctx, entry.title, "gutenberg:${entry.id}", url)
+        Library.enqueueDownload(ctx, entry.title, "gutenberg:${entry.id}", entry.epubUrl)
         message = "Added “${entry.title}” to the import queue."
     }
 
-    val shown = Gutendex.filter(entries, popularity)
     Scaffold(topBar = {
         TopAppBar(
             title = { Text("Find books") },
@@ -115,36 +95,42 @@ fun FindBooks(onBack: () -> Unit) {
         )
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    text, { text = it }, Modifier.weight(1f).testTag("find-query"), singleLine = true, label = { Text("Title or author") },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { newSearch(text, genre, englishOnly) }),
-                )
-                Button({ newSearch(text, genre, englishOnly) }, Modifier.testTag("find-search"), enabled = !loading) { Text("Search") }
-            }
+            OutlinedTextField(
+                text, { text = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("find-query"), singleLine = true, label = { Text("Title or author") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            )
             Text("Genre", Modifier.padding(start = 16.dp, top = 8.dp), style = MaterialTheme.typography.labelLarge)
             LazyRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(Gutendex.Genre.values().toList()) { g ->
-                    FilterChip(genre == g, { genre = if (genre == g) null else g; newSearch(text, genre, englishOnly) }, { Text(g.label) }, Modifier.testTag("genre-${g.name}"), shape = ControlShape, colors = themeChipColors())
+                items(Genre.values().toList()) { g ->
+                    FilterChip(genre == g, { genre = if (genre == g) null else g }, { Text(g.label) }, Modifier.testTag("genre-${g.name}"), shape = ControlShape, colors = themeChipColors())
                 }
             }
             Text("Popularity (downloads)", Modifier.padding(start = 16.dp, top = 8.dp), style = MaterialTheme.typography.labelLarge)
             Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (p in Gutendex.Popularity.values()) {
+                for (p in Popularity.values()) {
                     FilterChip(popularity == p, { popularity = p }, { Text(if (p.minDownloads == 0) p.label else "${p.label} (${"%,d".format(p.minDownloads)}+)") }, Modifier.testTag("popularity-${p.name}"), shape = ControlShape, colors = themeChipColors())
                 }
-                FilterChip(englishOnly, { englishOnly = !englishOnly; if (searched) newSearch(text, genre, englishOnly) }, { Text("English only") }, Modifier.testTag("find-english"), shape = ControlShape, colors = themeChipColors())
+                FilterChip(englishOnly, { englishOnly = !englishOnly }, { Text("English only") }, Modifier.testTag("find-english"), shape = ControlShape, colors = themeChipColors())
             }
             message?.let { Text(it, Modifier.padding(horizontal = 16.dp, vertical = 8.dp).testTag("find-message"), color = MaterialTheme.colorScheme.primary) }
-            if (loading) Text("Searching…", Modifier.padding(horizontal = 16.dp).testTag("find-loading"))
-            LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("find-results")) {
-                if (searched && shown.isEmpty() && !loading) item {
-                    Text(if (entries.isEmpty()) "No books found." else "No books match this popularity. Choose Any to see all ${entries.size} found.", Modifier.padding(16.dp).testTag("find-empty"))
+            when (val s = state) {
+                is Catalogue.State.Opening -> Text("Opening the book list…", Modifier.padding(16.dp).testTag("find-loading"))
+                is Catalogue.State.Downloading -> Text("Downloading the book list. ${s.progress.label.removePrefix("Downloading").trim()}".trim(), Modifier.padding(16.dp).testTag("find-loading"))
+                is Catalogue.State.Failed -> Column(Modifier.padding(16.dp)) {
+                    Text(s.message, Modifier.testTag("find-failed"), color = MaterialTheme.colorScheme.error)
+                    OutlinedButton({ scope.launch { Catalogue.open(ctx) } }, Modifier.testTag("find-retry")) { Text("Try again") }
                 }
-                items(shown, key = { it.id }) { entry -> ResultRow(entry, entry.id in added, books.firstOrNull { it.source == "gutenberg:${entry.id}" }?.let { downloading[it.id] }) { add(entry) } }
-                val page = lastPage
-                if (page != null && Gutendex.hasMore(page, popularity)) item {
-                    OutlinedButton({ search(Gutendex.Query(text, genre, englishOnly, pageNumber + 1)) }, Modifier.padding(16.dp).testTag("find-more"), enabled = !loading) { Text("More results") }
+                is Catalogue.State.Ready -> Unit
+            }
+            val found = result
+            if (found != null) Text("${"%,d".format(found.total)} books", Modifier.padding(horizontal = 16.dp, vertical = 4.dp).testTag("find-count"), style = MaterialTheme.typography.bodySmall)
+            LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("find-results")) {
+                if (found != null && found.total == 0) item {
+                    Text(if (popularity == Popularity.ANY) "No books found." else "No books found. Choose Any popularity to see more.", Modifier.padding(16.dp).testTag("find-empty"))
+                }
+                items(found?.entries.orEmpty(), key = { it.id }) { entry -> ResultRow(entry, entry.id in added, books.firstOrNull { it.source == "gutenberg:${entry.id}" }?.let { downloading[it.id] }) { add(entry) } }
+                if (found != null && found.total > found.entries.size) item {
+                    OutlinedButton({ shownCount += PAGE_SIZE }, Modifier.padding(16.dp).testTag("find-more")) { Text("More results") }
                 }
             }
             Attribution()
@@ -152,12 +138,13 @@ fun FindBooks(onBack: () -> Unit) {
     }
 }
 
+private const val PAGE_SIZE = 50
+
 @Composable
-private fun ResultRow(entry: Gutendex.Entry, added: Boolean, download: DownloadProgress?, onClick: () -> Unit) {
+private fun ResultRow(entry: CatalogueEntry, added: Boolean, download: DownloadProgress?, onClick: () -> Unit) {
     val state = when {
         download != null -> download.label
         added -> "Added to the import queue"
-        entry.epubUrl == null -> "No EPUB available"
         else -> null
     }
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp).testTag("result-${entry.id}")) {
@@ -173,10 +160,11 @@ private fun Attribution() {
     val links = LocalUriHandler.current
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         Text(
-            "Books from Project Gutenberg, listed through the Gutendex catalogue service. This app is not made by or endorsed by Project Gutenberg. " +
+            "Books from Project Gutenberg. The list comes from Project Gutenberg's public catalogue data, copied daily to this app's GitHub page, and is searched on this device. " +
+                "This app is not made by or endorsed by Project Gutenberg. " +
                 "These books are public domain in the United States; copyright can differ in other countries, so check the law where you live.",
             Modifier.testTag("find-notice"), style = MaterialTheme.typography.bodySmall,
         )
-        TextButton({ links.openUri(Gutendex.SITE_URL) }, Modifier.testTag("find-gutenberg-link")) { Text("gutenberg.org") }
+        TextButton({ links.openUri(Gutenberg.SITE_URL) }, Modifier.testTag("find-gutenberg-link")) { Text("gutenberg.org") }
     }
 }

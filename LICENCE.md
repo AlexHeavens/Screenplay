@@ -44,7 +44,7 @@ The files are not part of this repository or of the APK.
 | Piper `en_US-libritts_r-medium` voice | CC BY 4.0 | It needs a credit, which NOTICE gives. The voice is trained on LibriTTS-R. | Model card read for the dataset licence. The credit text is *unverified*. |
 | `espeak-ng-data` (inside both voice archives) | GPL-3.0-or-later | The app only downloads and reads the data files. See the open question below. | *Unverified* |
 | Project Gutenberg books | Public domain in the USA, with the Project Gutenberg licence text | The app downloads one book at a time when the user taps it, and keeps the Project Gutenberg licence text with the book. | Terms and robot policy read. See [docs/gutenberg.md](docs/gutenberg.md). |
-| Gutendex search (gutendex.com) | Code is MIT. The public instance states no terms. | It is a free search API for Project Gutenberg metadata. The app sends a User-Agent that names the project. | Repository page read |
+| Project Gutenberg catalogue (gutenberg.org feeds) | Gutenberg offers the bulk catalogue for download; its terms ask for a user agent and no deep-linking. | A daily workflow downloads the file once and publishes a reduced copy to this repository's release `catalogue`. The app sends a User-Agent that names the project. | Terms and robot pages read |
 | Open Library lookup by ISBN | Terms page asks regular callers to send a User-Agent with a contact. It says the APIs are not a backend for third-party services. | The app sends one request when a user enters an ISBN, which is a human lookup. The call sends a User-Agent that names the project and its URL. | Terms page read. Data licence page not read. |
 
 ## Assets stored in this repository

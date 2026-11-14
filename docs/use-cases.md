@@ -775,90 +775,81 @@ Unchecked: the notification itself and a long book that survives closing the app
 
 Goal: get a book without hunting for a file.
 
-- "Find books" on the shelf searches Project Gutenberg through Gutendex, by genre and popularity.
-- Tapping a book adds it to the import queue at once, as an EPUB still to fetch. A book with no EPUB says so and sends no request.
+- "Find books" on the shelf searches a list of Project Gutenberg's public-domain text books that is stored on the phone. A search answers at once, with no network request, because the list is searched on the device (UC-13j).
+- The list is shown as soon as the screen opens, most downloaded first, and narrows as the reader types or picks a genre or popularity. It says how many books match.
+- Tapping a book adds it to the import queue at once, as an EPUB still to fetch. The EPUB is fetched from gutenberg.org when the book's turn comes, never at the tap.
 - While one book is made (compute bound), the highest book in line that has no file yet is fetched in the background (network bound), so it is ready when its turn comes. Its row says "Downloading 42% · 3.1 of 7.4 MB" under a bar that fills with the bytes received over the length the server announced, then "Queued". With no announced length the bar runs without end and the row says the bytes so far. The result in "Find books" shows the same text. Progress is kept in memory only and updates once per whole percent, so it costs no disk writes.
 - One fetch runs at a time, in queue order, and a reorder, an addition or a deletion is taken into account at the next fetch. A book is never fetched twice.
 - A failed fetch shows its error on the row and does not stop the book being made; the book's own turn retries it, and fails it with the reason if that fails too.
 - A fetch writes to a temporary name and renames it when whole, so a stopped worker or a killed app never leaves a partial file taken for a book.
-- When the catalogue cannot be reached, the screen shows a friendly message.
-- The app waits after a failure, honours the server's retry delay, and names itself in its user agent.
 
 Tests:
-- `FindBooksUiTest.searchesByGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
+- `FindBooksUiTest.searchesByTitleGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
 - `FindBooksUiTest.theSecondBookIsDownloadedWhileTheFirstIsBeingMade`
-- `FindBooksUiTest.saysWhenABookHasNoEpubAndSendsNoRequestForIt`
 - `ImportQueueTest.theHighestWaitingBookWithoutItsFileIsFetchedNext`
 - `ImportQueueTest.fetchedBooksFileBooksAndTheBookBeingMadeAreSkipped`
 - `ImportQueueTest.aReorderChangesWhichBookIsFetchedNext`
 - `ImportQueueTest.theRowSaysNothingWhileItsFileIsFetchedAndShowsAFailureWithItsPlace`
-- `FindBooksUiTest.showsAFriendlyMessageWhenTheCatalogueCannotBeReached`
-- `GutendexTest.turnsFiltersIntoTheCatalogueRequest`
-- `GutendexTest.leavesOutBooksInCopyrightAndAnythingNotText`
-- `GutendexTest.waitsAfterAFailureAndDoublesTheWaitUpToALimit`
-- `GutendexTest.followsTheServersRetryAfterButNeverWaitsMoreThanTheLimit`
-- `GutendexTest.theProjectGutenbergLicenceSurvivesReadingAndWritingTheBook`
+- `GutenbergTest.theProjectGutenbergLicenceSurvivesReadingAndWritingTheBook`
 
-Unchecked: the real Gutendex service, and a fetch cut short by a killed process. The tests use a fake network.
+Unchecked: the real GitHub release and gutenberg.org, and a fetch cut short by a killed process. The tests use a fake network.
 
 #### UC-13a Search by title or author
 
 Goal: find a book I know.
 
-- The search box ("Title or author") sends the words to the catalogue. While it waits the screen shows "Searching…".
+- The search box ("Title or author") keeps the books where every word is in the title or an author's name. Case and accents are ignored: "cafe" finds "Café".
+- Authors are shown in reading order ("Charles Dickens"); several are joined with " & ". A book with no author shows "Unknown author".
+- "No books found." is shown when nothing matches.
 
 Tests:
-- `GutendexTest.turnsFiltersIntoTheCatalogueRequest`
-- `FindBooksUiTest.searchesByGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
+- `CatalogueTest.everyWordMustMatchTheTitleOrAnAuthorIgnoringCaseAndAccents`
+- `CatalogueTest.aRowShowsTheTitleTheAuthorsInReadingOrderTheLanguagesAndTheDownloads`
+- `FindBooksUiTest.searchesByTitleGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
 
 #### UC-13b Choose one of nine genres
 
 Goal: browse by kind of book.
 
-- The "Genre" menu offers nine genres. Each is one of the genres the catalogue knows.
+- The "Genre" chips offer nine genres. A genre keeps the books with a bookshelf or subject that contains the genre's word, ignoring case. Picking the chosen genre again clears it.
 
 Tests:
-- `GutendexTest.everyGenreIsOneOfTheNineOffered`
-- `FindBooksUiTest.searchesByGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
+- `CatalogueTest.everyGenreIsOneOfTheNineOffered`
+- `CatalogueTest.aGenreMatchesTheBooksBookshelvesAndSubjects`
+- `FindBooksUiTest.searchesByTitleGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
 
 #### UC-13c Keep only popular books
 
 Goal: not wade through books nobody reads.
 
-- "Popularity (downloads)" keeps books with at least the chosen number of downloads. More results are offered ("More results") only while the last book is still popular enough.
-- When the filter hides every result, the screen says "No books match this popularity. Choose Any to see all <n> found." With no results at all it says "No books found."
+- "Popularity (downloads)" keeps books with at least the chosen number of downloads: Any, Popular (5,000) or Very popular (20,000). Gutenberg publishes no ratings; the download count is the only measure.
+- The list shows 50 books and "More results" shows 50 more while others match. When nothing matches under a popularity limit, the screen says "No books found. Choose Any popularity to see more."
 
 Tests:
-- `GutendexTest.popularityKeepsBooksDownloadedAtLeastTheLimitOften`
-- `GutendexTest.offersMoreResultsOnlyWhileTheLastBookIsStillPopularEnough`
-- `FindBooksUiTest.searchesByGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
+- `CatalogueTest.popularityKeepsBooksDownloadedAtLeastTheLimitOften`
+- `CatalogueTest.theResultCarriesTheFirstBooksAndHowManyMatchedInAll`
+- `FindBooksUiTest.searchesByTitleGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
 
 #### UC-13d English books only
 
 Goal: see only books I can read.
 
-- The "English only" switch limits the search to English. The row shows the author, the languages in capitals, and the downloads.
+- The "English only" switch is on by default. A book in English and another language counts as English. The row shows the author, the languages in capitals, and the downloads.
 
 Tests:
-- `GutendexTest.readsTitleAuthorLanguageDownloadsAndEpubOfARealResponse`
-- `GutendexTest.turnsFiltersIntoTheCatalogueRequest`
+- `CatalogueTest.englishOnlyLeavesOutABookWithNoEnglishAndTheSwitchTurnsItOff`
+- `FindBooksUiTest.searchesByTitleGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
 
-#### UC-13e Only books that can be added are listed or added
+#### UC-13e Only books that can be added are listed
 
 Goal: not add a book that cannot be read.
 
-- Books in copyright, and anything that is not text (audiobooks, for example), are left out. Only an EPUB format is chosen, and only `https` links to gutenberg.org are fetched.
-- An entry with no EPUB is kept without a link. Tapping it says "“<title>” has no EPUB, so it cannot be added." and sends no request.
+- The list holds only text books that are public domain in the USA and have an EPUB: the daily build leaves out copyrighted books, audio, scores and books with no EPUB (UC-13k). The app fetches only the `https://www.gutenberg.org/ebooks/<id>.epub3.images` link for a book it lists.
 - The Project Gutenberg licence text stays with the book when it is read and written.
 
 Tests:
-- `GutendexTest.leavesOutBooksInCopyrightAndAnythingNotText`
-- `GutendexTest.leavesOutTheCopyrightedAudiobooksARealResponseHolds`
-- `GutendexTest.choosesTheEpubFormatAndNothingElse`
-- `GutendexTest.anEntryWithoutAnEpubIsKeptWithNoLink`
-- `GutendexTest.aBookWithoutAnEpubIsNeverRequestedAndAFailedDownloadLeavesNoFile`
-- `GutendexTest.theProjectGutenbergLicenceSurvivesReadingAndWritingTheBook`
-- `FindBooksUiTest.saysWhenABookHasNoEpubAndSendsNoRequestForIt`
+- `CatalogueTest.readsTheVersionAndEveryBookMostDownloadedFirst`
+- `GutenbergTest.theProjectGutenbergLicenceSurvivesReadingAndWritingTheBook`
 
 #### UC-13f Tapping a book adds it to the queue
 
@@ -867,7 +858,7 @@ Goal: add a book with one tap and carry on browsing.
 - The book is added as an EPUB still to fetch, and the screen says "Added to the import queue".
 
 Tests:
-- `FindBooksUiTest.searchesByGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
+- `FindBooksUiTest.searchesByTitleGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
 
 #### UC-13g A book is fetched while another is made
 
@@ -885,7 +876,7 @@ Tests:
 - `DownloadProgressTest.theFractionAndPercentStayWithinTheBarWhenTheServerSendsMoreThanItAnnounced`
 - `DownloadProgressTest.theThrottleHandlesAnUnknownLengthByTenthsOfAMegabyte`
 - `DownloadProgressTest.theThrottlePassesOnlyReportsThatChangeWhatTheReaderSees`
-- `GutendexTest.aDownloadReportsTheBytesReceivedAndTheAnnouncedLengthAndKeepsTheFileOnlyWhenWhole`
+- `GutenbergTest.aDownloadReportsTheBytesReceivedAndTheAnnouncedLengthAndKeepsTheFileOnlyWhenWhole`
 - `ImportQueueTest.theHighestWaitingBookWithoutItsFileIsFetchedNext`
 - `ImportQueueTest.fetchedBooksFileBooksAndTheBookBeingMadeAreSkipped`
 - `ImportQueueTest.aReorderChangesWhichBookIsFetchedNext`
@@ -899,38 +890,50 @@ Goal: see why a book did not download, and not keep a broken file.
 
 Tests:
 - `ImportQueueTest.theRowSaysNothingWhileItsFileIsFetchedAndShowsAFailureWithItsPlace`
-- `GutendexTest.aBookWithoutAnEpubIsNeverRequestedAndAFailedDownloadLeavesNoFile`
+- `GutenbergTest.aFailedDownloadLeavesNoFileAndAnEpubIsOnlyEverTheGutenbergLinkForTheBookId`
 
-#### UC-13i The catalogue cannot be reached
+#### UC-13i The book list cannot be downloaded
 
-Goal: be told what is wrong, in words.
+Goal: be told what is wrong, in words, and try again.
 
-- No connection: "Could not reach the book catalogue. Check the connection and try again."
-- An answer that is not the catalogue: "The book catalogue sent an answer this app cannot read."
+- With no stored list and no connection, the screen says "Could not reach the book catalogue. Check the connection and try again." and offers "Try again".
 - Too many requests (status 429): the message says to wait, and the wait follows the server's retry delay. Any other error status is named by its number.
-- A failed search without a message shows "The search failed."
+- A downloaded file that is not a book list in a format the app knows is refused with "The book list is not in a form this app can read. Updating the app may fix this."
 
 Tests:
-- `FindBooksUiTest.showsAFriendlyMessageWhenTheCatalogueCannotBeReached`
+- `FindBooksUiTest.saysWhenTheFirstDownloadFailsAndOffersToTryAgain`
 - `CatalogueErrorTest.aCatalogueThatCannotBeReachedSaysToCheckTheConnection`
-- `CatalogueErrorTest.anAnswerThatIsNotTheCatalogueSaysItCannotBeRead`
 - `CatalogueErrorTest.tooManyRequestsSaysToWaitAndKeepsTheServersRetryDelay`
 - `CatalogueErrorTest.anyOtherErrorStatusIsNamedByItsNumber`
+- `CatalogueTest.aFileInAnotherFormatIsRefusedWithAMessageForTheReader`
+- `CatalogueTest.aTagNumberOutsideTheTagLineIsRefused`
 
-#### UC-13j The app is polite to the catalogue
+#### UC-13j The list is stored, searched offline and refreshed daily
 
-Goal: not get blocked for asking too often.
+Goal: search at once, even with no connection, and be polite to the host.
 
-- After a failure the client waits before it asks again, and doubles the wait up to a limit. It honours the server's Retry-After, but never waits longer than the limit. While it waits it says "Please wait <n> seconds before trying again."
-- A repeated search is asked once, because the last 20 answers are kept for five minutes; the oldest is dropped past 20.
-- The user agent names the app, its version, and where to ask about it.
+- The first time "Find books" opens it downloads the list in one request (about 2.2 MB, xz) from this project's GitHub release `catalogue`, shows "Downloading the book list" with its progress, and keeps the file. Nothing is downloaded before the screen opens.
+- Later it reads the stored file and searches it with no network. A stored list older than a day is replaced when the screen opens; the old one is searched meanwhile.
+- A refresh that fails, or that returns something that is not a book list, keeps the old copy and says nothing. A new copy replaces the old one only after it reads correctly.
+- After a failure the client waits before it asks again, doubling the wait up to a limit, and honours the server's Retry-After. The user agent names the app, its version, and where to ask about it.
 
 Tests:
-- `GutendexTest.waitsAfterAFailureAndDoublesTheWaitUpToALimit`
-- `GutendexTest.followsTheServersRetryAfterButNeverWaitsMoreThanTheLimit`
-- `GutendexTest.theClientAsksOnceForARepeatedSearchAndWaitsOutAFailureWithoutAsking`
-- `GutendexTest.cachesAnAnswerUntilItExpiresAndForgetsTheOldestPastItsCapacity`
-- `GutendexTest.theUserAgentNamesTheAppItsVersionAndWhereToAskAboutIt`
+- `FindBooksUiTest.searchesTheStoredListWithNoConnectionAfterTheFirstDownload`
+- `FindBooksUiTest.aListOlderThanADayIsReplacedAndAFailedOrUnreadableReplacementKeepsTheOldOne`
+- `GutenbergTest.waitsAfterAFailureAndDoublesTheWaitUpToALimit`
+- `GutenbergTest.followsTheServersRetryAfterButNeverWaitsMoreThanTheLimit`
+- `GutenbergTest.theUserAgentNamesTheAppItsVersionAndWhereToAskAboutIt`
+
+#### UC-13k The list is built daily from Gutenberg's bulk catalogue
+
+Goal: keep the list current without calling Gutenberg from every phone.
+
+- A scheduled GitHub Actions workflow (`catalogue.yml`, daily and on demand) runs `scripts/publish-catalogue.sh`. It downloads Gutenberg's one bulk file (`rdf-files.tar.bz2`), reduces it with `scripts/build-catalogue.py` and uploads `catalogue.tsv.xz` to the release `catalogue` with `--clobber`, unless the books are the same as the published ones. The first line of the file names the format and the Gutenberg build date.
+
+Tests:
+- `CatalogueTest.readsTheVersionAndEveryBookMostDownloadedFirst`
+
+Unchecked: the scheduled run itself and the reduction of a new feed by an automated test. The first publication was made by running the same script by hand.
 
 ## Making a book
 
@@ -2449,5 +2452,5 @@ Behaviour that tests cover only in part, and that someone has to check by hand o
 - OCR quality and speed on the phone's own scans (UC-01, UC-05, UC-51a).
 - A real process kill while a book is made (UC-12).
 - The look of the notification, highlights, theme and layout (UC-19, UC-31, UC-46).
-- Real voices, the real Gutendex and Open Library services, and the real Android spell checker (UC-06, UC-13, UC-44, UC-45).
+- Real voices, the real GitHub release, gutenberg.org and Open Library services, and the real Android spell checker (UC-06, UC-13, UC-44, UC-45).
 - Exported files in third-party apps (UC-35, UC-38, UC-40).

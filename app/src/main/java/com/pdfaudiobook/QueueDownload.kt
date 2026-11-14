@@ -92,7 +92,7 @@ object QueueDownload {
      */
     suspend fun ensure(ctx: Context, id: String) {
         if (!awaiting(id)) return
-        val client = Gutendex.client(ctx)
+        val client = Gutenberg.client(ctx)
         delay(client.backoffMs())
         one.withLock {
             val book = Library.books.value.firstOrNull { it.id == id }?.takeIf { it.awaitingDownload } ?: return
