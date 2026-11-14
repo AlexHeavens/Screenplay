@@ -31,6 +31,8 @@ import java.io.File
  * The Varieties preface fixture is "The varieties of religious experience, a study in
  * human nature.djvu" (James, 1902) pages 9–11 and 17 from Wikimedia Commons, with its Wikisource transcription. Page 11 is the
  * contents page and page 17 opens Lecture I, so the chapter heading there repeats a contents entry.
+ * The bell fixture is "Popular Science Monthly Volume 19.djvu" (1881) pages 337–339 from Wikimedia Commons, with its
+ * Wikisource transcription: a two-line drop cap and the footnote markers *, † and ‡ inside the body text.
  */
 @RunWith(AndroidJUnit4::class)
 class OcrFixtureTest {
@@ -46,11 +48,11 @@ class OcrFixtureTest {
 
     @Smoke @Test fun varietiesPrefaceThenContents() = check(OcrFixtures.varietiesPreface, everyFixture = true)
 
-
+    @Smoke @Test fun radiantEnergy() = check(OcrFixtures.bell, everyFixture = true)
 
     private fun check(f: OcrFixture, everyFixture: Boolean = false) {
-        // Real OCR costs about ten seconds a page on the emulator and two cores. The two cheapest fixtures, a 200 ppi CCITT scan and a
-        // 150 ppi JPEG scan, keep the saved dumps honest on every run; the rest run with `-e ocrAll true`, which is how to refresh every dump.
+        // Real OCR costs about ten seconds a page on the emulator and two cores. The cheapest fixture, gibbon (two pages),
+        // keeps the saved dumps honest on every run; the rest run with `-e ocrAll true`, which is how to refresh every dump.
         assumeTrue("run with -e ocrAll true", !everyFixture || InstrumentationRegistry.getArguments().getString("ocrAll") == "true")
         val pdf = File(ctx.cacheDir, "${f.name}.pdf")
         assets.open("ocr/${f.name}.pdf").use { i -> pdf.outputStream().use { i.copyTo(it) } }

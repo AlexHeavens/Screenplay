@@ -8,7 +8,7 @@ An on-demand benchmark for experiments with the OCR path. It runs one fixed corp
 
 | Path | Contents |
 |---|---|
-| `corpus.py` | The 15 cases. Seven real scans come from `app/src/androidTest/assets/ocr`. Eight synthetic pages are in `corpus/`. |
+| `corpus.py` | The 13 cases. Five real scans come from `app/src/androidTest/assets/ocr`. Eight synthetic pages are in `corpus/`. |
 | `corpus/` | The synthetic PDFs and their exact truth. `synth.py` built them once from Project Gutenberg #1342 and #17989. They are committed so that every run reads the same pages. |
 | `results/` | Stored run files. **`mlkit-1600-argb.json` is the baseline: the current production path.** |
 | `run.sh` | The entry point (see below). |
@@ -62,4 +62,4 @@ Commit a run file when it supports a decision, and add the result to `docs/ocr-a
 ## Limits
 
 - Emulator and desktop timings are not phone timings. They are useful only to compare runs on the same host. The desktop runs from 2026-11-14 ran while other sessions used the host.
-- The synthetic pages use one font (DejaVu Serif). The real scans are seven pages from old English books.
+- The synthetic pages use one font (DejaVu Serif). The real scans are 16 pages: 13 from old English books and 3 from an 1881 magazine.

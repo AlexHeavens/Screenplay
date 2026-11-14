@@ -10,7 +10,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FIXTURES = os.path.join(HERE, "..", "..", "app", "src", "androidTest", "assets", "ocr")
 SYNTH_DIR = os.path.join(HERE, "corpus")
 
-REAL = ["origin", "gibbon", "james", "varieties-preface"]
+REAL = ["origin", "gibbon", "james", "varieties-preface", "bell"]
 SYNTH = ["clean-scan", "poor-scan", "text-layer", "small-print", "headers-footnotes", "two-column", "french", "russian"]
 CASES = REAL + SYNTH
 # Left out of the totals: text-layer is not a scan, and no Latin recogniser can read russian.

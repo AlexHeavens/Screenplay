@@ -23,7 +23,7 @@ class OcrFixtureDumpTest {
 
     @Test fun varietiesPrefaceThenContents() = check(OcrFixtures.varietiesPreface)
 
-
+    @Test fun radiantEnergy() = check(OcrFixtures.bell)
 
     private fun check(f: OcrFixture) {
         val ocr = OcrFixtures.parseDump(File(dir, "${f.name}.ocr.json").readText())

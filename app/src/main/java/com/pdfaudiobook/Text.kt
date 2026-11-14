@@ -134,10 +134,12 @@ object Text {
     internal val smallCaps = Regex("^\\p{Lu}(?:\\p{Lu}|\\s\\p{Lu}{2})")
     /**
      * A footnote number (or asterisk) glued to the punctuation ending a word or a quotation: `fast.12`, `"Inc."19`,
-     * `"(26 percent)."6`, `ourselves.'"0`. After a digit only a closing quote marks it, so `3.25` stays.
+     * `"(26 percent)."6`, `ourselves.'"0`. After a digit only a closing quote marks it, so `3.25` stays. A symbol marker
+     * also follows a capital, as in a title set in capitals (`ENERGY.*`), where a number could be part of a name.
      */
     private val noteMarker = Regex(
-        "(?:(?<=\\p{Ll}[.,;:!?)\"”’']{1,3})|(?<=\\d[.,;:!?)]{0,2}[\"”’][.,;:!?)\"”’']{0,2}))(?:[*†]?\\d{1,3}|[*†])(?=\\s|$)"
+        "(?:(?<=\\p{Ll}[.,;:!?)\"”’']{1,3})|(?<=\\d[.,;:!?)]{0,2}[\"”’][.,;:!?)\"”’']{0,2}))(?:[*†‡]?\\d{1,3}|[*†‡])(?=\\s|$)" +
+            "|(?<=\\p{Lu}[.,;:!?)\"”’']{1,3})[*†‡](?=\\s|$)"
     )
 
     /**

@@ -18,9 +18,11 @@ Test book: app/src/androidTest/assets/epub/lighthouse.epub
   Text written for this project (a few invented sentences, no outside source).
   Licence: CC0 1.0 Universal, https://creativecommons.org/publicdomain/zero/1.0/
 
-Test scans: app/src/androidTest/assets/ocr/{origin,gibbon,james,varieties}*
+Test scans: app/src/androidTest/assets/ocr/{origin,gibbon,james,varieties,bell}*
   Page images: Wikimedia Commons scans of public-domain books, each marked "Public domain" and not copyrighted in its Commons metadata (checked 2026-11-14) ("Origin of Species 1859 facsimile.djvu",
-  "Decline and Fall of the Roman Empire vol 1 (1897).djvu", "The varieties of religious experience, a study in human nature.djvu").
+  "Decline and Fall of the Roman Empire vol 1 (1897).djvu", "The varieties of religious experience, a study in human nature.djvu",
+  "Popular Science Monthly Volume 19.djvu" pages 337-339, https://commons.wikimedia.org/wiki/File:Popular_Science_Monthly_Volume_19.djvu ,
+  itself from https://archive.org/details/popularsciencemo19newy ).
   Expected text: Wikisource transcriptions of the same pages, which Wikisource publishes under CC BY-SA 4.0,
   https://creativecommons.org/licenses/by-sa/4.0/ . Their contributors are credited through the page histories on Wikisource.
 

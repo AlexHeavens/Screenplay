@@ -62,6 +62,21 @@ object OcrFixtures {
     )
 
 
+    /**
+     * Popular Science Monthly vol. 19 (1881): the end of one article, then Bell's "Production of Sound by Radiant Energy",
+     * which opens with a two-line drop cap and sets the footnote markers *, † and ‡ inside the body text.
+     */
+    val bell = OcrFixture(
+        // Not yet: the 276-word footnote on the first page and "* Continued from page 197." are read aloud; OCR orders the
+        // drop cap "A" before the byline, so it is dropped ("T the time"); OCR reads † as "+" and ‡ as "t", so those
+        // markers stay; and OCR loses the last four lines of the third page.
+        "bell", maxWer = 0.391,
+        mustContain = listOf("PRODUCTION OF SOUND BY RADIANT", "the loudest effects obtained were produced", "(even of the same stick) yielded the same results"),
+        mustNotContain = listOf(
+            "EERGY.*", "Proceedings of", "Annales de Chimie", "THE POPULAR SCIENCE MONTHLY", "EUROPEAN SCHOOLS OF FORESTRY", "FIG. 7", "FIG. 8",
+        ),
+    )
+
     /** What the app speaks for these OCR paragraphs: the path of [PdfText.read] followed by the import's cleaning. */
     fun spoken(ocr: List<String>): List<String> = Text.prepare(Text.fromOcr(ocr), Options(spell = false))
 

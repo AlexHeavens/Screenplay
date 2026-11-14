@@ -191,6 +191,13 @@ class CleanupTest {
         assertEquals("Costs rose by 3, 25 and 40 percent.", Text.dropNonProse(listOf("Costs rose by 3, 25 and 40 percent.")).single())
     }
 
+    @Test fun stripsFootnoteSymbolsAfterATitleInCapitals() {
+        assertEquals("PRODUCTION OF SOUND BY RADIANT ENERGY.", Text.dropNonProse(listOf("PRODUCTION OF SOUND BY RADIANT ENERGY.*")).single())
+        assertEquals("Results came in. The tone was loud.", Text.dropNonProse(listOf("Results came in.‡ The tone was loud.")).single())
+        val name = "The output of the works at PLANT B.2 rose every year until the war began."
+        assertEquals(name, Text.dropNonProse(listOf(name)).single())
+    }
+
     @Test fun stripsFootnoteNumbersAfterClosingQuotes() {
         val paragraphs = listOf(
             "Others call it \"shared lanterns,\"7 \"borrowed lanterns,\"8 or \"Port Ltd.\"19 My doubts are many.",
