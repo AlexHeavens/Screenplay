@@ -71,12 +71,25 @@ object ImportQueue {
     /** What a reorder changes: the new [Book.queueOrder] of the books whose place moves, and the books being made that must stop. */
     class Reorder(val orders: Map<String, Long>, val stop: List<String>) {
         val isEmpty get() = orders.isEmpty() && stop.isEmpty()
+
+        /** [books] as they stand once this reorder is done: the new orders, and the books to stop shown as waiting again, so [line] lists the new order at once. */
+        fun applyTo(books: List<Book>): List<Book> = books.map { b ->
+            val moved = orders[b.id]?.let { b.copy(queueOrder = it) } ?: b
+            if (b.id in stop) moved.copy(status = Status.QUEUED) else moved
+        }
     }
+
+    /**
+     * [books] with every book that has been told to stop shown as waiting again. Such a book keeps its running status on disk until its worker has
+     * stopped and put it back ([Library.requeue]); without this the shelf would list it first again for that time.
+     */
+    fun showStoppingAsWaiting(books: List<Book>): List<Book> =
+        if (preempted.isEmpty()) books else books.map { if (it.id in preempted && it.status in running) it.copy(status = Status.QUEUED) else it }
 
     /**
      * Moves [id] to place [to] in [line] (0 is the book made first; a place outside the line is the nearest end of it).
      * Whatever ends up first is made first, so a book being made that is no longer first is in [Reorder.stop]: [Library.moveTo]
-     * stops it and puts it back among the waiting books, in the place given here. Empty when [id] is not in the line or stays put.
+     * stops it and puts it back among the waiting books, in the place given here (the shelf shows that at once, see [Library.moveTo]). Empty when [id] is not in the line or stays put.
      */
     fun reorder(books: List<Book>, id: String, to: Int): Reorder {
         val line = line(books)

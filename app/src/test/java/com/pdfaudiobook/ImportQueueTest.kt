@@ -95,12 +95,37 @@ class ImportQueueTest {
     /** The line after a reorder, as the shelf shows it once the books to stop have stopped and are waiting again. */
     private fun after(books: List<Book>, id: String, to: Int): Pair<List<String>, List<String>> {
         val change = ImportQueue.reorder(books, id, to)
-        val moved = books.map { b -> change.orders[b.id]?.let { b.copy(queueOrder = it) } ?: b }
-            .map { if (it.id in change.stop) it.copy(status = Status.QUEUED) else it }
-        return ids(ImportQueue.line(moved)) to change.stop
+        return ids(ImportQueue.line(change.applyTo(books))) to change.stop
     }
 
     private val running = listOf(book("a", Status.READING), book("b", order = 100), book("c", order = 200), book("d", order = 300))
+
+    @Test
+    fun aMovedBookIsListedInItsNewPlaceAtOnceWithoutWaitingForTheBookItPassedToStop() {
+        // The running book still has its running status here, as on disk until its worker has stopped: only the move itself puts the new book first.
+        val change = ImportQueue.reorder(running, "d", 0)
+        assertEquals("before the move", listOf("a", "b", "c", "d"), ids(ImportQueue.line(running)))
+        assertEquals("after the move", listOf("d", "a", "b", "c"), ids(ImportQueue.line(change.applyTo(running))))
+        assertEquals("the book that was passed waits", Status.QUEUED, change.applyTo(running).single { it.id == "a" }.status)
+    }
+
+    @Test
+    fun aBookToldToStopIsShownWaitingUntilItsWorkerHasStopped() {
+        ImportQueue.track("a", kotlinx.coroutines.Job())
+        try {
+            // On disk the passed book is still running and the moved book has its new order: only the stopping book's own status is out of date.
+            val change = ImportQueue.reorder(running, "d", 0)
+            val onDisk = running.map { b -> change.orders[b.id]?.let { b.copy(queueOrder = it) } ?: b }
+            assertEquals("before the stop is asked for, the running book is first", listOf("a", "d", "b", "c"), ids(ImportQueue.line(ImportQueue.showStoppingAsWaiting(onDisk))))
+            assertTrue(ImportQueue.preempt("a"))
+            assertEquals("once it is told to stop it waits behind the book moved first", listOf("d", "a", "b", "c"), ids(ImportQueue.line(ImportQueue.showStoppingAsWaiting(onDisk))))
+        } finally {
+            ImportQueue.untrack("a")
+            // The worker's loop is what forgets a stopped book.
+            kotlinx.coroutines.runBlocking { ImportQueue.drain({ skip -> if (skip.isEmpty()) "a" else null }, {}, { _, _ -> }) }
+        }
+        assertEquals("a book not told to stop is shown as it is", Status.READING, ImportQueue.showStoppingAsWaiting(running).single { it.id == "a" }.status)
+    }
 
     @Test
     fun theDropPlaceIsTheRowsDraggedAwayAndStaysInsideTheLine() {

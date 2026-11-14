@@ -741,6 +741,29 @@ Tests:
 - `SpeechTest.aStoppedBookCarriesOnFromItsKeptSpeechWithoutSpeakingItAgain`
 - `SpeechTest.keptSpeechIsOnlyWhatIsWholeInTheAudioOnDisk`
 
+#### UC-11e A moved book shows its new place at once
+
+Goal: see my drop take effect, with no wait.
+
+- When a book is dropped, the shelf lists the new order in the same frame, even while the running book it passed is still stopping and the move is still being saved.
+- Saving the move and stopping the running book happen in the background, so the shelf does not freeze. The rows do not return to the old order while the passed book stops.
+- A book that is being fetched ahead is not restarted or lost by a move, and its progress stays.
+
+Tests:
+- `ImportQueueUiTest.aBookDroppedFirstIsListedFirstAtOnceWhileTheMoveIsStillBeingSaved`
+- `ImportQueueTest.aMovedBookIsListedInItsNewPlaceAtOnceWithoutWaitingForTheBookItPassedToStop`
+- `ImportQueueTest.aBookToldToStopIsShownWaitingUntilItsWorkerHasStopped`
+- `ImportQueueTest.aReorderChangesWhichBookIsFetchedNext`
+
+#### UC-11f A move that cannot be saved is undone
+
+Goal: never see an order that is not the real one.
+
+- When the move cannot be saved, the shelf shows the old order again and a message says why. The running book carries on.
+
+Tests:
+- `ImportQueueUiTest.aMoveThatCannotBeSavedPutsTheOldOrderBackAndSaysWhy`
+
 ### UC-12 Keep making books after the app restarts
 
 Goal: not lose the queue when the app or phone stops.

@@ -10,6 +10,9 @@ import android.provider.OpenableColumns
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -17,6 +20,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.util.UUID
+import java.util.concurrent.Executors
 
 /** Each book is a folder under filesDir/books holding exactly the files a backup carries. */
 object Files {
@@ -39,13 +43,25 @@ object Library {
     private val state = MutableStateFlow<List<Book>>(emptyList())
     val books: StateFlow<List<Book>> = state
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    /** Saves moves one at a time, in the order they were dropped, off the main thread. */
+    private val moveWrites = CoroutineScope(SupervisorJob() + Executors.newSingleThreadExecutor { Thread(it, "library-move").apply { isDaemon = true } }.asCoroutineDispatcher())
+    /** Guards [state] and [unwritten]: held only for in-memory work, so the main thread never waits on disk through it. */
+    private val stateLock = Any()
+    /** Moves shown on the shelf that are not yet written to the books' folders; a refresh from disk keeps showing them. */
+    private val unwritten = ArrayList<ImportQueue.Reorder>()
+    private val moveFailed = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    /** Why a move could not be saved, one message each; the shelf has already shown the old order again. */
+    val moveFailures: SharedFlow<String> = moveFailed
 
     fun dir(ctx: Context, id: String) = File(ctx.filesDir, "books/$id")
 
     @Synchronized
     fun refresh(ctx: Context) {
         val dirs = File(ctx.filesDir, "books").listFiles() ?: emptyArray()
-        state.value = dirs.mapNotNull { readBook(it) }.sortedByDescending { it.created }
+        val read = dirs.mapNotNull { readBook(it) }.sortedByDescending { it.created }
+        synchronized(stateLock) {
+            state.value = unwritten.fold(ImportQueue.showStoppingAsWaiting(read)) { books, move -> move.applyTo(books) }
+        }
     }
 
     private fun readBook(dir: File): Book? {
@@ -201,14 +217,41 @@ object Library {
     /**
      * Moves a book to place [to] in the import queue (0 is first). A book being made that is no longer first stops, goes back to
      * the queue in its new place, and carries on later from the speech it had made.
+     * The shelf shows the new order from this call on: the list changes in memory first, on the calling thread, and the books' folders
+     * are written afterwards on a background thread. If that fails the old order is put back and [moveFailures] says why.
      */
-    @Synchronized
     fun moveTo(ctx: Context, id: String, to: Int) {
-        refresh(ctx)
-        val change = ImportQueue.reorder(state.value, id, to)
-        change.orders.forEach { (bid, order) -> update(ctx, bid) { it.copy(queueOrder = order) } }
-        // A book shown as running with no worker making it (after a restart) goes back to the queue at once.
-        for (bid in change.stop) if (!ImportQueue.preempt(bid)) requeue(ctx, bid)
+        val (change, previous) = synchronized(stateLock) {
+            val books = state.value
+            val change = ImportQueue.reorder(books, id, to)
+            if (change.isEmpty) return
+            unwritten += change
+            state.value = change.applyTo(books)
+            change to books.filter { it.id in change.orders }.associate { it.id to it.queueOrder }
+        }
+        moveWrites.launch { writeMove(ctx, change, previous) }
+    }
+
+    private fun writeMove(ctx: Context, change: ImportQueue.Reorder, previous: Map<String, Long>) {
+        try {
+            Engines.beforeMoveWrite()
+            synchronized(this) {
+                try {
+                    change.orders.forEach { (bid, order) -> update(ctx, bid) { it.copy(queueOrder = order) } }
+                } catch (e: Exception) {
+                    // Put back what was already written, so a half-saved move does not leave the order in two minds.
+                    try { previous.forEach { (bid, order) -> update(ctx, bid) { it.copy(queueOrder = order) } } } catch (_: Exception) {}
+                    throw e
+                }
+                // A book shown as running with no worker making it (after a restart) goes back to the queue at once.
+                for (bid in change.stop) if (!ImportQueue.preempt(bid)) requeue(ctx, bid)
+            }
+        } catch (e: Exception) {
+            moveFailed.tryEmit("Could not move the book: ${e.message ?: e.javaClass.simpleName}")
+        } finally {
+            synchronized(stateLock) { unwritten -= change }
+            try { refresh(ctx) } catch (_: Exception) {}
+        }
     }
 
     /** Puts a stopped book back in the queue. The speech it made stays in its folder, and [GenerateWorker] carries on from it. */

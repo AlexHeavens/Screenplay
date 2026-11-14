@@ -148,6 +148,9 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
     LaunchedEffect(Unit) {
         while (true) { Library.refresh(ctx); delay(1000) }
     }
+    LaunchedEffect(Unit) {
+        Library.moveFailures.collect { snackbar.showSnackbar(it) }
+    }
     var options by remember { mutableStateOf(Options.load(ctx)) }
     var showSettings by remember { mutableStateOf(false) }
     var toDelete by remember { mutableStateOf<Book?>(null) }

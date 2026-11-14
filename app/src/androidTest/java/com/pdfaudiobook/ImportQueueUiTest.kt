@@ -15,6 +15,7 @@ import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -33,6 +34,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -62,6 +64,7 @@ class ImportQueueUiTest {
     fun restore() {
         Engines.beforeRecognise = { _, _ -> }
         Engines.recognisePage = null
+        Engines.beforeMoveWrite = {}
         scenario?.close()
     }
 
@@ -92,25 +95,15 @@ class ImportQueueUiTest {
 
     private fun uriOf(f: File) = FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", f)
 
-    @Smoke @Test
-    fun booksAreMadeOneAtATimeAndAQueuedBookCanBeDraggedUp() {
-        val names = listOf("queue-one", "queue-two", "queue-three")
+    /**
+     * Imports [names] through the shelf's import button, one after another, with the first page of OCR held until [release] completes:
+     * returns once the first is being made and the others are queued behind it.
+     */
+    private fun importQueued(names: List<String>, release: CompletableDeferred<Unit>) {
         val files = names.map { n -> File(ctx.cacheDir, "$n.pdf").also { f -> assets.open("ocr/varieties-preface.pdf").use { i -> f.outputStream().use { i.copyTo(it) } } } }
         val pages = ParcelFileDescriptor.open(files[0], ParcelFileDescriptor.MODE_READ_ONLY).use { fd -> PdfRenderer(fd).use { it.pageCount } }
         Engines.recognisePage = cannedOcr(assets, "varieties-preface", pages)
-        val release = CompletableDeferred<Unit>()
         Engines.beforeRecognise = { page, _ -> if (page == 0) release.await() }
-        // Speech stops after a few sentences, so a book stays part-spoken while the test reorders it.
-        val speechHold = CompletableDeferred<Unit>()
-        val spoken = AtomicInteger()
-        Engines.synthesizer = {
-            val inner = FakeSynthesizer()
-            object : Synthesizer {
-                override suspend fun speak(text: String, wav: File) { if (spoken.incrementAndGet() > 6) speechHold.await(); inner.speak(text, wav) }
-                override fun close() = inner.close()
-            }
-        }
-
         scenario = ActivityScenario.launch(MainActivity::class.java)
         // The picker answers with the next file each time the import button is pressed.
         val picks = ArrayDeque(files.map(::uriOf))
@@ -128,9 +121,26 @@ class ImportQueueUiTest {
         } finally {
             Intents.release()
         }
-
-        // Only the first is being made; the others are queued, with their place in line.
         compose.waitUntil(60_000) { Library.books.value.count { it.status == Status.READING } == 1 }
+    }
+
+    @Smoke @Test
+    fun booksAreMadeOneAtATimeAndAQueuedBookCanBeDraggedUp() {
+        val names = listOf("queue-one", "queue-two", "queue-three")
+        val release = CompletableDeferred<Unit>()
+        // Speech stops after a few sentences, so a book stays part-spoken while the test reorders it.
+        val speechHold = CompletableDeferred<Unit>()
+        val spoken = AtomicInteger()
+        Engines.synthesizer = {
+            val inner = FakeSynthesizer()
+            object : Synthesizer {
+                override suspend fun speak(text: String, wav: File) { if (spoken.incrementAndGet() > 6) speechHold.await(); inner.speak(text, wav) }
+                override fun close() = inner.close()
+            }
+        }
+
+        importQueued(names, release)
+        // Only the first is being made; the others are queued, with their place in line.
         compose.onNodeWithTag("section-importing").assertIsDisplayed()
         compose.waitUntil(30_000) { exists("stage-bar-READ-queue-one") }
         assertTrue("a waiting row says nothing in words: its place is its row", names.none { exists("status-$it") })
@@ -219,5 +229,56 @@ class ImportQueueUiTest {
         compose.waitUntil(30_000) { !exists("section-importing") }
         compose.onNodeWithTag("section-imported").assertIsDisplayed()
         for (n in names) compose.onNodeWithTag("book-$n", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    /** Takes hold of the handle of [title] and drops it on the row of [target], at once, and lets go. */
+    private fun dropOnRowOf(title: String, target: String) = dragHandleBy(title, top("book-$target") - top("book-$title"))
+
+    @Test
+    fun aBookDroppedFirstIsListedFirstAtOnceWhileTheMoveIsStillBeingSaved() {
+        val names = listOf("lag-one", "lag-two", "lag-three")
+        val release = CompletableDeferred<Unit>()
+        importQueued(names, release)
+        // Saving the move takes 1.5 s: a shelf that waits for the disk, or for the running book to stop, cannot show the new order in under one.
+        val savingDone = AtomicBoolean()
+        Engines.beforeMoveWrite = { Thread.sleep(1_500); savingDone.set(true) }
+        try {
+            // The last waiting book is dropped on the running book: it goes first, the running book it passed waits behind it.
+            val dropped = android.os.SystemClock.elapsedRealtime()
+            dropOnRowOf("lag-three", "lag-one")
+            compose.waitUntil(1_000) { top("book-lag-three") < top("book-lag-one") }
+            android.util.Log.i("ImportQueueUiTest", "the new order showed ${android.os.SystemClock.elapsedRealtime() - dropped} ms after the drop gesture began")
+            assertEquals("Queued · position 2", text("status-lag-one"))
+            assertEquals("Queued · position 3", text("status-lag-two"))
+            assertTrue("the new order showed before the move was saved", !savingDone.get())
+            // Once it is saved and the running book has stopped, the new first book is made, and the rows never went back to the old order on the way.
+            compose.waitUntil(120_000) {
+                assertTrue("the rows keep the new order", top("book-lag-three") < top("book-lag-one") && top("book-lag-one") < top("book-lag-two"))
+                book("lag-three").status != Status.QUEUED && book("lag-one").status == Status.QUEUED
+            }
+            assertEquals("Queued · position 2", text("status-lag-one"))
+        } finally {
+            Engines.beforeMoveWrite = {}
+            for (n in names) Library.delete(ctx, book(n).id)
+        }
+    }
+
+    @Test
+    fun aMoveThatCannotBeSavedPutsTheOldOrderBackAndSaysWhy() {
+        val names = listOf("fail-one", "fail-two", "fail-three")
+        importQueued(names, CompletableDeferred())
+        Engines.beforeMoveWrite = { throw java.io.IOException("disk full") }
+        try {
+            dropOnRowOf("fail-three", "fail-one")
+            compose.waitUntil(10_000) { compose.onAllNodesWithText("Could not move the book: disk full", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(10_000) { top("book-fail-one") < top("book-fail-two") && top("book-fail-two") < top("book-fail-three") }
+            assertEquals("Queued · position 2", text("status-fail-two"))
+            assertEquals("Queued · position 3", text("status-fail-three"))
+            assertEquals("the book being made carries on", 1, Library.books.value.count { it.status == Status.READING })
+            assertEquals("fail-one", Library.books.value.single { it.status == Status.READING }.title)
+        } finally {
+            Engines.beforeMoveWrite = {}
+            for (n in names) Library.delete(ctx, book(n).id)
+        }
     }
 }
