@@ -37,16 +37,17 @@ object PdfText {
     /** Every page's paragraphs as OCR and [Layout] return them, before any cleaning. */
     suspend fun ocr(pdf: File, onPage: (done: Int, total: Int) -> Unit): List<String> {
         val paragraphs = ArrayList<String>()
-        pages(pdf, onPage) { paragraphs += it }
+        pages(pdf, footnotes = false, onPage) { paragraphs += it.paragraphs }
         return paragraphs
     }
 
     /**
      * Reads the pages and hands each page's paragraphs to [onText], in page order, as soon as that page and every page
      * before it are done, so a reader need not wait for the last page. [onPage] counts pages as each finishes.
-     * At most a few pages are rendered or waiting at a time, whatever the length of the book.
+     * At most a few pages are rendered or waiting at a time, whatever the length of the book. With [footnotes], each page's footnotes come
+     * with its paragraphs ([Layout.page]); without, they are dropped or read as they always were.
      */
-    suspend fun pages(pdf: File, onPage: (done: Int, total: Int) -> Unit, onText: suspend (List<String>) -> Unit) =
+    suspend fun pages(pdf: File, footnotes: Boolean, onPage: (done: Int, total: Int) -> Unit, onText: suspend (PageText) -> Unit) =
         withContext(Dispatchers.Default) {
             val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
             try {
@@ -59,7 +60,7 @@ object PdfText {
                             val done = AtomicInteger()
                             val total = renderer.pageCount
                             // Pages wait here in order; when [onText] is slow, the renderer waits too.
-                            val inOrder = Channel<Deferred<List<String>>>(PARALLEL)
+                            val inOrder = Channel<Deferred<PageText>>(PARALLEL)
                             launch {
                                 for (p in 0 until total) {
                                     gate.acquire()
@@ -72,12 +73,12 @@ object PdfText {
                                     inOrder.send(async {
                                         try {
                                             Engines.beforeRecognise(p, total)
-                                            Engines.recognisePage?.let { return@async it(p) }
+                                            Engines.recognisePage?.let { return@async it(p).let { text -> if (footnotes) Footnotes.split(text) else PageText(text) } }
                                             val text = Tasks.await(recognizer.process(InputImage.fromBitmap(bitmap, 0)))
                                             val blocks = text.textBlocks.map { block ->
                                                 block.lines.mapNotNull { l -> l.boundingBox?.let { OcrLine(it.top, it.bottom, l.text) } }
                                             }.filter { it.isNotEmpty() }
-                                            Layout.paragraphs(blocks, h)
+                                            Layout.page(blocks, h, footnotes)
                                         } finally {
                                             bitmap.recycle()
                                             gate.release()

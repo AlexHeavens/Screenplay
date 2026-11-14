@@ -28,6 +28,8 @@ object Files {
     const val NOTES = "notes.json"
     const val PARAGRAPH_NOTES = "paragraph-notes.json"
     const val HIGHLIGHTS = "highlights.json"
+    /** A scanned book's footnotes, as annotations of its paragraphs ([Footnotes]). A book without the file has none. */
+    const val FOOTNOTES = "footnotes.json"
     /** Sentences read so far, one per line, while a book is made; speech trails behind it. Gone once the book is ready. */
     const val QUEUE = "queue.txt"
     const val META = "meta.json"
@@ -275,6 +277,26 @@ object Library {
         Highlights.save(ctx, id, edited.highlights)
         update(ctx, id) { it.copy(chapters = edited.chapters) }
         return edited
+    }
+
+    /** The book's footnotes; none for a book made without them, or when the file cannot be read. */
+    fun footnotes(ctx: Context, id: String): List<Footnote> {
+        val f = File(dir(ctx, id), Files.FOOTNOTES)
+        if (!f.exists()) return emptyList()
+        return try {
+            val a = JSONArray(f.readText())
+            List(a.length()) { val o = a.getJSONObject(it); Footnote(o.getString("anchor"), o.getString("text")) }
+        } catch (e: org.json.JSONException) {
+            emptyList()
+        } catch (e: java.io.IOException) {
+            emptyList()
+        }
+    }
+
+    fun saveFootnotes(ctx: Context, id: String, footnotes: List<Footnote>) {
+        val a = JSONArray()
+        footnotes.forEach { a.put(JSONObject().put("anchor", it.anchor).put("text", it.text)) }
+        writeAtomically(File(dir(ctx, id), Files.FOOTNOTES), a.toString())
     }
 
     fun saveNotes(ctx: Context, id: String, notes: List<Note>) {

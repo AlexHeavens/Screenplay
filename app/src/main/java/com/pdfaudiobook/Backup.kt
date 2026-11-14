@@ -24,7 +24,7 @@ class BackupException(message: String) : Exception(message)
 
 /** One zip of the PDF, audio, transcript, notes, highlights and details, handed to whatever app the user picks in the share sheet. */
 object Backup {
-    private val entries = listOf(Files.PDF, Files.EPUB, Files.AUDIO, Files.TRANSCRIPT, Files.NOTES, Files.PARAGRAPH_NOTES, Files.HIGHLIGHTS, Files.META)
+    private val entries = listOf(Files.PDF, Files.EPUB, Files.AUDIO, Files.TRANSCRIPT, Files.NOTES, Files.PARAGRAPH_NOTES, Files.HIGHLIGHTS, Files.FOOTNOTES, Files.META)
     private val required = listOf(Files.AUDIO, Files.TRANSCRIPT)
 
     fun zip(ctx: Context, id: String, title: String): Uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", zipFile(ctx, id, File(ctx.cacheDir, "backup/${fileSafe(title)}.zip")))

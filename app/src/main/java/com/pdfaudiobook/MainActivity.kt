@@ -17,6 +17,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
@@ -261,14 +262,32 @@ fun MiniPlayer(onOpen: (String) -> Unit) {
     }
 }
 
-/** One labelled on/off switch. The whole row toggles and carries the Switch role, so semantics expose the state. */
+/**
+ * The footnotes of paragraph [index], under it in small muted type. Read-only (unlike the reader's own paragraph note), never spoken and never
+ * a place to seek to: a tap is taken here, so it does not start the paragraph's audio.
+ */
 @Composable
-fun SwitchRow(label: String, checked: Boolean, tag: String, onChange: (Boolean) -> Unit) {
+fun FootnoteAnnotation(notes: List<String>, index: Int) {
+    Text(
+        notes.joinToString("\n"),
+        Modifier.fillMaxWidth().padding(start = 12.dp, top = 2.dp, bottom = 2.dp)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+            .testTag("footnote-$index"),
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/** One labelled on/off switch, with an optional line saying more under it. The whole row toggles and carries the Switch role, so semantics expose the state. */
+@Composable
+fun SwitchRow(label: String, checked: Boolean, tag: String, hint: String? = null, onChange: (Boolean) -> Unit) {
     Row(
         Modifier.fillMaxWidth().toggleable(checked, role = Role.Switch, onValueChange = onChange).padding(horizontal = 24.dp, vertical = 12.dp).testTag(tag),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, Modifier.weight(1f))
+        Column(Modifier.weight(1f)) {
+            Text(label)
+            hint?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
         val on = MaterialTheme.colorScheme.primary
         Switch(
             checked, null,
@@ -288,6 +307,10 @@ fun SettingsPanel(options: Options, onImportBackup: () -> Unit, onExportBackup: 
         SwitchRow("Skip front matter", options.trimFront, "opt-trim") { set(options.copy(trimFront = it)) }
         SwitchRow("Merge split sentences", options.mergeFragments, "opt-merge") { set(options.copy(mergeFragments = it)) }
         SwitchRow("Skip tables, lists & notes", options.cleanText, "opt-clean") { set(options.copy(cleanText = it)) }
+        SwitchRow(
+            "Footnotes as notes, not spoken", options.footnotes, "opt-footnotes",
+            hint = "Scanned PDFs: kept under their paragraph and skipped by the voice. Applies to books made from now on.",
+        ) { set(options.copy(footnotes = it)) }
         Text("Theme", Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (m in ThemeMode.values()) FilterChip(options.theme == m, { set(options.copy(theme = m)) }, { Text(m.label) }, Modifier.testTag("theme-${m.name}"), shape = ControlShape, colors = themeChipColors())
@@ -366,6 +389,8 @@ fun Reader(id: String, onBack: () -> Unit) {
     // Sentences already read but not yet spoken: shown at once, and become playable as speech reaches them.
     var queued by remember(id, ready) { mutableStateOf(if (ready) emptyList() else Library.queued(ctx, id).drop(segments.size)) }
     var notes by remember(id) { mutableStateOf(Library.notes(ctx, id)) }
+    // Footnotes of a scanned book: annotations under their paragraphs, read-only and never spoken. They grow with the book while it is read.
+    var footnotes by remember(id, ready) { mutableStateOf(Library.footnotes(ctx, id)) }
     // A book opens where it was left: at the start of the last paragraph played, which the player is moved to below.
     val resume = remember(id) { longArrayOf(Played.resumeAt(segments, book?.positionMs)) }
     val rate = book?.rate ?: 0
@@ -392,6 +417,7 @@ fun Reader(id: String, onBack: () -> Unit) {
             // Parsed off the main thread, and a transcript that cannot be read right now keeps what is shown.
             withContext(Dispatchers.IO) { Library.readSegments(File(Library.dir(ctx, id), Files.TRANSCRIPT)) }?.let { if (it != segments) segments = it }
             Library.queued(ctx, id).drop(segments.size).let { if (it != queued) queued = it }
+            withContext(Dispatchers.IO) { Library.footnotes(ctx, id) }.let { if (it != footnotes) footnotes = it }
         }
     }
 
@@ -426,6 +452,8 @@ fun Reader(id: String, onBack: () -> Unit) {
     }
     if (book != null && stored == null && !book.importing) LaunchedEffect(id) { withContext(Dispatchers.IO) { Library.detectChapters(ctx, id) } }
     val chapters = remember(marks, segments) { Chapters.place(marks, segments) }
+    // Per transcript change, not per playback tick; the annotations are no part of the transcript, so search, chapters and word counts never see them.
+    val placedFootnotes = remember(footnotes, texts) { Footnotes.place(footnotes, texts) }
     // By item index, for the heading rows over the spoken and the read-but-unspoken text alike.
     val headings = remember(chapters) { chapters.associateBy { it.index } }
     LaunchedEffect(current) { if (segments.isNotEmpty() && scrubbing == null) list.animateScrollToItem(current) }
@@ -640,6 +668,7 @@ fun Reader(id: String, onBack: () -> Unit) {
                             })
                         }
                     }
+                    placedFootnotes[i]?.let { FootnoteAnnotation(it, i) }
                     val existing = placedNotes[i]
                     if (editing == i) {
                         InlineNoteField(existing?.text.orEmpty(), cancelTick = cancelNote, onCancel = { editing = null }) { t ->
@@ -670,6 +699,7 @@ fun Reader(id: String, onBack: () -> Unit) {
                 Text(text, Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("queued-${segments.size + i}"),
                     style = if (own) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.bodyLarge,
                     fontWeight = if (own) FontWeight.Bold else null, color = ReadLabelGrey)
+                placedFootnotes[segments.size + i]?.let { Box(Modifier.fillMaxWidth()) { FootnoteAnnotation(it, segments.size + i) } }
             }
         }
         if (segments.isNotEmpty() || importing != null) {

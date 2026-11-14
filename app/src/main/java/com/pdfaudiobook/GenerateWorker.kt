@@ -129,6 +129,9 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
                     unchecked.subList(0, n).clear()
                 }
             }
+            // The pages are read again from the first, so footnotes found by an earlier run are found again.
+            File(dir, Files.FOOTNOTES).delete()
+            val footnotes = ArrayList<Footnote>()
             val epub = File(dir, Files.EPUB)
             if (epub.exists()) {
                 // An EPUB has its text already: no OCR, no cleaning that would cut a real chapter, and the chapters come from its own contents.
@@ -150,7 +153,8 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             if (plan.chapters.isNotEmpty()) Library.update(ctx, id) { it.copy(estimates = plan.chapters) }
             var frontPages = 0
             var page = 0
-            PdfText.pages(File(dir, Files.PDF), progress::page) { blocks ->
+            PdfText.pages(File(dir, Files.PDF), options.footnotes, progress::page) { read ->
+                val blocks = read.paragraphs
                 page++
                 // The ISBN sits on the copyright page, among the first pages; a failed or empty lookup keeps the file's title.
                 if (isbn == null && frontPages++ < FRONT_PAGES) {
@@ -167,6 +171,10 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
                     Library.update(ctx, id) { it.copy(estimates = anchored.chapters) }
                 }
                 if (page in plan.contentsPages) return@pages
+                if (read.footnotes.isNotEmpty()) {
+                    footnotes += read.footnotes
+                    Library.saveFootnotes(ctx, id, footnotes)
+                }
                 emitChecked(stream.add(blocks), last = false)
                 if (stream.contents != contents) {
                     contents = stream.contents

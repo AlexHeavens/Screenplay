@@ -13,6 +13,8 @@ data class Options(
     val mergeFragments: Boolean = true,
     /** Drop back matter, tables, lists and page numbers. */
     val cleanText: Boolean = true,
+    /** Keep a scanned book's footnotes as quiet annotations under their paragraphs, never spoken, instead of reading them in the text. */
+    val footnotes: Boolean = true,
     val voice: Voice = Voice.PHONE,
     /** Look of the app, not an import option: kept here so it shares the settings store. */
     val theme: ThemeMode = ThemeMode.SYSTEM,
@@ -20,7 +22,7 @@ data class Options(
     fun save(ctx: Context) {
         ctx.getSharedPreferences("settings", Context.MODE_PRIVATE).edit()
             .putBoolean("spell", spell).putBoolean("trim", trimFront).putBoolean("merge", mergeFragments)
-            .putBoolean("clean", cleanText).putString("voice", voice.name).putString("theme", theme.name).apply()
+            .putBoolean("clean", cleanText).putBoolean("footnotes", footnotes).putString("voice", voice.name).putString("theme", theme.name).apply()
     }
 
     companion object {
@@ -32,9 +34,11 @@ data class Options(
             val p = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
             val d = Options()
             return Options(
-                p.getBoolean("spell", d.spell), p.getBoolean("trim", d.trimFront),
-                p.getBoolean("merge", d.mergeFragments), p.getBoolean("clean", d.cleanText), voiceOf(p.getString("voice", null), p.getBoolean("natural", false)),
-                ThemeMode.values().firstOrNull { it.name == p.getString("theme", null) } ?: d.theme,
+                spell = p.getBoolean("spell", d.spell), trimFront = p.getBoolean("trim", d.trimFront),
+                mergeFragments = p.getBoolean("merge", d.mergeFragments), cleanText = p.getBoolean("clean", d.cleanText),
+                footnotes = p.getBoolean("footnotes", d.footnotes),
+                voice = voiceOf(p.getString("voice", null), p.getBoolean("natural", false)),
+                theme = ThemeMode.values().firstOrNull { it.name == p.getString("theme", null) } ?: d.theme,
             )
         }
     }

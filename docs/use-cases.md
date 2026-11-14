@@ -15,7 +15,7 @@ A test is named `ClassName.methodName`. Unit tests live in `app/src/test` and de
 - [Reading along](#reading-along): UC-21 to UC-26
 - [Notes and highlights](#notes-and-highlights): UC-27 to UC-33
 - [Library](#library): UC-34 to UC-40
-- [Settings and looks](#settings-and-looks): UC-41 to UC-46
+- [Settings and looks](#settings-and-looks): UC-41 to UC-47
 - [Gaps](#gaps)
 
 ## Importing
@@ -681,6 +681,31 @@ Tests:
 - `LibraryTitleTest.libraryTitleShowsTheOpenBookIcon`
 
 Unchecked: whether the colours and layout look good to a person. The tests check contrast and structure only.
+
+### UC-47 Keep footnotes out of the speech, and still see them
+
+Goal: not hear a scanned book's footnotes in the middle of a paragraph, and still read them.
+
+- With "Footnotes as notes, not spoken" on (the default), a footnote on a scanned page is kept as an annotation of the paragraph that cites it. A footnote is found by its place and small type at the foot of the page, or by its label (`[3]`, `*`, `†`, `‡`, a superscript or a number the text cites). A numbered list or a figure caption is not taken for one.
+- The reader shows the annotation under its paragraph in small muted type. It is read-only, is not the reader's own paragraph note, and a tap on it does not start the audio.
+- The annotation is never spoken, and is not in the transcript, so the audio has no gap for it, and search, chapters and word counts do not see it. A footnote with no marker in the text goes with the last paragraph of its page; none is dropped.
+- The footnotes are kept in `footnotes.json` with the book, so they survive a restart, and they travel in a backup. A backup made by an older build has none and restores without them.
+- EPUB export leaves the annotations out, so the exported book reads back as the same paragraphs. An EPUB import is unchanged.
+- The option applies to books made from now on: a book already made keeps its text. With the option off, a book reads exactly as it did before the option existed.
+
+Tests:
+- `FootnotesTest.takesAFootnoteOutOfThePageAndMatchesItToTheParagraphThatCitesIt`
+- `FootnotesTest.aNumberedListIsNotAFootnote`
+- `FootnotesTest.aFigureCaptionIsNotAFootnote`
+- `FootnotesTest.anUnmatchedFootnoteStaysWithTheLastParagraphOnThePage`
+- `FootnotesTest.twoFootnotesOnOnePageAreEachMatched`
+- `FootnotesTest.aPageWithoutFootnotesIsUnchanged`
+- `FootnotesTest.withTheOptionOffAPageReadsAsItAlwaysDid`
+- `FootnotesTest.geometryFindsASmallTypeNoteAtTheFootOfThePageWhateverItSays`
+- `FootnoteUiTest.aFootnoteIsAnAnnotationUnderItsParagraphAndIsNeverSpoken`
+- `FootnoteUiTest.withTheOptionOffTheFootnoteIsSpokenAsBefore`
+- `FootnoteUiTest.theFootnoteOptionIsOnByDefaultAndSavedWithTheOthers`
+- `FootnoteUiTest.aBackupCarriesTheFootnotesAndRestoresThemWithTheBook`
 
 ## Gaps
 

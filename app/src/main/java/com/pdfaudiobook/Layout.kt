@@ -29,7 +29,19 @@ object Layout {
     private val noteNumber = Regex("^\\d{1,3}\\s?\\S")
 
     fun paragraphs(blocks: List<List<OcrLine>>, pageHeight: Int): List<String> =
-        joinDropCaps(body(blocks, pageHeight)).map { b -> b.joinToString(" ") { it.text }.replace(softHyphen, "") }
+        joinDropCaps(body(blocks, pageHeight)).map(::text)
+
+    private fun text(block: List<OcrLine>) = block.joinToString(" ") { it.text }.replace(softHyphen, "")
+
+    /**
+     * The page's paragraphs to read. With [footnotes], the notes at the foot of the page are kept as annotations ([Footnotes]) instead of
+     * dropped, and a note the type size and place missed is found by its label; without, the page reads as [paragraphs] returns it.
+     */
+    fun page(blocks: List<List<OcrLine>>, pageHeight: Int, footnotes: Boolean): PageText {
+        val (body, notes) = split(blocks, pageHeight)
+        val paragraphs = joinDropCaps(body).map(::text)
+        return if (footnotes) Footnotes.split(paragraphs, notes.map(::text)) else PageText(paragraphs)
+    }
 
     /**
      * Puts a chapter's large first letter back on its word. OCR returns the letter as its own block, in any order
@@ -52,9 +64,12 @@ object Layout {
         return out
     }
 
-    fun body(blocks: List<List<OcrLine>>, pageHeight: Int): List<List<OcrLine>> {
+    fun body(blocks: List<List<OcrLine>>, pageHeight: Int): List<List<OcrLine>> = split(blocks, pageHeight).first
+
+    /** The blocks to read, and the footnote blocks below them. */
+    fun split(blocks: List<List<OcrLine>>, pageHeight: Int): Pair<List<List<OcrLine>>, List<List<OcrLine>>> {
         val lines = blocks.flatten()
-        if (lines.isEmpty() || isIndex(lines)) return emptyList()
+        if (lines.isEmpty() || isIndex(lines)) return emptyList<List<OcrLine>>() to emptyList()
         val h = pageHeight.toDouble()
         // The body's type size: the longest block is almost always body text.
         val bodyHeight = median(blocks.maxBy { it.size })
@@ -73,9 +88,8 @@ object Layout {
                 (it.size > 1 || noteNumber.containsMatchIn(it[0].text))
         }.minOfOrNull { it.first().top }
 
-        return blocks.filter { b ->
-            !isEdge(b) && !isRunningHead(b) && (notesTop == null || b.first().top < notesTop)
-        }
+        val read = blocks.filter { b -> !isEdge(b) && !isRunningHead(b) }
+        return read.filter { notesTop == null || it.first().top < notesTop } to read.filter { notesTop != null && it.first().top >= notesTop }
     }
 
     private fun isIndex(lines: List<OcrLine>) =
