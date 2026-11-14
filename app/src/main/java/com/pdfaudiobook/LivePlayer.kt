@@ -13,7 +13,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import java.io.File
-import java.io.RandomAccessFile
 
 /**
  * Plays the raw PCM of a book still being made. The file only grows, so playback follows the end of it and
@@ -23,7 +22,7 @@ class LivePlayer(ctx: Context, id: String, private val rate: Int, startMs: Long 
     private val prefs = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val file = File(Library.dir(ctx, id), "audio.pcm")
     private var track: AudioTrack? = null
-    private var feeder: Thread? = null
+    private var feeder: PcmFeeder? = null
     private var baseMs = startMs
 
     override var position by mutableStateOf(startMs)
@@ -50,28 +49,17 @@ class LivePlayer(ctx: Context, id: String, private val rate: Int, startMs: Long 
         position = atMs
         if (play) { t.play(); t.playbackParams = PlaybackParams().setSpeed(speed) }
         playing = play
-        feeder = Thread {
-            val buf = ByteArray(16 * 1024)
-            RandomAccessFile(file, "r").use { f ->
-                f.seek(atMs * rate / 1000 * 2)
-                while (!Thread.currentThread().isInterrupted) {
-                    val n = minOf(buf.size.toLong(), (f.length() - f.filePointer) and 1L.inv()).toInt()
-                    if (n <= 0) {
-                        // Waiting for more audio. close() interrupts this sleep to stop the thread, which is not an error.
-                        try { Thread.sleep(100) } catch (_: InterruptedException) { break }
-                        continue
-                    }
-                    f.readFully(buf, 0, n)
-                    if (t.write(buf, 0, n) < 0) break
-                }
-            }
-        }.apply { isDaemon = true; start() }
+        feeder = PcmFeeder(file, atMs * rate / 1000 * 2, object : PcmSink {
+            override fun write(buf: ByteArray, off: Int, len: Int) = t.write(buf, off, len)
+            override fun stop() = t.stop()
+            override fun release() = t.release()
+        })
     }
 
     private fun close() {
-        feeder?.interrupt()
+        // The feeder releases the track once its thread has stopped writing.
+        feeder?.close()
         feeder = null
-        track?.release()
         track = null
     }
 
