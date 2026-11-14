@@ -21,9 +21,12 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.semantics.Role
@@ -36,9 +39,16 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.geometry.Offset
@@ -68,11 +78,18 @@ class MainActivity : ComponentActivity() {
     private var opened by mutableStateOf<String?>(null)
     private var finding by mutableStateOf(false)
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        opened?.let { outState.putString(OPENED_BOOK, it) }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // Pick the window theme before the window exists, so a chosen mode shows from the first frame.
         ThemeChoice.mode = Options.load(this).theme
         when (ThemeChoice.mode) { ThemeMode.LIGHT -> setTheme(R.style.Theme_Screenplay_Light); ThemeMode.DARK -> setTheme(R.style.Theme_Screenplay_Dark); else -> Unit }
         super.onCreate(savedInstanceState)
+        // A rotation recreates the activity: the open book comes back with it, and with it the reader's own saved state (the search query).
+        opened = savedInstanceState?.getString(OPENED_BOOK)
         Library.refresh(this)
         // Waiting books always have a worker: WorkManager keeps it across a restart and it also finishes the book that was cut off. This covers the case where it is gone.
         if (savedInstanceState == null && Library.books.value.any { it.status == Status.QUEUED }) ImportQueue.start(this)
@@ -371,12 +388,13 @@ fun SettingsPanel(options: Options, onImportBackup: () -> Unit, onExportBackup: 
 @Composable
 fun BookTopBar(
     title: String, exportLabel: String, exportEnabled: Boolean,
-    onBack: () -> Unit, onExport: () -> Unit, onBackup: () -> Unit, exportMenu: @Composable () -> Unit,
+    onBack: () -> Unit, onSearch: () -> Unit, onExport: () -> Unit, onBackup: () -> Unit, exportMenu: @Composable () -> Unit,
 ) {
     TopAppBar(
         title = { Text(title, Modifier.testTag("title"), maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium) },
         navigationIcon = { TextButton(onClick = onBack, modifier = Modifier.testTag("back")) { Text("Back") } },
         actions = {
+            IconButton(onClick = onSearch, modifier = Modifier.testTag("search")) { Icon(Icons.Filled.Search, contentDescription = "Search the book") }
             Box {
                 TextButton(onClick = onExport, enabled = exportEnabled, modifier = Modifier.testTag("export")) { Text(exportLabel, maxLines = 1) }
                 exportMenu()
@@ -385,6 +403,8 @@ fun BookTopBar(
         },
     )
 }
+
+private const val OPENED_BOOK = "opened-book"
 
 /** The sleep timer's choices, in minutes. */
 private val SLEEP_MINUTES = listOf(5, 10, 15, 30, 45, 60)
@@ -465,6 +485,35 @@ fun Reader(id: String, onBack: () -> Unit) {
     val chapters = remember(marks, segments) { Chapters.place(marks, segments) }
     // Per transcript change, not per playback tick; the annotations are no part of the transcript, so search, chapters and word counts never see them.
     val placedFootnotes = remember(footnotes, texts) { Footnotes.place(footnotes, texts) }
+    // Search over every sentence read so far, spoken or only queued: a book still being made is searched as far as it goes, and the count follows it.
+    // The query and the match survive a rotation; the work runs off the main thread, 200 ms after the last key.
+    var searching by rememberSaveable { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var matchIndex by rememberSaveable { mutableIntStateOf(0) }
+    var scrollToMatch by remember { mutableIntStateOf(0) }
+    val searchedQuery by produceState("", query, searching) { if (searching) { delay(200); value = query } else value = "" }
+    val matches by produceState(emptyList(), texts, searchedQuery) { value = withContext(Dispatchers.Default) { Search.find(texts, searchedQuery) } }
+    val shownMatch = if (matches.isEmpty()) 0 else matchIndex.mod(matches.size)
+    // "Highlight all" marks every match; off, only the current one. Only rows on screen (and the list's small margin) are ever composed, so either way the marking stays cheap.
+    var highlightAll by rememberSaveable { mutableStateOf(true) }
+    val currentMatch = matches.getOrNull(shownMatch)
+    val matchesByParagraph = remember(matches, highlightAll, currentMatch) {
+        if (highlightAll) matches.groupBy { it.paragraph } else listOfNotNull(currentMatch).groupBy { it.paragraph }
+    }
+    // Where the reader stood when the search opened, put back on close unless a match was scrolled to.
+    var scrollBeforeSearch by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    var movedToMatch by remember { mutableStateOf(false) }
+    fun closeSearch() {
+        searching = false
+        query = ""
+        matchIndex = 0
+        scrollBeforeSearch?.takeIf { !movedToMatch }?.let { (index, offset) -> exportScope.launch { list.scrollToItem(index, offset) } }
+        scrollBeforeSearch = null
+    }
+    // Selecting a match only scrolls: it never starts or seeks the audio.
+    LaunchedEffect(currentMatch?.paragraph, scrollToMatch) {
+        currentMatch?.let { movedToMatch = true; list.animateScrollToItem(it.paragraph) }
+    }
     // By item index, for the heading rows over the spoken and the read-but-unspoken text alike.
     val headings = remember(chapters) { chapters.associateBy { it.index } }
     LaunchedEffect(current) { if (segments.isNotEmpty() && scrubbing == null) list.animateScrollToItem(current) }
@@ -490,6 +539,7 @@ fun Reader(id: String, onBack: () -> Unit) {
         return HighlightWheel.sliceAt(d.x / density, d.y / density)
     }
     BackHandler(enabled = showNotes) { showNotes = false }
+    BackHandler(enabled = searching) { closeSearch() }
 
     // The long-press menu of a paragraph, and the edit and delete-confirmation dialogs it opens. Only a finished book can be changed:
     // while one is being made the speech worker is still writing its transcript.
@@ -532,12 +582,19 @@ fun Reader(id: String, onBack: () -> Unit) {
 
     Scaffold(
         topBar = {
-            BookTopBar(
+            if (searching) SearchBar(
+                query, { query = it; matchIndex = 0 }, Search.label(searchedQuery, matches.size, shownMatch).takeIf { query == searchedQuery }.orEmpty(),
+                onNext = { matchIndex = Search.next(matches.size, shownMatch); scrollToMatch++ },
+                onPrevious = { matchIndex = Search.previous(matches.size, shownMatch); scrollToMatch++ },
+                onClose = ::closeSearch,
+                highlightAll = highlightAll, onHighlightAll = { highlightAll = it },
+            ) else BookTopBar(
                 title = book?.title ?: "",
                 exportLabel = if (exporting) "Exporting…" else "Export",
                 // The audio is one file only once the book is ready, so an export waits until then.
                 exportEnabled = ready && !exporting,
                 onBack = onBack,
+                onSearch = { scrollBeforeSearch = list.firstVisibleItemIndex to list.firstVisibleItemScrollOffset; movedToMatch = false; searching = true },
                 onExport = { exportMenu = true },
                 onBackup = { Backup.share(ctx, Backup.zip(ctx, id, book?.title ?: id)) },
             ) {
@@ -658,9 +715,11 @@ fun Reader(id: String, onBack: () -> Unit) {
                         onClick = { if (i == current) player.toggle() else { player.seek(s.start); if (!player.playing) player.toggle() } }, // the speaking paragraph pauses and resumes; another one speaks from its start
                     )
                         .padding(vertical = 6.dp)
-                        .testTag("sentence-$i").semantics { selected = i == current; painted?.let { highlight = it.name; highlightBands = bands } },
+                        .testTag("sentence-$i").semantics { selected = i == current; painted?.let { highlight = it.name; highlightBands = bands }; matchesByParagraph[i]?.let { searchMarks = it.size } },
                 ) {
-                    Text(s.text, (if (own) Modifier.chapterHeading(i) else Modifier).then(if (painted != null) Modifier.highlighterBands(bands, painted.pen(darkTheme)) else Modifier),
+                    val found = matchesByParagraph[i]
+                    val shownText = if (found == null) AnnotatedString(s.text) else Search.mark(s.text, found, found.indexOf(currentMatch).takeIf { it >= 0 }, darkTheme)
+                    Text(shownText, (if (own) Modifier.chapterHeading(i) else Modifier).then(if (painted != null) Modifier.highlighterBands(bands, painted.pen(darkTheme)) else Modifier),
                         onTextLayout = { textLayout = it },
                         style = if (own) MaterialTheme.typography.headlineSmall else if (i == current) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
                         fontWeight = if (own || (painted != null && i == current)) FontWeight.Bold else null,
@@ -707,7 +766,9 @@ fun Reader(id: String, onBack: () -> Unit) {
                 val chapter = headings[segments.size + i]
                 val own = chapter != null && Chapters.isTitleOf(chapter, text)
                 if (chapter != null && !own) ChapterTitle(chapter.title, segments.size + i)
-                Text(text, Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("queued-${segments.size + i}"),
+                val found = matchesByParagraph[segments.size + i]
+                val shownText = if (found == null) AnnotatedString(text) else Search.mark(text, found, found.indexOf(currentMatch).takeIf { it >= 0 }, isDarkTheme())
+                Text(shownText, Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("queued-${segments.size + i}"),
                     style = if (own) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.bodyLarge,
                     fontWeight = if (own) FontWeight.Bold else null, color = ReadLabelGrey)
                 placedFootnotes[segments.size + i]?.let { Box(Modifier.fillMaxWidth()) { FootnoteAnnotation(it, segments.size + i) } }
@@ -755,6 +816,37 @@ fun Reader(id: String, onBack: () -> Unit) {
         }
         }
     }
+}
+
+/** The reader's header while searching: the query, the "3 of 17" counter, previous and next, and a close. The keyboard's Search key is next. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SearchBar(
+    query: String, onQuery: (String) -> Unit, counter: String,
+    onNext: () -> Unit, onPrevious: () -> Unit, onClose: () -> Unit,
+    highlightAll: Boolean, onHighlightAll: (Boolean) -> Unit,
+) {
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    TopAppBar(
+        title = {
+            OutlinedTextField(
+                query, onQuery, Modifier.fillMaxWidth().focusRequester(focus).testTag("search-field"), singleLine = true,
+                placeholder = { Text("Search the book") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { onNext() }),
+            )
+        },
+        navigationIcon = { IconButton(onClose, Modifier.testTag("search-close")) { Icon(Icons.Filled.Close, contentDescription = "Close search") } },
+        actions = {
+            IconToggleButton(highlightAll, onHighlightAll, Modifier.testTag("search-highlight-all")) {
+                Icon(Icons.Filled.Check, contentDescription = "Highlight all matches",
+                    tint = if (highlightAll) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f))
+            }
+            Text(counter, Modifier.testTag("search-count"), maxLines = 1, style = MaterialTheme.typography.labelMedium)
+            IconButton(onPrevious, Modifier.testTag("search-previous")) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous match") }
+            IconButton(onNext, Modifier.testTag("search-next")) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next match") }
+        },
+    )
 }
 
 private fun Modifier.chapterHeading(index: Int) = testTag("chapter-$index").semantics { heading() }

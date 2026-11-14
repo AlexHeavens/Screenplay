@@ -115,6 +115,63 @@ class BookUiTest {
         waitFor(what = "transcript", matcher = SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "sentence-0"))
     }
 
+    private fun waitForSearchCount(text: String) = waitFor(what = "search count $text", matcher = SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "search-count").and(hasText(text)))
+
+    /** "quick" is in two of the three seeded sentences: the search counts both, steps between them with wrap-around, and never starts the audio. */
+    @Test
+    fun searchStepsThroughMatchesAndWrapsAround() {
+        openSeededBook()
+        compose.onNodeWithTag("search").performClick()
+        compose.onNodeWithTag("search-field").performTextInput("QUICK")
+        waitForSearchCount("1 of 2")
+        compose.onNodeWithTag("search-next").performClick()
+        waitForSearchCount("2 of 2")
+        compose.onNodeWithTag("search-next").performClick()
+        waitForSearchCount("1 of 2")
+        compose.onNodeWithTag("search-previous").performClick()
+        waitForSearchCount("2 of 2")
+        compose.onNodeWithTag("search-field").performImeAction()
+        waitForSearchCount("1 of 2")
+        // Highlight all is on by default: both sentences are marked. Off, only the current match is, and Next moves the mark.
+        val marked = SemanticsMatcher.keyIsDefined(SearchMarksKey)
+        compose.onNodeWithTag("sentence-0").assert(marked)
+        compose.onNodeWithTag("sentence-2").assert(marked)
+        compose.onNodeWithTag("search-highlight-all").performClick()
+        waitFor(what = "only the current match marked", matcher = SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "sentence-2").and(SemanticsMatcher.keyNotDefined(SearchMarksKey)))
+        compose.onNodeWithTag("sentence-0").assert(marked)
+        compose.onNodeWithTag("search-next").performClick()
+        waitForSearchCount("2 of 2")
+        waitFor(what = "mark moved", matcher = SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "sentence-0").and(SemanticsMatcher.keyNotDefined(SearchMarksKey)))
+        compose.onNodeWithTag("sentence-2").assert(marked)
+        compose.onNodeWithTag("search-highlight-all").performClick()
+        waitFor(what = "all marked again", matcher = SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "sentence-0").and(marked))
+        compose.onNodeWithTag("play").assertTextEquals("Play")
+        compose.onNodeWithTag("search-close").performClick()
+        compose.onAllNodesWithTag("search-field").assertCountEquals(0)
+        compose.onNodeWithTag("search").assertIsDisplayed()
+    }
+
+    /** No match says so and keeps the field; an empty query shows nothing; the query survives a rotation; Back closes the search and stays on the book. */
+    @Test
+    fun searchWithNoMatchEmptyQueryRotationAndBack() {
+        openSeededBook()
+        compose.onNodeWithTag("search").performClick()
+        compose.onNodeWithTag("search-field").performTextInput("zebra")
+        waitForSearchCount("1 of 1")
+        compose.onNodeWithTag("search-field").performTextClearance()
+        compose.onNodeWithTag("search-field").performTextInput("giraffe")
+        waitForSearchCount("No matches")
+        compose.onNodeWithTag("search-field").assertIsDisplayed()
+        scenario!!.recreate()
+        compose.onNodeWithTag("search-field").assertTextContains("giraffe")
+        waitForSearchCount("No matches")
+        compose.onNodeWithTag("search-field").performTextClearance()
+        waitFor(what = "empty counter", matcher = SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "search-count").and(hasText("")))
+        androidx.test.espresso.Espresso.pressBack()
+        compose.onAllNodesWithTag("search-field").assertCountEquals(0)
+        compose.onNodeWithTag("title").assertIsDisplayed()
+    }
+
     /** Play, speed and Notes share the theme chips' corner radius: a pixel on the arc of an 8dp corner is painted, on a pill's it is not. */
     @Smoke @Test
     fun playSpeedAndNotesShareTheControlRadius() {

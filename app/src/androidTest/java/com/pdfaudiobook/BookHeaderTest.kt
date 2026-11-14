@@ -36,7 +36,7 @@ class BookHeaderTest {
                     BookTopBar(
                         title = "The Extraordinarily Long and Winding Title of a Book Whose Subtitle Goes On: A Complete History of Everything",
                         exportLabel = "Export", exportEnabled = true,
-                        onBack = {}, onExport = {}, onBackup = {}, exportMenu = {},
+                        onBack = {}, onSearch = {}, onExport = {}, onBackup = {}, exportMenu = {},
                     )
                 }
             }

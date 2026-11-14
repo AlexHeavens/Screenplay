@@ -13,7 +13,7 @@ A test is named `ClassName.methodName`. Unit tests live in `app/src/test` and de
 - [Importing](#importing): UC-01 to UC-13 (see also [Making a book](#making-a-book))
 - [Making a book](#making-a-book): UC-48, UC-49, UC-51
 - [Listening](#listening): UC-14 to UC-20
-- [Reading along](#reading-along): UC-21 to UC-26
+- [Reading along](#reading-along): UC-21 to UC-26, UC-53
 - [Notes and highlights](#notes-and-highlights): UC-27 to UC-33
 - [Library](#library): UC-34 to UC-40
 - [Settings and looks](#settings-and-looks): UC-41 to UC-47
@@ -1519,6 +1519,105 @@ Tests:
 - `BookUiTest.playSpeedAndNotesShareTheControlRadius`
 - `ThemeTest.controlsShareOneEightDpRadius`
 
+### UC-53 Search the book for a word
+
+Goal: find where the book says something.
+
+- The magnifying glass in the reader's header opens a search field. The match count, previous and next, and a close icon sit beside it, and the header keeps its other buttons.
+- The search reads the transcript text on the phone: spoken sentences and sentences read but not yet spoken. It ignores case and accents and takes the query as plain text, not a pattern. It does not read footnote annotations or notes.
+- The count reads "1 of 2". The text scrolls to the current match, and every match is marked in teal, a colour that no pen colour and not the spoken sentence uses. The current match is stronger. See UC-53h for marking all matches or one.
+- Searching never starts or seeks the audio. Tapping the marked text jumps there as in UC-22.
+
+Tests:
+- `SearchTest.ignoresCaseAndAccents`
+- `SearchTest.findsMatchesAcrossParagraphsInReadingOrder`
+- `SearchTest.aQueryIsLiteralTextNotAPattern`
+- `SearchTest.aWholeBookIsScannedInAFewMilliseconds`
+- `SearchTest.matchColoursStayReadableUnderTheThemeText`
+- `BookUiTest.searchStepsThroughMatchesAndWrapsAround`
+
+#### UC-53a Several matches in one paragraph
+
+Goal: see every place a short word occurs, even inside one paragraph.
+
+- Matches may overlap: "aa" occurs twice in "aaa".
+
+Tests:
+- `SearchTest.findsEveryMatchInOneParagraph`
+- `SearchTest.overlappingMatchesAreAllFound`
+
+#### UC-53b Step to the next and previous match
+
+Goal: walk through the matches in reading order.
+
+- Next, previous and the keyboard's Search key move the current match. After the last match, next goes to the first. Before the first, previous goes to the last.
+
+Tests:
+- `SearchTest.nextAndPreviousWrapAtTheEnds`
+- `BookUiTest.searchStepsThroughMatchesAndWrapsAround`
+
+#### UC-53h Mark all matches or only the current one
+
+Goal: see every match at once, or only the one I am on.
+
+- The check mark in the search bar ("Highlight all matches") is on when the search opens. On, every match in the book is marked in teal, the current one stronger. Off, only the current match is marked. The count always covers the whole book.
+- Only rows on screen, and the few the list keeps beside them, are drawn, so marking stays quick on a whole book, even for a one-letter query.
+- The toggle changes the search marks only. It does not save a highlight in the book.
+
+Tests:
+- `BookUiTest.searchStepsThroughMatchesAndWrapsAround`
+
+#### UC-53c A query with no match
+
+Goal: know that the word is not in the book.
+
+- The counter says "No matches" and the field stays open. A query longer than the text matches nothing.
+
+Tests:
+- `SearchTest.noMatchGivesAnEmptyList`
+- `SearchTest.aQueryLongerThanTheTextMatchesNothing`
+- `SearchTest.theCounterReadsLikeThis`
+- `BookUiTest.searchWithNoMatchEmptyQueryRotationAndBack`
+
+#### UC-53d An empty query
+
+Goal: clear the field without a stale result.
+
+- An empty or blank query has no matches, no counter and no marks.
+
+Tests:
+- `SearchTest.anEmptyOrBlankQueryMatchesNothing`
+- `BookUiTest.searchWithNoMatchEmptyQueryRotationAndBack`
+
+#### UC-53e Close the search
+
+Goal: get the plain transcript back.
+
+- The close icon and the Back button close the search and clear the marks. Back closes the search first and does not leave the book. The scroll position returns to where it was only if the search never scrolled to a match.
+
+Tests:
+- `BookUiTest.searchStepsThroughMatchesAndWrapsAround`
+- `BookUiTest.searchWithNoMatchEmptyQueryRotationAndBack`
+
+Unchecked: that closing with no match found restores the scroll position.
+
+#### UC-53f Search a book that is still being made
+
+Goal: search the text that exists so far.
+
+- The search covers the sentences read so far. The count updates when more sentences arrive. The search does not cover sentences not yet read.
+
+Tests: none yet
+
+#### UC-53g The query survives a rotation
+
+Goal: turn the phone without losing the search.
+
+- A rotation keeps the open book, the open search, the query and the current match.
+
+Tests:
+- `BookUiTest.searchWithNoMatchEmptyQueryRotationAndBack`
+
 ## Notes and highlights
 
 ### UC-27 Add a note to a paragraph
@@ -2334,6 +2433,7 @@ Entries with no test, and why:
 - UC-37b, UC-37c: the library backup of a library with a book still being made, and with no ready book. They need two seeded books and a zip written on a device.
 - UC-51b: the text-layer PDF that is read with OCR. It is a limit, not a feature.
 - UC-48a: deleting a book in the middle of OCR.
+- UC-53f: searching a book still being made. It needs a book that grows while the screen is open, and the count follows the same transcript reload as the text.
 - UC-35b, UC-49d: see the bugs below.
 
 Bugs found while writing these entries. They are not fixed here:
