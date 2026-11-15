@@ -12,7 +12,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
@@ -54,11 +56,16 @@ data class ImportNotice(val title: String, val text: String, val paused: Boolean
                 .build()
         }
 
-        /** Posts a new notification under [id] each time what it says changes, until cancelled. */
+        /**
+         * Posts a new notification under [id] when what it says changes, until cancelled, at most four times a second: Android sheds a package's
+         * updates above about five a second, and when the last one is shed (a pause, as the progress stops) nothing posts it again.
+         */
+        @OptIn(FlowPreview::class)
         suspend fun keepUpdated(ctx: Context, id: Int) {
             val nm = ctx.getSystemService(NotificationManager::class.java)
             combine(Library.books, ImportQueue.paused) { books, paused -> of(ImportQueue.showStoppingAsWaiting(books), paused) }
                 .distinctUntilChanged()
+                .sample(250)
                 .collect { nm.notify(id, build(ctx, it)) }
         }
     }
