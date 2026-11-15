@@ -748,9 +748,11 @@ Goal: see my drop take effect, with no wait.
 - When a book is dropped, the shelf lists the new order in the same frame, even while the running book it passed is still stopping and the move is still being saved.
 - Saving the move and stopping the running book happen in the background, so the shelf does not freeze. The rows do not return to the old order while the passed book stops.
 - A book that is being fetched ahead is not restarted or lost by a move, and its progress stays.
+- A book stopped by a move after its text was read carries on as Speaking with the words it had: its row never goes back through Reading.
 
 Tests:
 - `ImportQueueUiTest.aBookDroppedFirstIsListedFirstAtOnceWhileTheMoveIsStillBeingSaved`
+- `ImportQueueUiTest.aBookStoppedByAMoveCarriesOnAtItsStageAndNeverGoesThroughReadingAgain`
 - `ImportQueueTest.aMovedBookIsListedInItsNewPlaceAtOnceWithoutWaitingForTheBookItPassedToStop`
 - `ImportQueueTest.aBookToldToStopIsShownWaitingUntilItsWorkerHasStopped`
 - `ImportQueueTest.aReorderChangesWhichBookIsFetchedNext`
