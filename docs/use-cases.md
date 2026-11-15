@@ -958,14 +958,21 @@ Tests:
 - `FindBooksUiTest.searchesByTitleGenreAndSortThenAddsTheTappedBookToTheImportQueue`
 - `FindBooksUiTest.sortsByRatingWithTheFewlyRatedLastAndShowsTheRatingOnTheRow`
 
-#### UC-13d English books only
+#### UC-13d Books in my language
 
 Goal: see only books I can read.
 
-- The "English only" switch is on by default. A book in English and another language counts as English. The row shows the author, the languages in capitals, the downloads and, "★ 4.5 (20)" (the average and the number of ratings) when Open Library has ratings for the book, and "Not rated" when it has none.
+- A Language menu on the search lists "All" and the languages of the book list, most books first, then by name, in the system language ("French", "français"). The menu starts as the language in the options. A book in English and another language is in both. Choosing a language filters the search at once and keeps the sort, the genre, the search box and the loading of more books.
+- The options have a "Catalogue language" menu with the same choices. It is one setting: choosing on the search changes it, and the other way round. The choice is kept across restarts.
+- Until the reader chooses, the language is All. The row shows the author, the languages in capitals, the downloads and, "★ 4.5 (20)" (the average and the number of ratings) when Open Library has ratings for the book, and "Not rated" when it has none.
 
 Tests:
-- `CatalogueTest.englishOnlyLeavesOutABookWithNoEnglishAndTheSwitchTurnsItOff`
+- `CatalogueTest.aLanguageKeepsTheBooksInItAndABookInTwoLanguagesIsInBoth`
+- `CatalogueTest.theLanguagesAreCountedByBooksMostFirst`
+- `CatalogueTest.theLanguageIsAllUntilChosenAndAChoiceIsKeptWhileTheListHasIt`
+- `CatalogueTest.theMenuOrdersLanguagesByBookCountThenNameAndNamesThemInTheSystemLanguage`
+- `FindBooksUiTest.theLanguageStartsAsAllAndTheMenuAndTheOptionsKeepOneSetting`
+- `FindBooksUiTest.theChosenLanguageIsKeptAcrossARestartAndAllIsAChoiceToo`
 - `FindBooksUiTest.searchesByTitleGenreAndSortThenAddsTheTappedBookToTheImportQueue`
 
 #### UC-13e Only books that can be added are listed
@@ -2619,7 +2626,7 @@ These are things the app does not do, or does less well than a listener might ex
 - **A contents page, margin sidenotes and one long footnote can still be spoken.** The layout rules remove most running heads, page numbers, footnotes and index pages, not all.
 - **An edited paragraph is not spoken again.** The audio keeps the original words (UC-32).
 - **A book with DRM cannot be imported.** An EPUB with DRM is refused (UC-09).
-- **A book is made only from the files on the phone or from Project Gutenberg.** Catalogue lists only English text books in the public domain, and only those with an EPUB.
+- **A book is made only from the files on the phone or from Project Gutenberg.** Catalogue lists only text books in the public domain, and only those with an EPUB.
 - **Only the speeds 0.75×, 1×, 1.25×, 1.5× and 2× exist.**
 - **Cloud services are not used for speech or OCR.** All of it runs on the phone. A voice that the phone does not have must be downloaded.
 - **A failed book cannot be retried from the shelf.** There is no retry button; delete the book and import it again.

@@ -37,12 +37,12 @@ class CatalogueTest {
     fun readsTheVersionAndEveryBookMostDownloadedFirst() {
         assertEquals("2026-11-14", data.version)
         assertEquals(7, data.size)
-        assertEquals(listOf(1, 2, 6, 4, 7, 5), ids(CatalogueQuery(sort = Sort.DOWNLOADS)))
+        assertEquals(listOf(1, 2, 6, 4, 7, 5), ids(CatalogueQuery(language = "en", sort = Sort.DOWNLOADS)))
     }
 
     @Test
     fun aRowShowsTheTitleTheAuthorsInReadingOrderTheLanguagesAndTheDownloads() {
-        val entries = data.search(CatalogueQuery(englishOnly = false), 50).entries.associateBy { it.id }
+        val entries = data.search(CatalogueQuery(), 50).entries.associateBy { it.id }
         assertEquals(CatalogueEntry(1, "Pride and Prejudice", "Jane Austen", listOf("en"), 208430), entries[1])
         assertEquals("Ada Example & Bob Other", entries[5]!!.author)
         assertEquals(listOf("en", "fr"), entries[6]!!.languages)
@@ -63,11 +63,11 @@ class CatalogueTest {
     fun aGenreMatchesTheBooksBookshelvesAndSubjects() {
         assertEquals(listOf(2), ids(CatalogueQuery(genre = Genre.SCIENCE_FICTION)))
         assertEquals("a subject, not only a bookshelf", listOf(4), ids(CatalogueQuery(genre = Genre.MYSTERY)))
-        assertEquals(listOf(2, 1, 4), ids(CatalogueQuery(genre = Genre.FICTION)))
+        assertEquals(listOf(2, 1, 4), ids(CatalogueQuery(language = "en", genre = Genre.FICTION)))
         assertEquals(listOf(5), ids(CatalogueQuery(genre = Genre.POETRY)))
         assertEquals(listOf(6), ids(CatalogueQuery(genre = Genre.DRAMA)))
         assertEquals(listOf(6), ids(CatalogueQuery(genre = Genre.CHILDREN)))
-        assertEquals(listOf(3, 1, 2, 4).sorted(), ids(CatalogueQuery(genre = Genre.FICTION, englishOnly = false)).sorted())
+        assertEquals(listOf(3, 1, 2, 4).sorted(), ids(CatalogueQuery(genre = Genre.FICTION)).sorted())
     }
 
     @Test
@@ -79,24 +79,53 @@ class CatalogueTest {
     }
 
     @Test
-    fun englishOnlyLeavesOutABookWithNoEnglishAndTheSwitchTurnsItOff() {
-        assertTrue(3 !in ids(CatalogueQuery()))
-        assertEquals("a book in English and French is English", true, 6 in ids(CatalogueQuery()))
-        assertTrue(3 in ids(CatalogueQuery(englishOnly = false)))
+    fun aLanguageKeepsTheBooksInItAndABookInTwoLanguagesIsInBoth() {
+        assertEquals(listOf(7, 6, 2, 1, 5, 4), ids(CatalogueQuery(language = "en")))
+        assertEquals(listOf(6, 3), ids(CatalogueQuery(language = "fr")))
+        assertEquals("no language searches every language", 7, ids(CatalogueQuery()).size)
+        assertEquals(emptyList<Int>(), ids(CatalogueQuery(language = "e")))
+    }
+
+    @Test
+    fun theLanguagesAreCountedByBooksMostFirst() {
+        assertEquals(listOf(LanguageCount("en", 6), LanguageCount("fr", 2)), data.languages)
+    }
+
+    @Test
+    fun theLanguageIsAllUntilChosenAndAChoiceIsKeptWhileTheListHasIt() {
+        assertEquals("nothing chosen is All", null, CatalogueLanguage.effective(null, listOf("en", "fr")))
+        assertEquals("All is a choice", null, CatalogueLanguage.effective(CatalogueLanguage.ALL, listOf("en", "fr")))
+        assertEquals("fr", CatalogueLanguage.effective("fr", listOf("en", "fr")))
+        assertEquals("a chosen language the list lost falls back to All", null, CatalogueLanguage.effective("de", listOf("en", "fr")))
+    }
+
+    @Test
+    fun theMenuOrdersLanguagesByBookCountThenNameAndNamesThemInTheSystemLanguage() {
+        val before = java.util.Locale.getDefault()
+        try {
+            java.util.Locale.setDefault(java.util.Locale.ENGLISH)
+            assertEquals("French", CatalogueLanguage.name("fr"))
+            assertEquals("XYZ", CatalogueLanguage.name("xyz"))
+            assertEquals(listOf("fr", "de", "en"), CatalogueLanguage.ordered(listOf(LanguageCount("fr", 5), LanguageCount("en", 1), LanguageCount("de", 5))).map { it.code })
+            java.util.Locale.setDefault(java.util.Locale.FRENCH)
+            assertEquals("Anglais", CatalogueLanguage.name("en"))
+        } finally {
+            java.util.Locale.setDefault(before)
+        }
     }
 
     @Test
     fun theDefaultOrderIsByTitleAndTheDownloadsSortIsMostDownloadedFirst() {
-        assertEquals("by title, ignoring case and accents", listOf(7, 6, 2, 1, 5, 4), ids(CatalogueQuery()))
-        assertEquals(listOf(1, 2, 6, 4, 7, 5), ids(CatalogueQuery(sort = Sort.DOWNLOADS)))
-        assertEquals("the sort applies to the books that match", listOf(1, 2, 4), ids(CatalogueQuery(genre = Genre.FICTION, sort = Sort.DOWNLOADS)))
-        assertEquals("equal downloads are in the order of their numbers", listOf(1, 2, 3, 6, 4, 7, 5), ids(CatalogueQuery(englishOnly = false, sort = Sort.DOWNLOADS)))
-        assertEquals(listOf(7, 6, 2, 3, 1, 5, 4), ids(CatalogueQuery(englishOnly = false)))
+        assertEquals("by title, ignoring case and accents", listOf(7, 6, 2, 1, 5, 4), ids(CatalogueQuery(language = "en")))
+        assertEquals(listOf(1, 2, 6, 4, 7, 5), ids(CatalogueQuery(language = "en", sort = Sort.DOWNLOADS)))
+        assertEquals("the sort applies to the books that match", listOf(1, 2, 4), ids(CatalogueQuery(language = "en", genre = Genre.FICTION, sort = Sort.DOWNLOADS)))
+        assertEquals("equal downloads are in the order of their numbers", listOf(1, 2, 3, 6, 4, 7, 5), ids(CatalogueQuery(sort = Sort.DOWNLOADS)))
+        assertEquals(listOf(7, 6, 2, 3, 1, 5, 4), ids(CatalogueQuery()))
     }
 
     @Test
     fun theResultCarriesTheFirstBooksAndHowManyMatchedInAll() {
-        val first = data.search(CatalogueQuery(sort = Sort.DOWNLOADS), 2)
+        val first = data.search(CatalogueQuery(language = "en", sort = Sort.DOWNLOADS), 2)
         assertEquals(listOf(1, 2), first.entries.map { it.id })
         assertEquals(6, first.total)
         assertEquals(0, data.search(CatalogueQuery(text = "zzz"), 2).total)

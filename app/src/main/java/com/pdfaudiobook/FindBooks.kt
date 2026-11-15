@@ -7,6 +7,7 @@ package com.pdfaudiobook
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +24,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -72,15 +75,18 @@ fun FindBooks(onBack: () -> Unit) {
     var text by remember { mutableStateOf("") }
     var genre by remember { mutableStateOf<Genre?>(null) }
     var sort by remember { mutableStateOf(Sort.TITLE) }
-    var englishOnly by remember { mutableStateOf(true) }
-    var shownCount by remember(text, genre, sort, englishOnly) { mutableStateOf(PAGE_SIZE) }
+    val chosenLanguage by CatalogueLanguage.chosen.collectAsState()
+    var languageMenu by remember { mutableStateOf(false) }
+    var shownCount by remember(text, genre, sort, chosenLanguage) { mutableStateOf(PAGE_SIZE) }
     var message by remember { mutableStateOf<String?>(null) }
     var added by remember { mutableStateOf(setOf<Int>()) }
     BackHandler(onBack = onBack)
     LaunchedEffect(Unit) { Catalogue.open(ctx) }
 
     val data = (state as? Catalogue.State.Ready)?.data
-    val query = CatalogueQuery(text, genre, sort, englishOnly)
+    val languages = remember(data) { CatalogueLanguage.ordered(data?.languages.orEmpty()) }
+    val language = CatalogueLanguage.effective(chosenLanguage, languages.map { it.code })
+    val query = CatalogueQuery(text, genre, sort, language)
     val result by produceState<CatalogueResult?>(null, data, query, shownCount) { value = data?.let { withContext(Dispatchers.Default) { it.search(query, shownCount) } } }
 
     // The next page is searched for when the list nears its end. Keyed on the books shown, so it waits for the last page to arrive first, and on the query, whose change makes a new [shownCount].
@@ -124,7 +130,10 @@ fun FindBooks(onBack: () -> Unit) {
                 for (o in Sort.values()) {
                     FilterChip(sort == o, { sort = o }, { Text(o.label) }, Modifier.testTag("sort-${o.name}"), shape = ControlShape, colors = themeChipColors())
                 }
-                FilterChip(englishOnly, { englishOnly = !englishOnly }, { Text("English only") }, Modifier.testTag("find-english"), shape = ControlShape, colors = themeChipColors())
+            }
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Language", Modifier.padding(end = 8.dp), style = MaterialTheme.typography.labelLarge)
+                LanguageMenu(language, languages, languageMenu, { languageMenu = it }, "find-language") { CatalogueLanguage.choose(ctx, it ?: CatalogueLanguage.ALL) }
             }
             message?.let { Text(it, Modifier.padding(horizontal = 16.dp, vertical = 8.dp).testTag("find-message"), color = MaterialTheme.colorScheme.primary) }
             when (val s = state) {
@@ -145,6 +154,18 @@ fun FindBooks(onBack: () -> Unit) {
                 items(found?.entries.orEmpty(), key = { it.id }) { entry -> ResultRow(entry, entry.id in added, books.firstOrNull { it.source == "gutenberg:${entry.id}" }?.let { downloading[it.id] }) { add(entry) } }
             }
             Attribution()
+        }
+    }
+}
+
+/** A button showing the chosen language that opens the list of languages and "All"; [onChoose] gets the code, or null for "All". */
+@Composable
+fun LanguageMenu(language: String?, languages: List<LanguageCount>, open: Boolean, setOpen: (Boolean) -> Unit, tag: String, onChoose: (String?) -> Unit) {
+    Box {
+        OutlinedButton({ setOpen(true) }, Modifier.testTag(tag)) { Text(CatalogueLanguage.label(language)) }
+        DropdownMenu(open, { setOpen(false) }) {
+            DropdownMenuItem(text = { Text("All") }, modifier = Modifier.testTag("$tag-all"), onClick = { setOpen(false); onChoose(null) })
+            for (l in languages) DropdownMenuItem(text = { Text(CatalogueLanguage.name(l.code)) }, modifier = Modifier.testTag("$tag-${l.code}"), onClick = { setOpen(false); onChoose(l.code) })
         }
     }
 }

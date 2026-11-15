@@ -99,6 +99,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         // Pick the window theme before the window exists, so a chosen mode shows from the first frame.
         ThemeChoice.mode = Options.load(this).theme
+        CatalogueLanguage.load(this)
         when (ThemeChoice.mode) { ThemeMode.LIGHT -> setTheme(R.style.Theme_Screenplay_Light); ThemeMode.DARK -> setTheme(R.style.Theme_Screenplay_Dark); else -> Unit }
         super.onCreate(savedInstanceState)
         // A rotation recreates the activity: the open book comes back with it, and with it the reader's own saved state (the search query).
@@ -430,7 +431,15 @@ fun SettingsPanel(options: Options, onExportBackup: () -> Unit, set: (Options) -
         }
         val ctx = LocalContext.current
         val scope = rememberCoroutineScope()
+        val catalogueState by Catalogue.state.collectAsState()
+        val catalogueLanguages = remember(catalogueState) { CatalogueLanguage.ordered(Catalogue.knownLanguages(ctx)) }
+        val chosenLanguage by CatalogueLanguage.chosen.collectAsState()
+        var languageMenu by remember { mutableStateOf(false) }
         var status by remember { mutableStateOf<String?>(null) }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Catalogue language", Modifier.weight(1f))
+            LanguageMenu(CatalogueLanguage.effective(chosenLanguage, catalogueLanguages.map { it.code }), catalogueLanguages, languageMenu, { languageMenu = it }, "opt-language") { CatalogueLanguage.choose(ctx, it ?: CatalogueLanguage.ALL) }
+        }
         var menu by remember { mutableStateOf(false) }
         Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Voice", Modifier.weight(1f).padding(end = OptionGap))

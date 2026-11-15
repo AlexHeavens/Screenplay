@@ -23,6 +23,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -67,6 +69,7 @@ class FindBooksUiTest {
             "90\tAdventure Isle\tVoyager, Sam\ten\t2000\t1\t38\t100",
             "5\tOther Book\tExample, Ada\ten\t100\t\t50\t1",
             "6\tLe Livre Calme\tLecteur, Léa\tfr\t40000\t\t\t",
+            "8\tDas Meer\tSee, Max\tde\t10\t\t\t",
         ) + extra).joinToString("\n", postfix = "\n")
         return ByteArrayOutputStream().also { out -> org.tukaani.xz.XZOutputStream(out, org.tukaani.xz.LZMA2Options()).use { it.write(text.toByteArray()) } }.toByteArray()
     }
@@ -95,6 +98,7 @@ class FindBooksUiTest {
         File(ctx.filesDir, Catalogue.FILE + ".new").delete()
         Library.refresh(ctx)
         Options().save(ctx)
+        CatalogueLanguage.choose(ctx, "en") // most tests search the English books; the language tests say otherwise
         Engines.synthesizer = { FakeSynthesizer() }
         Gutenberg.client = null
         Catalogue.reset()
@@ -112,6 +116,7 @@ class FindBooksUiTest {
 
     @After
     fun restore() {
+        CatalogueLanguage.reset(ctx)
         Engines.httpGet = Gutenberg::fetch
         Gutenberg.client = null
         Catalogue.reset()
@@ -202,10 +207,11 @@ class FindBooksUiTest {
 
         assertTrue(exists("result-4242"))
         compose.onNodeWithTag("genre-SCIENCE_FICTION").performClick()
-        compose.onNodeWithTag("find-english").performScrollTo().performClick()
+        compose.onNodeWithTag("find-language").performClick()
+        compose.onNodeWithTag("find-language-all").performClick()
         waitForTag("result-6")
         compose.onNodeWithTag("result-detail-6", useUnmergedTree = true).assertTextContains("Not rated", substring = true)
-        assertTrue("English only off also offers the book in French", exists("result-4242"))
+        assertTrue("All languages also offers the book in French", exists("result-4242"))
 
         compose.onNodeWithTag("result-4242").performClick()
         waitForTag("result-state-4242")
@@ -220,6 +226,79 @@ class FindBooksUiTest {
 
         compose.onNodeWithTag("find-back").performClick()
         compose.onNodeWithTag("book-Harbour Notes").assertIsDisplayed()
+    }
+
+    /** Starts the app again as after a restart of the app; the stored choice stays. */
+    private fun relaunch() {
+        scenario?.close()
+        Catalogue.reset()
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+    }
+
+    private fun label(tag: String) = compose.onNodeWithTag(tag).fetchSemanticsNode().config.getOrNull(SemanticsProperties.Text)?.joinToString { it.text }
+
+    @Smoke @Test
+    fun theLanguageStartsAsAllAndTheMenuAndTheOptionsKeepOneSetting() {
+        CatalogueLanguage.reset(ctx)
+        relaunch() // a fresh install, which has made no choice
+        openFindBooks()
+        waitForTag("result-4242")
+        assertEquals("a fresh install lists every language", "All", label("find-language"))
+        assertTrue(exists("result-6") && exists("result-8"))
+
+        compose.onNodeWithTag("find-language").performClick()
+        compose.onNodeWithTag("find-language-fr").performClick()
+        compose.waitUntil(10_000) { exists("result-6") && !exists("result-4242") && !exists("result-8") }
+        assertEquals("French", label("find-language"))
+        compose.onNodeWithTag("find-count").assertTextContains("1 books")
+
+        compose.onNodeWithTag("find-language").performClick()
+        compose.onNodeWithTag("find-language-de").performClick()
+        compose.waitUntil(10_000) { exists("result-8") && !exists("result-6") && !exists("result-4242") }
+        assertEquals("German", label("find-language"))
+        compose.onNodeWithTag("find-query").performTextInput("meer")
+        waitForTag("result-8")
+        compose.onNodeWithTag("find-query").performTextReplacement("")
+
+        compose.onNodeWithTag("find-back").performClick()
+        compose.onNodeWithTag("settings").performClick()
+        compose.waitUntil(10_000) { exists("opt-language") }
+        assertEquals("choosing on the search changes the setting", "German", label("opt-language"))
+        compose.onNodeWithTag("opt-language").performClick()
+        compose.onNodeWithTag("opt-language-en").performClick()
+        assertEquals("English", label("opt-language"))
+        compose.onNodeWithTag("settings-panel").performTouchInput { swipeDown() }
+        compose.waitUntil(10_000) { !exists("settings-panel") }
+
+        openFindBooks()
+        waitForTag("result-4242")
+        assertEquals("English", label("find-language"))
+        assertTrue("the setting filters the search", !exists("result-6") && !exists("result-8"))
+        assertEquals("the list is still downloaded once", 1, listRequests)
+    }
+
+    @Test
+    fun theChosenLanguageIsKeptAcrossARestartAndAllIsAChoiceToo() {
+        openFindBooks()
+        waitForTag("result-4242")
+        compose.onNodeWithTag("find-language").performClick()
+        compose.onNodeWithTag("find-language-de").performClick()
+        compose.waitUntil(10_000) { exists("result-8") && !exists("result-4242") }
+
+        relaunch()
+        openFindBooks()
+        waitForTag("result-8")
+        assertEquals("German", label("find-language"))
+        assertTrue(!exists("result-6") && !exists("result-4242"))
+        compose.onNodeWithTag("find-language").performClick()
+        compose.onNodeWithTag("find-language-all").performClick()
+        compose.waitUntil(10_000) { exists("result-4242") }
+
+        relaunch()
+        openFindBooks()
+        waitForTag("result-4242")
+        assertEquals("All", label("find-language"))
+        assertTrue(exists("result-6") && exists("result-8"))
     }
 
     @Test

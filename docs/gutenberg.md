@@ -23,8 +23,8 @@ It is not legal advice. The author read the pages named below on 2026-11-14. Nob
   `https://github.com/AlexHeavens/Screenplay/releases/download/catalogue/catalogue.tsv.xz` (`Catalogue.URL`), never `releases/latest`.
 - **The app downloads the file once**, the first time "Catalogue" opens, and keeps it in its private files. It replaces the file
   at most once a day, when the screen opens. A failed or unreadable refresh keeps the old file. The app never calls Gutenberg to search.
-- **Search runs on the device**: title and author words, genre chips (a bookshelf or subject that contains the genre word), English only
-  by default, and a sort by title, downloads or rating. It needs no network after the first download.
+- **Search runs on the device**: title and author words, genre chips (a bookshelf or subject that contains the genre word), a language
+  (all languages by default), and a sort by title, downloads or rating. It needs no network after the first download.
 - **A tap sends one request** for that book's EPUB to gutenberg.org, using `https://www.gutenberg.org/ebooks/<id>.epub3.images`, when the
   book's turn comes in the import queue. The workflow keeps only books whose feed entry lists that file.
 - Every request carries `User-Agent: Screenplay/<version> (+https://github.com/AlexHeavens/Screenplay)`.

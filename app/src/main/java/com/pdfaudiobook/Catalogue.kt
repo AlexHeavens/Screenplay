@@ -48,8 +48,12 @@ data class CatalogueQuery(
     val text: String = "",
     val genre: Genre? = null,
     val sort: Sort = Sort.TITLE,
-    val englishOnly: Boolean = true,
+    /** A Gutenberg language code such as "en"; null searches every language. */
+    val language: String? = null,
 )
+
+/** How many books of the list are in the language with Gutenberg code [code]. */
+data class LanguageCount(val code: String, val count: Int)
 
 /** A book as the list shows it; [author] is already in reading order ("Charles Dickens"). */
 data class CatalogueEntry(val id: Int, val title: String, val author: String, val languages: List<String>, val downloads: Int, val rating10: Int = 0, val ratingCount: Int = 0) {
@@ -67,8 +71,18 @@ data class CatalogueResult(val entries: List<CatalogueEntry>, val total: Int)
  * The file it comes from is built daily from Gutenberg's bulk catalogue by scripts/build-catalogue.py, which also describes the format.
  */
 class CatalogueData private constructor(val version: String, private val rows: List<Row>) {
-    private class Row(val id: Int, val title: String, val authors: String, val languages: String, val downloads: Int, val search: String, val english: Boolean, val genres: Int, val rating10: Int, val ratingCount: Int) {
+    private class Row(val id: Int, val title: String, val authors: String, val languages: String, val downloads: Int, val search: String, val genres: Int, val rating10: Int, val ratingCount: Int) {
         val ranked get() = ratingCount >= MIN_RATINGS
+
+        /** Whether the book is in [code]; a book in English and French is in both. */
+        fun inLanguage(code: String) = languages == code || languages.startsWith("$code,") || languages.endsWith(",$code") || languages.contains(",$code,")
+    }
+
+    /** The languages of the books, most books first (ties by code); each book counts once for every language it is in. */
+    val languages: List<LanguageCount> by lazy {
+        val counts = HashMap<String, Int>()
+        for (row in rows) for (code in row.languages.split(',')) if (code.isNotEmpty()) counts.merge(code, 1, Int::plus)
+        counts.map { LanguageCount(it.key, it.value) }.sortedWith(compareByDescending<LanguageCount> { it.count }.thenBy { it.code })
     }
 
     val size get() = rows.size
@@ -88,7 +102,7 @@ class CatalogueData private constructor(val version: String, private val rows: L
         val found = ArrayList<CatalogueEntry>(limit)
         var total = 0
         for (row in when (query.sort) { Sort.DOWNLOADS -> rows; Sort.RATING -> byRating; Sort.TITLE -> byTitle }) {
-            if (query.englishOnly && !row.english) continue
+            if (query.language != null && !row.inLanguage(query.language)) continue
             if (genre != 0 && row.genres and genre == 0) continue
             if (!words.all { row.search.contains(it) }) continue
             if (found.size < limit) found += CatalogueEntry(row.id, row.title, displayAuthors(row.authors), row.languages.split(','), row.downloads, row.rating10, row.ratingCount)
@@ -123,7 +137,7 @@ class CatalogueData private constructor(val version: String, private val rows: L
                 val genres = if (f[5].isEmpty()) 0 else f[5].split(',').fold(0) { mask, n -> mask or (genreOfTag.getOrNull(n.toIntOrNull() ?: -1) ?: throw unreadable) }
                 val ratingCount = if (format == 1 || f[7].isEmpty()) 0 else f[7].toIntOrNull() ?: throw unreadable
                 val rating10 = if (ratingCount == 0) 0 else f[6].toIntOrNull()?.takeIf { it in 10..50 } ?: throw unreadable
-                rows += Row(id, f[1], f[2], languages, f[4].toIntOrNull() ?: throw unreadable, fold("${f[1]} ${f[2]}"), languages.split(',').contains("en"), genres, rating10, ratingCount)
+                rows += Row(id, f[1], f[2], languages, f[4].toIntOrNull() ?: throw unreadable, fold("${f[1]} ${f[2]}"), genres, rating10, ratingCount)
             }
             if (rows.isEmpty()) throw unreadable
             rows.sortWith(compareByDescending<Row> { it.downloads }.thenBy { it.id })
@@ -174,6 +188,20 @@ object Catalogue {
     /** Forgets the list in memory, so the next [open] reads the file again; a test starts from here. */
     fun reset() { current.value = State.Opening }
 
+    private const val LANGUAGES_KEY = "catalogue-languages"
+
+    /** Keeps the list's languages ("en:60000,fr:2000"), so the options can offer them before the list is read. */
+    private fun rememberLanguages(ctx: Context, data: CatalogueData) {
+        ctx.getSharedPreferences("settings", Context.MODE_PRIVATE).edit().putString(LANGUAGES_KEY, data.languages.joinToString(",") { "${it.code}:${it.count}" }).apply()
+    }
+
+    /** The languages of the list, from memory or else from the last time a list was read; empty when none has been. */
+    fun knownLanguages(ctx: Context): List<LanguageCount> {
+        (current.value as? State.Ready)?.let { return it.data.languages }
+        val saved = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE).getString(LANGUAGES_KEY, null).orEmpty()
+        return saved.split(',').mapNotNull { pair -> pair.split(':').takeIf { it.size == 2 }?.let { (c, n) -> n.toIntOrNull()?.let { LanguageCount(c, it) } } }
+    }
+
     private fun file(ctx: Context) = File(ctx.filesDir, FILE)
 
     /**
@@ -184,11 +212,14 @@ object Catalogue {
         val file = file(ctx)
         val stored = (current.value as? State.Ready)?.data ?: if (file.exists()) read(file) else null
         current.value = if (stored != null) State.Ready(stored) else State.Opening
+        if (stored != null) rememberLanguages(ctx, stored)
         val stale = stored == null || System.currentTimeMillis() - file.lastModified() >= MAX_AGE_MS
         if (!stale) return@withLock
         val throttle = DownloadProgress.Throttle()
         try {
-            current.value = State.Ready(download(ctx, file, onProgress = { if (stored == null && throttle.accept(it)) current.value = State.Downloading(it) }))
+            val fresh = download(ctx, file, onProgress = { if (stored == null && throttle.accept(it)) current.value = State.Downloading(it) })
+            rememberLanguages(ctx, fresh)
+            current.value = State.Ready(fresh)
         } catch (e: CatalogueException) {
             // An old copy is better than none: say nothing and try again the next time the screen opens.
             if (stored == null) current.value = State.Failed(e.message ?: "The book list could not be downloaded.")
