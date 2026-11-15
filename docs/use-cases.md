@@ -911,11 +911,12 @@ Tests:
 Goal: see the books people read most, or find one by its title.
 
 - The "Sort by" chips offer "Title A–Z" (the default, ignoring case and accents) and "Most downloaded". Gutenberg publishes no ratings; the download count is the only measure. Books with equal downloads keep the order of their numbers.
-- The sort applies to the books that match the search and the genre. The list shows 50 books and "More results" shows 50 more while others match.
+- The sort applies to the books that match the search and the genre. The list shows 50 books and loads 50 more when the reader scrolls near its end, while others match. There is no "More results" button.
 
 Tests:
 - `CatalogueTest.theDefaultOrderIsByTitleAndTheDownloadsSortIsMostDownloadedFirst`
 - `CatalogueTest.theResultCarriesTheFirstBooksAndHowManyMatchedInAll`
+- `FindBooksUiTest.scrollingToTheEndOfTheListLoadsMoreBooksWithoutAButton`
 - `FindBooksUiTest.searchesByTitleGenreAndSortThenAddsTheTappedBookToTheImportQueue`
 
 #### UC-13d English books only

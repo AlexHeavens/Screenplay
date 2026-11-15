@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.KeyboardActions
@@ -42,6 +43,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -50,6 +52,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -79,6 +82,17 @@ fun FindBooks(onBack: () -> Unit) {
     val data = (state as? Catalogue.State.Ready)?.data
     val query = CatalogueQuery(text, genre, sort, englishOnly)
     val result by produceState<CatalogueResult?>(null, data, query, shownCount) { value = data?.let { withContext(Dispatchers.Default) { it.search(query, shownCount) } } }
+
+    // The next page is searched for when the list nears its end. Keyed on the books shown, so it waits for the last page to arrive first, and on the query, whose change makes a new [shownCount].
+    val listState = rememberLazyListState()
+    LaunchedEffect(query) { listState.scrollToItem(0) } // A new search starts at the top.
+    val more = result?.let { it.total > it.entries.size } == true
+    LaunchedEffect(more, result?.entries?.size, query) {
+        if (!more) return@LaunchedEffect
+        snapshotFlow { listState.layoutInfo.let { it.visibleItemsInfo.lastOrNull()?.index ?: 0 } >= listState.layoutInfo.totalItemsCount - LOAD_AHEAD }
+            .first { it }
+        shownCount += PAGE_SIZE
+    }
 
     fun add(entry: CatalogueEntry) {
         if (entry.id in added) return
@@ -124,14 +138,11 @@ fun FindBooks(onBack: () -> Unit) {
             }
             val found = result
             if (found != null) Text("${"%,d".format(found.total)} books", Modifier.padding(horizontal = 16.dp, vertical = 4.dp).testTag("find-count"), style = MaterialTheme.typography.bodySmall)
-            LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("find-results")) {
+            LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("find-results"), listState) {
                 if (found != null && found.total == 0) item {
                     Text("No books found.", Modifier.padding(16.dp).testTag("find-empty"))
                 }
                 items(found?.entries.orEmpty(), key = { it.id }) { entry -> ResultRow(entry, entry.id in added, books.firstOrNull { it.source == "gutenberg:${entry.id}" }?.let { downloading[it.id] }) { add(entry) } }
-                if (found != null && found.total > found.entries.size) item {
-                    OutlinedButton({ shownCount += PAGE_SIZE }, Modifier.padding(16.dp).testTag("find-more")) { Text("More results") }
-                }
             }
             Attribution()
         }
@@ -139,6 +150,7 @@ fun FindBooks(onBack: () -> Unit) {
 }
 
 private const val PAGE_SIZE = 50
+private const val LOAD_AHEAD = 10
 
 @Composable
 private fun ResultRow(entry: CatalogueEntry, added: Boolean, download: DownloadProgress?, onClick: () -> Unit) {

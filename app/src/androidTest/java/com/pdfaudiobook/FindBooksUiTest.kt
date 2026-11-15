@@ -6,6 +6,8 @@ package com.pdfaudiobook
 
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasTestTag
@@ -13,6 +15,7 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ActivityScenario
@@ -122,11 +125,41 @@ class FindBooksUiTest {
     private fun exists(tag: String) = compose.onAllNodes(hasTestTag(tag), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
     /** The given book ids, top of the list first, as the screen shows them. */
     private fun order(vararg ids: Int) = ids.sortedBy { compose.onNodeWithTag("result-$it").fetchSemanticsNode().positionInRoot.y }
+    /** Scrolls the results to their current last row until the book is on screen: the list loads more books as the end nears. */
+    private fun scrollUntilShown(tag: String) {
+        repeat(30) {
+            if (exists(tag)) return
+            // A lazy list does not state its length, so go to the last row that exists.
+            var row = 299
+            while (row > 0 && runCatching { compose.onNodeWithTag("find-results").performScrollToIndex(row) }.isFailure) row--
+            compose.waitForIdle()
+            Thread.sleep(200)
+        }
+        val shown = compose.onAllNodes(SemanticsMatcher("a book row") { n -> n.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("result-") == true }, useUnmergedTree = true).fetchSemanticsNodes().map { it.config[SemanticsProperties.TestTag] }
+        val count = compose.onNodeWithTag("find-count").fetchSemanticsNode().config.getOrNull(SemanticsProperties.Text)
+        error("$tag not shown; rows composed: $shown; count: $count")
+    }
     private fun waitForTag(tag: String) = compose.waitUntil(30_000) { exists(tag) }
 
     private fun openFindBooks() {
         compose.onNodeWithTag("find-books").performClick()
         compose.onNodeWithTag("find-notice").assertIsDisplayed()
+    }
+
+    @Test
+    fun scrollingToTheEndOfTheListLoadsMoreBooksWithoutAButton() {
+        listAnswer = { it.write(list(*(1..120).map { n -> "${1000 + n}\tBulk Book ${"%03d".format(n)}\tFiller, Fay\ten\t${10 + n}\t" }.toTypedArray())) }
+        openFindBooks()
+        waitForTag("result-1001")
+        compose.onNodeWithTag("find-query").performTextInput("bulk")
+        compose.waitUntil(10_000) { exists("result-1001") && !exists("result-4242") }
+        assertTrue("no button, only the first page", !exists("find-more") && !exists("result-1120"))
+        scrollUntilShown("result-1120")
+        waitForTag("result-1120")
+        compose.onNodeWithTag("sort-DOWNLOADS").performClick()
+        compose.waitUntil(10_000) { exists("result-1120") && !exists("result-1001") }
+        scrollUntilShown("result-1001")
+        waitForTag("result-1001")
     }
 
     @Smoke @Test
