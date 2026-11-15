@@ -18,7 +18,8 @@ classes=$(grep -l '@Smoke' app/src/androidTest/java/com/pdfaudiobook/*.kt | xarg
 # Classes named as arguments also run whole (every test, not only @Smoke) as extra entries "Class+full".
 # Longest first: whole BookUiTest, then the other whole classes, then the smoke classes.
 { for c in BookUiTest "$@"; do [[ $c == BookUiTest && " $* " != *" BookUiTest "* ]] || echo "$c+full"; done | awk '!seen[$0]++'
-  echo BookUiTest; grep -vx BookUiTest <<<"$classes"; } | grep -v '^$' > "$work/queue"
+  # A smoke entry for a class that also runs whole would only repeat tests the whole run covers, so it is left out.
+  for c in $classes; do [[ " $* " == *" $c "* || $c == BookUiTest ]] || echo "$c"; done; } | grep -v '^$' > "$work/queue"
 
 for s in $serials; do
   ( $adb -s "$s" install -r -t app/build/outputs/apk/debug/app-debug.apk >/dev/null &&
