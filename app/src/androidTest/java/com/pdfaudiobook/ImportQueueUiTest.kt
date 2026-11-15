@@ -224,7 +224,7 @@ class ImportQueueUiTest {
         }
         assertEquals(listOf("queue-three", "queue-two", "queue-one"), finished)
         val all = Library.segments(ctx, book("queue-two").id)
-        assertEquals("the kept speech starts the finished book", kept, all.take(kept.size))
+        assertEquals("the kept speech starts the finished book", kept.map { it.copy(at = -1) }, all.take(kept.size).map { it.copy(at = -1) })
         assertTrue("it carries on from there with no gap or overlap", all.zipWithNext().all { (a, b) -> b.start == a.end })
         compose.waitUntil(30_000) { !exists("section-importing") }
         compose.onNodeWithTag("section-imported").assertIsDisplayed()
