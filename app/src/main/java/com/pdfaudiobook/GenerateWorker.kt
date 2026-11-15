@@ -4,9 +4,6 @@
 
 package com.pdfaudiobook
 
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.ServiceInfo
 import androidx.work.CoroutineWorker
@@ -41,15 +38,21 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         coroutineScope {
             // Fetching is network bound: it runs beside the book being made and ends with the run.
             val prefetch = launch { QueueDownload.prefetch(ctx) }
+            // The notification names the book being made and its stage, and follows the queue as it moves or is paused.
+            val notice = launch { ImportNotice.keepUpdated(ctx, NOTIFICATION_ID) }
             try {
-                ImportQueue.drain(
-                    pick = { skip -> Library.refresh(ctx); ImportQueue.next(Library.books.value, skip)?.id },
-                    run = { id -> make(id) },
-                    // An Error too (out of memory): otherwise the job ends but the book shows its last stage for ever.
-                    failed = { id, e -> Library.update(ctx, id) { it.copy(status = Status.FAILED, error = e.message ?: e.javaClass.simpleName) } },
-                )
+                do {
+                    ImportQueue.drain(
+                        pick = { skip -> if (ImportQueue.paused.value) null else { Library.refresh(ctx); ImportQueue.next(Library.books.value, skip)?.id } },
+                        run = { id -> if (!ImportQueue.paused.value) make(id) },
+                        // An Error too (out of memory): otherwise the job ends but the book shows its last stage for ever.
+                        failed = { id, e -> Library.update(ctx, id) { it.copy(status = Status.FAILED, error = e.message ?: e.javaClass.simpleName) } },
+                    )
+                    // Paused: the worker stays, so the notification stays with its Resume button, until the import is resumed.
+                } while (ImportQueue.awaitResume())
             } finally {
                 prefetch.cancel()
+                notice.cancel()
             }
         }
         return Result.success()
@@ -265,18 +268,15 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         }
     }
 
-    private fun foregroundInfo(): ForegroundInfo {
-        val nm = applicationContext.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel("generate", "Audiobook generation", NotificationManager.IMPORTANCE_LOW))
-        val n: Notification = Notification.Builder(applicationContext, "generate")
-            .setSmallIcon(android.R.drawable.stat_notify_sync)
-            .setContentTitle("Making an audiobook")
-            .setOngoing(true)
-            .build()
-        return ForegroundInfo(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-    }
+    private fun foregroundInfo() = ForegroundInfo(
+        NOTIFICATION_ID,
+        ImportNotice.build(applicationContext, ImportNotice.of(ImportQueue.showStoppingAsWaiting(Library.books.value), ImportQueue.paused.value)),
+        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+    )
 
     private companion object {
+        const val NOTIFICATION_ID = 1
+
         /** Sentences sent to the spell checker at once. */
         const val SPELL_BATCH = 50
 

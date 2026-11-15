@@ -741,6 +741,26 @@ Goal: have the rest of my books made.
 Tests:
 - `ImportQueueTest.aFailedBookLeavesTheQueueAndTheNextIsMade`
 
+#### UC-10e See which book is made and pause it from the notification or the shelf
+
+Goal: know what the import is doing without opening the app, and stop it when I need the phone's power or network.
+
+- The "Making an audiobook" notification shows the title of the book being made and its stage with percent, such as "Reading 41%". It changes when the queue moves to the next book or is reordered.
+- Its Pause button stops the book where it is. The book keeps its stage and progress, and the shelf shows "Paused" on it. Nothing else is made while paused.
+- While paused the notification says "Paused" with the stage, and its button is Resume. Resume carries on at the stage and progress the book had.
+- The shelf's "Importing" section has the same Pause and Resume button. It uses the same pause as the notification, so the shelf, the notification and the queue rows always show the same state.
+
+Tests:
+- `ImportNoticeTest.theNoticeNamesTheBookBeingMadeAndItsStageWithPercent`
+- `ImportNoticeTest.speakingShowsTheWordsShare`
+- `ImportNoticeTest.followsTheQueueWhenTheNextBookTakesOver`
+- `ImportNoticeTest.aWaitingBookIsNamedWhenNoneRuns`
+- `ImportNoticeTest.pausedSaysSoAndKeepsTheStage`
+- `ImportNoticeTest.anEmptyQueueHasTheGeneralTitle`
+- `ImportNoticeTest.theShelfLabelsTheRunningBookPausedOnlyWhilePaused`
+- `ImportQueueUiTest.theNotificationNamesTheBookAndItsStageAndPausesAndResumesItThroughTheRealWorker`
+- `ImportQueueUiTest.theHomeScreenPauseAndResumeShareTheNotificationsPausedState`
+
 ### UC-11 Reorder the import queue
 
 Goal: have the book I want next made next.

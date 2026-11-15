@@ -10,6 +10,10 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
@@ -24,6 +28,10 @@ object ImportQueue {
     private val gate = Mutex()
     private val jobs = ConcurrentHashMap<String, Job>()
     private val preempted = ConcurrentHashMap.newKeySet<String>()
+    private val pausedFlow = MutableStateFlow(false)
+
+    /** True while the user has paused the import (from the notification): the book being made keeps its stage and progress, and no book is made until [resume]. */
+    val paused: StateFlow<Boolean> = pausedFlow
 
     /** Books waiting to be made, first in line first. */
     private fun waiting(books: List<Book>) = books.filter { it.status == Status.QUEUED }.sortedWith(compareBy({ it.queueOrder }, { it.created }, { it.id }))
@@ -47,8 +55,8 @@ object ImportQueue {
      * What the row says in words: the book's own label once its import is over, the error of a failed fetch for a waiting book, and nothing
      * else: a waiting book's place is its row, and [Stages] shows a book being fetched or made.
      */
-    fun label(books: List<Book>, book: Book, downloading: Map<String, DownloadProgress> = emptyMap()): String {
-        if (book.importing && book.status != Status.QUEUED) return ""
+    fun label(books: List<Book>, book: Book, downloading: Map<String, DownloadProgress> = emptyMap(), paused: Boolean = false): String {
+        if (book.importing && book.status != Status.QUEUED) return if (paused) "Paused" else ""
         if (book.status != Status.QUEUED) return book.label()
         if (book.id in downloading) return ""
         if (line(books).none { it.id == book.id }) return book.label()
@@ -139,6 +147,29 @@ object ImportQueue {
         preempted += id
         job.cancel()
         return true
+    }
+
+    /**
+     * Stops the book being made where it is, for the user to carry on later. Unlike [preempt] the book is not put back among the waiting books:
+     * it keeps its running status, stage and progress, so it stays first in [line] and [resume] makes it again as a restart would, from the speech it kept.
+     */
+    fun pause() {
+        pausedFlow.value = true
+        jobs.values.forEach { it.cancel() }
+    }
+
+    /** Lets the paused import carry on with the book it stopped. */
+    fun resume() { pausedFlow.value = false }
+
+    /**
+     * Called by the worker when [drain] has ended: while the import is paused it waits for [resume] and returns true, so the worker drains again.
+     * False when it was not paused, or when the paused queue emptied (every book deleted), which also clears the pause.
+     */
+    suspend fun awaitResume(): Boolean {
+        if (!pausedFlow.value) return false
+        val resumed = combine(pausedFlow, Library.books) { p, books -> !p || line(books).isEmpty() }.first { it }
+        if (pausedFlow.value) { pausedFlow.value = false; return false }
+        return resumed
     }
 
     /** True from [preempt] until [drain] has seen the book stop. */

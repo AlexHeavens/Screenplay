@@ -306,6 +306,102 @@ class ImportQueueUiTest {
         }
     }
 
+    private fun importNotification() = ctx.getSystemService(android.app.NotificationManager::class.java).activeNotifications.singleOrNull { it.id == 1 }?.notification
+
+    @Test
+    fun theNotificationNamesTheBookAndItsStageAndPausesAndResumesItThroughTheRealWorker() {
+        val names = listOf("note-one", "note-two")
+        val release = CompletableDeferred<Unit>()
+        // Speech stops after a few sentences, so the book stays in its speaking stage while the test presses the buttons.
+        val speechHold = CompletableDeferred<Unit>()
+        val spoken = AtomicInteger()
+        Engines.synthesizer = {
+            val inner = FakeSynthesizer()
+            object : Synthesizer {
+                override suspend fun speak(text: String, wav: File) { if (spoken.incrementAndGet() > 6) speechHold.await(); inner.speak(text, wav) }
+                override fun close() = inner.close()
+            }
+        }
+        importQueued(names, release)
+        try {
+            release.complete(Unit)
+            compose.waitUntil(120_000) { book("note-one").status == Status.SPEAKING && Library.segments(ctx, book("note-one").id).isNotEmpty() }
+            compose.waitUntil(30_000) { importNotification()?.extras?.getString(android.app.Notification.EXTRA_TITLE) == "note-one" }
+            val running = importNotification()!!
+            assertTrue(running.extras.getString(android.app.Notification.EXTRA_TEXT)!!.startsWith("Speaking "))
+            assertEquals(listOf("Pause"), running.actions.map { it.title.toString() })
+
+            // The Pause button is the notification's own PendingIntent, sent to the real receiver and worker.
+            running.actions.single().actionIntent.send()
+            compose.waitUntil(30_000) { importNotification()?.actions?.singleOrNull()?.title == "Resume" }
+            val stopped = importNotification()!!
+            assertTrue(stopped.extras.getString(android.app.Notification.EXTRA_TEXT)!!.startsWith("Paused · Speaking "))
+            val wordsAtPause = book("note-one").words
+            assertEquals("the stage is kept, the book does not go back to waiting", Status.SPEAKING, book("note-one").status)
+            assertEquals("Paused", text("status-note-one"))
+            Thread.sleep(2_000)
+            assertEquals("nothing is made while paused", wordsAtPause, book("note-one").words)
+            assertEquals(Status.QUEUED, book("note-two").status)
+
+            // Resume carries on at the stage and progress the book had, never through reading again.
+            stopped.actions.single().actionIntent.send()
+            speechHold.complete(Unit)
+            var reading = 0
+            compose.waitUntil(240_000) {
+                if (book("note-one").status == Status.READING) reading++
+                Library.books.value.all { it.status == Status.READY }
+            }
+            assertEquals("the book went through reading again", 0, reading)
+            assertTrue(book("note-one").words >= wordsAtPause)
+        } finally {
+            speechHold.complete(Unit)
+            ImportQueue.resume()
+            for (n in names) Library.books.value.firstOrNull { it.title == n }?.let { Library.delete(ctx, it.id) }
+        }
+    }
+
+    @Test
+    fun theHomeScreenPauseAndResumeShareTheNotificationsPausedState() {
+        val names = listOf("home-one", "home-two")
+        val release = CompletableDeferred<Unit>()
+        val speechHold = CompletableDeferred<Unit>()
+        val spoken = AtomicInteger()
+        Engines.synthesizer = {
+            val inner = FakeSynthesizer()
+            object : Synthesizer {
+                override suspend fun speak(text: String, wav: File) { if (spoken.incrementAndGet() > 6) speechHold.await(); inner.speak(text, wav) }
+                override fun close() = inner.close()
+            }
+        }
+        importQueued(names, release)
+        try {
+            release.complete(Unit)
+            compose.waitUntil(120_000) { book("home-one").status == Status.SPEAKING && Library.segments(ctx, book("home-one").id).isNotEmpty() }
+            compose.waitUntil(30_000) { exists("import-pause") }
+            assertTrue(!exists("import-resume"))
+            compose.onNodeWithTag("import-pause", useUnmergedTree = true).performClick()
+            // The shelf, the queue and the notification all show the pause.
+            compose.waitUntil(30_000) { exists("import-resume") && ImportQueue.paused.value }
+            assertEquals("Paused", text("status-home-one"))
+            assertEquals(Status.SPEAKING, book("home-one").status)
+            compose.waitUntil(30_000) { importNotification()?.actions?.singleOrNull()?.title == "Resume" }
+            // Resume from the notification: the home screen goes back to Pause.
+            importNotification()!!.actions.single().actionIntent.send()
+            compose.waitUntil(30_000) { exists("import-pause") && !ImportQueue.paused.value }
+            compose.waitUntil(30_000) { importNotification()?.actions?.singleOrNull()?.title == "Pause" }
+            // And Pause then Resume from the home screen carries on.
+            compose.onNodeWithTag("import-pause", useUnmergedTree = true).performClick()
+            compose.waitUntil(30_000) { exists("import-resume") }
+            compose.onNodeWithTag("import-resume", useUnmergedTree = true).performClick()
+            speechHold.complete(Unit)
+            compose.waitUntil(240_000) { Library.books.value.all { it.status == Status.READY } }
+        } finally {
+            speechHold.complete(Unit)
+            ImportQueue.resume()
+            for (n in names) Library.books.value.firstOrNull { it.title == n }?.let { Library.delete(ctx, it.id) }
+        }
+    }
+
     @Test
     fun aMoveThatCannotBeSavedPutsTheOldOrderBackAndSaysWhy() {
         val names = listOf("fail-one", "fail-two", "fail-three")

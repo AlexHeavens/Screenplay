@@ -206,14 +206,26 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
         }
         val importing = ImportQueue.line(books)
         val downloading by QueueDownload.active.collectAsState()
+        val paused by ImportQueue.paused.collectAsState()
         val drag = rememberQueueDrag(books) { id, to -> Library.moveTo(ctx, id, to) }
         val imported = ImportQueue.imported(books)
         LazyColumn(Modifier.padding(pad)) {
             // Shown only while a book is still being made; the queue empties and the section goes.
             if (importing.isNotEmpty()) {
-                item(key = "header-importing") { SectionHeader("Importing", "section-importing") }
+                item(key = "header-importing") {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) { SectionHeader("Importing", "section-importing") }
+                        // The same pause as the notification's button: one flag, so the shelf, the notification and the rows always agree.
+                        TextButton(
+                            onClick = { if (paused) ImportQueue.resume() else ImportQueue.pause() },
+                            Modifier.height(32.dp).testTag(if (paused) "import-resume" else "import-pause"),
+                            shape = ControlShape,
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
+                        ) { Text(if (paused) "Resume" else "Pause") }
+                    }
+                }
                 items(importing, key = { it.id }) { b ->
-                    BookRow(b, ImportQueue.label(books, b, downloading), onOpen, onDelete = { toDelete = b }, drag = drag, download = downloading[b.id])
+                    BookRow(b, ImportQueue.label(books, b, downloading, paused), onOpen, onDelete = { toDelete = b }, drag = drag, download = downloading[b.id])
                 }
             }
             if (imported.isNotEmpty()) {
