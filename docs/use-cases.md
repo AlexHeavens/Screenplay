@@ -1509,6 +1509,8 @@ Goal: hear a later part of a book still being made first, without losing the res
 - Speech goes on from there to the end of the book, then wraps to the earliest sentence with no audio. It stops when every sentence has audio.
 - A sentence that has audio is never spoken again. A sentence being spoken is not picked twice.
 - Sentences already in progress finish first, so the jump takes effect after those few.
+- The sentence tapped turns bold and pulses between the text colour and grey until it has audio, so the tap is seen at once. Once it has audio the pulse stops, and the next sentences load without any mark.
+- While a book is made, the seek bar at the bottom is shaded as the side bars are: grey for the share read, darker grey over it for the share spoken.
 - The audio is kept in the order it was spoken while the book is made. When the book is finished it is put in the order of the text, and the saved place moves with it.
 - The jump is kept in the book's folder, so a stopped book that carries on resumes from it.
 

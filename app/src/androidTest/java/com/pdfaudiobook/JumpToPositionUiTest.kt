@@ -9,6 +9,7 @@ import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -106,6 +107,8 @@ class JumpToPositionUiTest {
         }
         compose.onNodeWithTag("queued-$last").performClick()
         assertEquals(last, Speaking.from(ctx, id))
+        // At once, before any audio: the sentence tapped shows it is loading.
+        compose.onNodeWithTag("queued-$last").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Loading"))
 
         gate.complete(Unit)
         // Playback starts at the sentence tapped, as soon as it has audio.

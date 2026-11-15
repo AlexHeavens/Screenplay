@@ -13,6 +13,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColor
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -33,6 +38,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -67,6 +73,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.text.SpanStyle
@@ -679,7 +686,27 @@ fun Reader(id: String, onBack: () -> Unit) {
                             style = MaterialTheme.typography.labelMedium, color = SpeechGrey)
                     }
                 }
-                Slider(
+                if (book?.importing == true) {
+                    // As the side bars: grey for the share read, darker over it for the share that has audio. The thumb sits at the playing point within the spoken share.
+                    val read = book.readProgress
+                    val speech = book.speechProgress
+                    val readGrey = ReadGrey
+                    val speechGrey = SpeechGrey
+                    val duration = player.duration.toFloat().coerceAtLeast(1f)
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Canvas(Modifier.fillMaxWidth().padding(horizontal = 10.dp).height(4.dp)) {
+                            drawLine(readGrey, Offset(0f, size.height / 2), Offset(size.width * read, size.height / 2), strokeWidth = size.height)
+                            drawLine(speechGrey, Offset(0f, size.height / 2), Offset(size.width * speech, size.height / 2), strokeWidth = size.height)
+                        }
+                        Slider(
+                            value = (speech * player.position / duration).coerceIn(0f, 1f),
+                            onValueChange = { if (speech > 0f) player.seek((it / speech * duration).toLong().coerceIn(0L, player.duration)) },
+                            colors = SliderDefaults.colors(activeTrackColor = Color.Transparent, inactiveTrackColor = Color.Transparent,
+                                activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent),
+                            modifier = Modifier.testTag("seek"),
+                        )
+                    }
+                } else Slider(
                     value = player.position.toFloat(),
                     onValueChange = { player.seek(it.toLong()) },
                     valueRange = 0f..player.duration.toFloat().coerceAtLeast(1f),
@@ -749,9 +776,19 @@ fun Reader(id: String, onBack: () -> Unit) {
                     if (chapter != null && !own) ChapterTitle(chapter.title, i)
                     val found = matchesByParagraph[i]
                     val shownText = (if (found == null) AnnotatedString(text) else Search.mark(text, found, found.indexOf(currentMatch).takeIf { it >= 0 }, isDarkTheme())).withFootnoteMarks(footnoteMarks[i])
-                    Text(shownText, Modifier.fillMaxWidth().clickable { Speaking.jump(ctx, id, i); waitingFor = i }.padding(vertical = 6.dp).testTag("queued-$i"),
+                    // The sentence tapped is bold and pulses between the text colour and grey until it has audio, so the tap is seen at once.
+                    val loading = waitingFor == i
+                    val pulse = if (loading) {
+                        val c by rememberInfiniteTransition(label = "loading").animateColor(
+                            MaterialTheme.colorScheme.onBackground, ReadLabelGrey,
+                            infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "loading-colour",
+                        )
+                        c
+                    } else ReadLabelGrey
+                    Text(shownText, Modifier.fillMaxWidth().clickable { Speaking.jump(ctx, id, i); waitingFor = i }.padding(vertical = 6.dp).testTag("queued-$i")
+                        .semantics { if (loading) stateDescription = "Loading" },
                         style = if (own) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.bodyLarge,
-                        fontWeight = if (own) FontWeight.Bold else null, color = ReadLabelGrey)
+                        fontWeight = if (own || loading) FontWeight.Bold else null, color = pulse)
                     placedFootnotes[i]?.let { Box(Modifier.fillMaxWidth()) { FootnoteAnnotation(it, i) } }
                     return@itemsIndexed
                 }
