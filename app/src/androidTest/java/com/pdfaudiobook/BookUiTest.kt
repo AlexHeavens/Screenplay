@@ -580,7 +580,7 @@ class BookUiTest {
                 while (true) { val e = z.nextEntry ?: break; names += e.name; assertTrue("${e.name} is empty", z.readBytes().isNotEmpty()) }
             }
             assertEquals(listOf(Files.PDF, Files.AUDIO, Files.TRANSCRIPT, Files.NOTES, Files.META).sorted(), names.sorted())
-            // The zip the share sheet receives is what Import backup restores.
+            // The zip the share sheet receives is what Import restores.
             assertEquals(listOf(title), Backup.restore(ctx, uri))
         } finally {
             Intents.release()

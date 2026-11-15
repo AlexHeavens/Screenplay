@@ -27,7 +27,7 @@ A test is named `ClassName.methodName`. Unit tests live in `app/src/test` and de
 
 Goal: turn a PDF on my phone into an audiobook with a transcript.
 
-- Tap "Import PDF or EPUB" on the shelf and pick a file.
+- Tap "Import" on the shelf and pick a file. A PDF or an EPUB becomes a new book; a zip from the share menu or from Export backup is restored (UC-36).
 - The app reads each page with on-device OCR, speaks the text, and shows the book as ready.
 
 Tests:
@@ -2049,7 +2049,7 @@ Tests:
 Goal: keep a copy of a book and my notes outside the app.
 
 - Share on the book screen, then "Zip backup", shares one zip through the share sheet. There is no separate Back up button.
-- Import backup restores that zip as a new book. The zip format is unchanged.
+- Import on the shelf restores that zip as a new book. The zip format is unchanged.
 - The zip holds the PDF or EPUB, the audio, the transcript, the notes, the highlights and the details.
 
 Tests:
@@ -2081,7 +2081,7 @@ Tests:
 
 Goal: get a book back, with my notes.
 
-- Import backup in the settings takes a book zip and adds it as a new book, with transcript, notes and details.
+- Import on the shelf takes a book zip and adds it as a new book, with transcript, notes and details.
 - A zip that is not a backup is refused with a message. A zip with path traversal writes nothing outside the book's folder.
 
 Tests:
@@ -2157,7 +2157,7 @@ Unchecked: a full disk during a restore.
 
 Goal: move all my books to a new phone.
 
-- Export backup in the settings makes one zip of every book. Import backup restores every book in it.
+- Export backup in the settings makes one zip of every book. Import on the shelf restores every book in it.
 
 Tests:
 - `BackupImportTest.exportsTheWholeLibraryFromTheSettingsAndImportsItBack`
@@ -2166,13 +2166,16 @@ Unchecked: a library large enough to matter, in size and time.
 
 #### UC-37a A library zip is told from a book zip by its first entry
 
-Goal: use one Import backup button for both.
+Goal: use one Import button for both.
 
+- Import sends a file to the restore unless it is a PDF or an EPUB, by name or by type. An EPUB is a zip too, so it is never restored as a backup. The picker offers PDF, EPUB and zip files. Audio exports (M4B, M4A) are not imported, because they have no transcript.
 - If the first entry of the zip ends in ".zip", the file is a library and each inner zip is restored as a book. Otherwise the file is one book.
 
 Tests:
 - `BackupImportTest.exportsTheWholeLibraryFromTheSettingsAndImportsItBack`
 - `BackupImportTest.importsABackupAsANewBookWithTranscriptNotesAndDetails`
+- `BackupKindTest.aZipIsABackupWhateverTypeTheProviderReports`
+- `BackupKindTest.aPdfOrAnEpubIsABookToImport`
 
 #### UC-37b A book still being made is left out of the library backup
 
@@ -2302,7 +2305,7 @@ Tests:
 
 Goal: find everything in one place.
 
-- The settings hold "Import backup" and "Export backup" (UC-36, UC-37), "Voice" (UC-45) and "Theme" (UC-46).
+- The settings hold "Export backup" (UC-36, UC-37), "Voice" (UC-45) and "Theme" (UC-46).
 
 Tests:
 - `BackupImportTest.exportsTheWholeLibraryFromTheSettingsAndImportsItBack`

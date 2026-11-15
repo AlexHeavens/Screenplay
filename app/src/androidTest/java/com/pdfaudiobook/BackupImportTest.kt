@@ -9,6 +9,7 @@ import android.app.Instrumentation
 import android.content.Intent
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ActivityScenario
@@ -19,13 +20,14 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 
-/** Backs a seeded book up with the real zipper and imports it through "Import backup"; only the system file picker is faked. */
+/** Backs a seeded book up with the real zipper and imports it through the shelf's "Import" button; only the system file picker is faked. */
 @RunWith(AndroidJUnit4::class)
 class BackupImportTest {
     @get:Rule
@@ -57,9 +59,11 @@ class BackupImportTest {
         try {
             val result = Instrumentation.ActivityResult(Activity.RESULT_OK, uri?.let { Intent().setData(it) })
             Intents.intending(hasAction(Intent.ACTION_OPEN_DOCUMENT)).respondWith(result)
-            compose.onNodeWithTag("settings").performClick()
-            compose.onNodeWithTag("import-backup").performClick()
+            compose.onNodeWithTag("import").assertTextEquals("Import")
+            compose.onNodeWithTag("import").performClick()
             compose.waitUntil(30_000) { Intents.getIntents().any { it.action == Intent.ACTION_OPEN_DOCUMENT } }
+            val asked = Intents.getIntents().first { it.action == Intent.ACTION_OPEN_DOCUMENT }.getStringArrayExtra(Intent.EXTRA_MIME_TYPES)!!.toList()
+            assertTrue(asked.toString(), listOf("application/pdf", "application/epub+zip", "application/zip").all { it in asked })
         } finally {
             Intents.release()
         }

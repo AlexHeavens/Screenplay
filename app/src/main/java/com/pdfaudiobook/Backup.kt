@@ -70,6 +70,21 @@ object Backup {
         return FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", out)
     }
 
+    /** What the import picker offers: the book files and the zips this app exports. */
+    val importTypes = arrayOf("application/pdf", "application/epub+zip", "application/zip", "application/x-zip-compressed", "application/octet-stream")
+
+    /** A zip is a backup, whatever type the provider reports; a PDF or an EPUB is a book to read. An EPUB is a zip too, so the name and type must say so. */
+    fun isBackup(name: String?, mime: String?): Boolean {
+        if (name?.endsWith(".pdf", ignoreCase = true) == true || name?.endsWith(".epub", ignoreCase = true) == true) return false
+        return mime != "application/pdf" && mime != "application/epub+zip"
+    }
+
+    fun isBackup(ctx: Context, uri: Uri) = isBackup(displayName(ctx, uri), ctx.contentResolver.getType(uri))
+
+    private fun displayName(ctx: Context, uri: Uri): String? = try {
+        ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null }
+    } catch (_: Exception) { null } ?: uri.lastPathSegment
+
     fun share(ctx: Context, uri: Uri) {
         val send = Intent(Intent.ACTION_SEND)
             .setType("application/zip")
@@ -104,9 +119,7 @@ object Backup {
      * book's backup, or a library backup ([zipLibrary]) holding one backup per book.
      */
     fun restore(ctx: Context, uri: Uri): List<String> {
-        val shown = try {
-            ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null }
-        } catch (_: Exception) { null } ?: uri.lastPathSegment ?: "Untitled"
+        val shown = displayName(ctx, uri) ?: "Untitled"
         val isLibrary = ctx.contentResolver.openInputStream(uri)?.use { ZipInputStream(it).nextEntry?.name?.endsWith(".zip") == true } ?: throw BackupException("Could not read the file.")
         if (!isLibrary) return listOf(ctx.contentResolver.openInputStream(uri)?.use { restoreBook(ctx, it, shown) } ?: throw BackupException("Could not read the file."))
         val titles = mutableListOf<String>()

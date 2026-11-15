@@ -134,14 +134,13 @@ class MainActivity : ComponentActivity() {
 fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
     val ctx = LocalContext.current
     val books by Library.books.collectAsState()
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) Library.import(ctx, uri)
-    }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val backupPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    // One picker for everything the app exports and reads: a PDF or an EPUB becomes a book to make, a zip is restored.
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
             val message = try {
+                if (!withContext(Dispatchers.IO) { Backup.isBackup(ctx, uri) }) { Library.import(ctx, uri); return@launch }
                 "Imported ${withContext(Dispatchers.IO) { Backup.restore(ctx, uri) }.joinToString { "“$it”" }}"
             } catch (e: BackupException) {
                 e.message ?: "Could not import the backup."
@@ -166,7 +165,6 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
     if (showSettings) ModalBottomSheet({ showSettings = false }, Modifier.testTag("settings-panel")) {
         SettingsPanel(
             options,
-            onImportBackup = { showSettings = false; backupPicker.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream")) },
             onExportBackup = {
                 showSettings = false
                 scope.launch {
@@ -196,8 +194,8 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
         },
         bottomBar = { MiniPlayer(onOpen) },
         floatingActionButton = {
-            ExtendedFloatingActionButton(onClick = { picker.launch(arrayOf("application/pdf", "application/epub+zip")) }, modifier = Modifier.testTag("import")) {
-                Text("Import PDF or EPUB")
+            ExtendedFloatingActionButton(onClick = { picker.launch(Backup.importTypes) }, modifier = Modifier.testTag("import")) {
+                Text("Import")
             }
         },
     ) { pad ->
@@ -371,7 +369,7 @@ fun SwitchRow(label: String, checked: Boolean, tag: String, hint: String? = null
 }
 
 @Composable
-fun SettingsPanel(options: Options, onImportBackup: () -> Unit, onExportBackup: () -> Unit, set: (Options) -> Unit) {
+fun SettingsPanel(options: Options, onExportBackup: () -> Unit, set: (Options) -> Unit) {
     Column(Modifier.padding(bottom = 24.dp)) {
         Text("Import options", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         SwitchRow("Spell check", options.spell, "opt-spell") { set(options.copy(spell = it)) }
@@ -424,7 +422,6 @@ fun SettingsPanel(options: Options, onImportBackup: () -> Unit, onExportBackup: 
         }
         status?.let { Text(it, Modifier.padding(horizontal = 24.dp).testTag("voice-status"), style = MaterialTheme.typography.bodySmall) }
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onImportBackup, Modifier.testTag("import-backup")) { Text("Import backup", maxLines = 1) }
             OutlinedButton(onExportBackup, Modifier.testTag("export-backup")) { Text("Export backup", maxLines = 1) }
         }
     }

@@ -33,7 +33,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 /**
- * Imports an EPUB through "Import PDF or EPUB" and exports it as one again: the real picker button, parser, pipeline, transcript, reader and share
+ * Imports an EPUB through "Import" and exports it as one again: the real picker button, parser, pipeline, transcript, reader and share
  * sheet. Only the system file picker and the speech engine are faked. The book is `assets/epub/lighthouse.epub`, text written for this project.
  */
 @RunWith(AndroidJUnit4::class)
