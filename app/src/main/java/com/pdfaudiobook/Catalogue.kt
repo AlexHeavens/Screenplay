@@ -63,7 +63,7 @@ data class CatalogueEntry(val id: Int, val title: String, val author: String, va
 data class CatalogueResult(val entries: List<CatalogueEntry>, val total: Int)
 
 /**
- * The book list "Find books" searches, held in memory: one row per public-domain text book with an EPUB.
+ * The book list "Catalogue" searches, held in memory: one row per public-domain text book with an EPUB.
  * The file it comes from is built daily from Gutenberg's bulk catalogue by scripts/build-catalogue.py, which also describes the format.
  */
 class CatalogueData private constructor(val version: String, private val rows: List<Row>) {
@@ -150,7 +150,7 @@ class CatalogueData private constructor(val version: String, private val rows: L
 /**
  * The stored copy of the book list. It is downloaded once from this project's GitHub release (one request for the whole file, built daily),
  * kept in the app's files, and replaced at most once a day. A download that fails or does not read as a book list leaves the old copy in place,
- * so searching works offline after the first download. Nothing is fetched until the reader opens "Find books".
+ * so searching works offline after the first download. Nothing is fetched until the reader opens "Catalogue".
  */
 object Catalogue {
     /** The release tagged `catalogue`, never `releases/latest`, which is the app. */

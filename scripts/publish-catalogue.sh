@@ -19,7 +19,7 @@ trap 'rm -rf "$work"' EXIT
 write() { if [ -n "${DRY_RUN:-}" ]; then echo "dry run, not run: $*"; else "$@"; fi; }
 if ! gh release view catalogue --repo "$repo" >/dev/null 2>&1; then
     write gh release create catalogue --repo "$repo" --latest=false --title "Book catalogue" \
-        --notes "The book list \"Find books\" searches, rebuilt daily from Project Gutenberg's bulk catalogue and Open Library's ratings by scripts/publish-catalogue.sh. Not an app release."
+        --notes "The book list \"Catalogue\" searches, rebuilt daily from Project Gutenberg's bulk catalogue and Open Library's ratings by scripts/publish-catalogue.sh. Not an app release."
 fi
 
 # Open Library: the date of its newest dump, from where the "latest" link redirects (a HEAD request, nothing downloaded).

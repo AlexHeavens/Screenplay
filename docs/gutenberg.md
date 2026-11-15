@@ -1,6 +1,6 @@
-# Find books: Project Gutenberg and the law
+# Catalogue: Project Gutenberg and the law
 
-"Find books" searches a stored copy of the Project Gutenberg catalogue and adds a book to the import queue as an EPUB.
+"Catalogue" searches a stored copy of the Project Gutenberg catalogue and adds a book to the import queue as an EPUB.
 This note records what the feature does, what it assumes, and what to check before the app is published.
 It is not legal advice. The author read the pages named below on 2026-11-14. Nobody at Project Gutenberg was contacted.
 
@@ -21,7 +21,7 @@ It is not legal advice. The author read the pages named below on 2026-11-14. Nob
 - **The file is published to one release** of this repository, tagged `catalogue`, with `gh release upload catalogue ... --clobber`.
   The upload is skipped when the books are the same as the published ones. The app uses the fixed link
   `https://github.com/AlexHeavens/Screenplay/releases/download/catalogue/catalogue.tsv.xz` (`Catalogue.URL`), never `releases/latest`.
-- **The app downloads the file once**, the first time "Find books" opens, and keeps it in its private files. It replaces the file
+- **The app downloads the file once**, the first time "Catalogue" opens, and keeps it in its private files. It replaces the file
   at most once a day, when the screen opens. A failed or unreadable refresh keeps the old file. The app never calls Gutenberg to search.
 - **Search runs on the device**: title and author words, genre chips (a bookshelf or subject that contains the genre word), English only
   by default, and a sort by title, downloads or rating. It needs no network after the first download.
@@ -49,7 +49,7 @@ openlibrary.org redirect there, and the date in the redirect is how the job sees
 
 - **Licence.** The [licensing page](https://openlibrary.org/developers/licensing) says the Internet Archive asserts no new copyright over
   the material in the Open Library database, that rights issues may exist on some contributions, and that the aim is a database that can
-  be used openly. It names no licence and asks for no attribution. The app credits Open Library anyway: the "Find books" notice says the
+  be used openly. It names no licence and asks for no attribution. The app credits Open Library anyway: the "Catalogue" notice says the
   ratings come from Open Library, says the app is not endorsed by it, and links to openlibrary.org.
 - **The join.** An Open Library edition record can carry `identifiers.project_gutenberg`. A Gutenberg book takes the average of the
   ratings of the work its edition belongs to. The counts are of Open Library readers, not Gutenberg's. Only 947 of the 77,715 books are named
@@ -108,9 +108,9 @@ Dump of 2026-10-31, feed of 2026-11-14, 77,715 books:
   Decide whether the app should use a mirror instead.
 - **Play Store content policy**: check the rules for apps that let users download books (copyright, user-generated and "impersonation"
   sections), and what the data-safety form needs.
-- **Privacy policy**: say that opening "Find books" downloads the book list from github.com (at most once a day), and a tap sends the book's
+- **Privacy policy**: say that opening "Catalogue" downloads the book list from github.com (at most once a day), and a tap sends the book's
   link to gutenberg.org, with the app's user agent and the device's IP address. Search words never leave the device. The app has no account, no analytics and no tracking.
-- **`INTERNET` permission**: the manifest comment says why. Only "Find books" uses the network.
+- **`INTERNET` permission**: the manifest comment says why. Only "Catalogue" uses the network.
 - **Store text**: do not put "Project Gutenberg" in the app name, icon or promotional text unless the trademark rules are met.
 - **Catalogue release**: check that the `catalogue` release still holds a current file (the workflow's last run) and that the repository is public
   when the app is. `Catalogue.URL` is the one line to change if the file moves.

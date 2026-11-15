@@ -57,7 +57,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * "Find books": searches the stored book list of Project Gutenberg ([Catalogue]) as the reader types, and adds a tapped book to the import
+ * "Catalogue": searches the stored book list of Project Gutenberg ([Catalogue]) as the reader types, and adds a tapped book to the import
  * queue as an EPUB. The list is downloaded the first time the screen opens and refreshed at most once a day; searching never uses the network.
  * A tap sends no request itself, the queue fetches the file ([QueueDownload]).
  */
@@ -104,7 +104,7 @@ fun FindBooks(onBack: () -> Unit) {
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text("Find books") },
+            title = { Text("Catalogue") },
             navigationIcon = { IconButton(onBack, Modifier.testTag("find-back")) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } },
         )
     }) { padding ->
@@ -161,7 +161,7 @@ private fun ResultRow(entry: CatalogueEntry, added: Boolean, download: DownloadP
     }
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp).testTag("result-${entry.id}")) {
         Text(entry.title, Modifier.testTag("result-title-${entry.id}"), style = MaterialTheme.typography.titleMedium, maxLines = 2)
-        Text("${entry.author} · ${entry.languages.joinToString { it.uppercase() }} · ${"%,d".format(entry.downloads)} downloads${entry.rating?.let { " · ★ %.1f (%,d)".format(it, entry.ratingCount) }.orEmpty()}", Modifier.testTag("result-detail-${entry.id}"), style = MaterialTheme.typography.bodyMedium)
+        Text("${entry.author} · ${entry.languages.joinToString { it.uppercase() }} · ${"%,d".format(entry.downloads)} downloads${entry.rating?.let { " · ★ %.1f (%,d)".format(it, entry.ratingCount) } ?: " · Not rated"}", Modifier.testTag("result-detail-${entry.id}"), style = MaterialTheme.typography.bodyMedium)
         state?.let { Text(it, Modifier.testTag("result-state-${entry.id}"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
     }
 }

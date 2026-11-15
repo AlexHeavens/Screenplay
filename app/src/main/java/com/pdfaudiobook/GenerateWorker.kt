@@ -78,7 +78,7 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
      * it is still being read. A failure in either half fails the book.
      */
     private suspend fun generate(id: String) {
-        // A book from "Find books" whose turn comes before its file was fetched: fetch it now, or fail the book with the reason.
+        // A book from "Catalogue" whose turn comes before its file was fetched: fetch it now, or fail the book with the reason.
         QueueDownload.ensure(applicationContext, id)
         try {
             generate(id, resume = true)

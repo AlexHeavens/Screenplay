@@ -883,10 +883,10 @@ Unchecked: the notification itself and a long book that survives closing the app
 
 Goal: get a book without hunting for a file.
 
-- "Find books" on the shelf searches a list of Project Gutenberg's public-domain text books that is stored on the phone. A search answers at once, with no network request, because the list is searched on the device (UC-13j).
+- "Catalogue" on the shelf searches a list of Project Gutenberg's public-domain text books that is stored on the phone. A search answers at once, with no network request, because the list is searched on the device (UC-13j).
 - The list is shown as soon as the screen opens, in title order, and narrows as the reader types or picks a genre. It says how many books match.
 - Tapping a book adds it to the import queue at once, as an EPUB still to fetch. The EPUB is fetched from gutenberg.org when the book's turn comes, never at the tap.
-- While one book is made (compute bound), the highest book in line that has no file yet is fetched in the background (network bound), so it is ready when its turn comes. Its row says "Downloading 42% · 3.1 of 7.4 MB" under a bar that fills with the bytes received over the length the server announced, then "Queued". With no announced length the bar runs without end and the row says the bytes so far. The result in "Find books" shows the same text. Progress is kept in memory only and updates once per whole percent, so it costs no disk writes.
+- While one book is made (compute bound), the highest book in line that has no file yet is fetched in the background (network bound), so it is ready when its turn comes. Its row says "Downloading 42% · 3.1 of 7.4 MB" under a bar that fills with the bytes received over the length the server announced, then "Queued". With no announced length the bar runs without end and the row says the bytes so far. The result in "Catalogue" shows the same text. Progress is kept in memory only and updates once per whole percent, so it costs no disk writes.
 - One fetch runs at a time, in queue order, and a reorder, an addition or a deletion is taken into account at the next fetch. A book is never fetched twice.
 - A failed fetch shows its error on the row and does not stop the book being made; the book's own turn retries it, and fails it with the reason if that fails too.
 - A fetch writes to a temporary name and renames it when whole, so a stopped worker or a killed app never leaves a partial file taken for a book.
@@ -946,7 +946,7 @@ Tests:
 
 Goal: see only books I can read.
 
-- The "English only" switch is on by default. A book in English and another language counts as English. The row shows the author, the languages in capitals, the downloads and, when Open Library has ratings for the book, "★ 4.5 (20)": the average and the number of ratings.
+- The "English only" switch is on by default. A book in English and another language counts as English. The row shows the author, the languages in capitals, the downloads and, "★ 4.5 (20)" (the average and the number of ratings) when Open Library has ratings for the book, and "Not rated" when it has none.
 
 Tests:
 - `CatalogueTest.englishOnlyLeavesOutABookWithNoEnglishAndTheSwitchTurnsItOff`
@@ -1024,7 +1024,7 @@ Tests:
 
 Goal: search at once, even with no connection, and be polite to the host.
 
-- The first time "Find books" opens it downloads the list in one request (about 2.2 MB, xz) from this project's GitHub release `catalogue`, shows "Downloading the book list" with its progress, and keeps the file. Nothing is downloaded before the screen opens.
+- The first time "Catalogue" opens it downloads the list in one request (about 2.2 MB, xz) from this project's GitHub release `catalogue`, shows "Downloading the book list" with its progress, and keeps the file. Nothing is downloaded before the screen opens.
 - Later it reads the stored file and searches it with no network. A stored list older than a day is replaced when the screen opens; the old one is searched meanwhile.
 - A refresh that fails, or that returns something that is not a book list, keeps the old copy and says nothing. A new copy replaces the old one only after it reads correctly.
 - After a failure the client waits before it asks again, doubling the wait up to a limit, and honours the server's Retry-After. The user agent names the app, its version, and where to ask about it.
@@ -2588,7 +2588,7 @@ These are things the app does not do, or does less well than a listener might ex
 - **A contents page, margin sidenotes and one long footnote can still be spoken.** The layout rules remove most running heads, page numbers, footnotes and index pages, not all.
 - **An edited paragraph is not spoken again.** The audio keeps the original words (UC-32).
 - **A book with DRM cannot be imported.** An EPUB with DRM is refused (UC-09).
-- **A book is made only from the files on the phone or from Project Gutenberg.** Find books lists only English text books in the public domain, and only those with an EPUB.
+- **A book is made only from the files on the phone or from Project Gutenberg.** Catalogue lists only English text books in the public domain, and only those with an EPUB.
 - **Only the speeds 0.75×, 1×, 1.25×, 1.5× and 2× exist.**
 - **Cloud services are not used for speech or OCR.** All of it runs on the phone. A voice that the phone does not have must be downloaded.
 - **A failed book cannot be retried from the shelf.** There is no retry button; delete the book and import it again.

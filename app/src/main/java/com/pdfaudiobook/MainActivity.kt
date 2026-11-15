@@ -187,7 +187,7 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
                 }
             }, actions = {
                 IconButton(onFind, Modifier.testTag("find-books")) {
-                    Icon(Icons.Filled.Search, contentDescription = "Find books")
+                    Icon(Icons.Filled.Search, contentDescription = "Catalogue")
                 }
                 IconButton({ showSettings = true }, Modifier.testTag("settings")) {
                     Icon(Icons.Filled.Settings, contentDescription = "Import settings")

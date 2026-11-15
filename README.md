@@ -6,7 +6,7 @@ Screenplay is an Android app that turns a PDF into an audiobook with a synchroni
 - **Generate**: each page is rendered and read by on-device OCR (ML Kit), so scans and text PDFs take one path. The sentences are spoken by the device's text-to-speech engine and encoded to AAC. A foreground WorkManager job keeps a long book going when the app is closed.
 - **Listen**: the current sentence is highlighted and scrolled into view. Tap a sentence to jump to it.
 - **Notes**: "Add note" pins text to the current position; it shows under its sentence.
-- **Find books**: search a stored copy of the Project Gutenberg catalogue, refreshed daily, with no network needed after the first download (by title, author, genre and popularity) and add a book to the import queue as an EPUB. Gutenberg texts are public domain in the US only, and the app is not endorsed by Project Gutenberg. See [docs/gutenberg.md](docs/gutenberg.md) for the rules the feature follows and what to check before publishing.
+- **Catalogue**: search a stored copy of the Project Gutenberg catalogue, refreshed daily, with no network needed after the first download (by title, author, genre and popularity) and add a book to the import queue as an EPUB. Gutenberg texts are public domain in the US only, and the app is not endorsed by Project Gutenberg. See [docs/gutenberg.md](docs/gutenberg.md) for the rules the feature follows and what to check before publishing.
 - **Back up**: one zip of the PDF, audio, transcript and notes, sent with `ACTION_SEND`.
 
 Not built: background playback with lock-screen controls, restoring from a backup, CI.

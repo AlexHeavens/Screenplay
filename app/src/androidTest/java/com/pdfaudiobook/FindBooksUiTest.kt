@@ -13,6 +13,7 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
@@ -37,7 +38,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 /**
- * "Find books" through the real screen, stored book list, download and import queue. Only the network is faked, behind [Engines.httpGet]
+ * "Catalogue" through the real screen, stored book list, download and import queue. Only the network is faked, behind [Engines.httpGet]
  * (and speech, as everywhere): the book list release answers with a small xz file and the EPUB link with a small book built here.
  */
 @RunWith(AndroidJUnit4::class)
@@ -144,6 +145,7 @@ class FindBooksUiTest {
     private fun openFindBooks() {
         compose.onNodeWithTag("find-books").performClick()
         compose.onNodeWithTag("find-notice").assertIsDisplayed()
+        compose.onNodeWithText("Catalogue").assertIsDisplayed()
     }
 
     @Test
@@ -197,6 +199,7 @@ class FindBooksUiTest {
         compose.onNodeWithTag("genre-SCIENCE_FICTION").performClick()
         compose.onNodeWithTag("find-english").performScrollTo().performClick()
         waitForTag("result-6")
+        compose.onNodeWithTag("result-detail-6", useUnmergedTree = true).assertTextContains("Not rated", substring = true)
         assertTrue("English only off also offers the book in French", exists("result-4242"))
 
         compose.onNodeWithTag("result-4242").performClick()

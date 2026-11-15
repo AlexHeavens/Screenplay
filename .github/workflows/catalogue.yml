@@ -1,6 +1,6 @@
 name: Book catalogue
 
-# Rebuilds the list "Find books" searches (Gutenberg books plus Open Library ratings) and publishes it to the release tagged `catalogue`. See scripts/publish-catalogue.sh.
+# Rebuilds the list "Catalogue" searches (Gutenberg books plus Open Library ratings) and publishes it to the release tagged `catalogue`. See scripts/publish-catalogue.sh.
 on:
   schedule:
     - cron: "17 5 * * *"   # Gutenberg rebuilds its bulk feed daily; once a day is as often as it changes

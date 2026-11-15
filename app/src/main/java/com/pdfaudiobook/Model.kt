@@ -47,7 +47,7 @@ data class Book(
     val queueOrder: Long = 0,
     /** Where the book came from when it was not a file the reader picked, e.g. `gutenberg:98`; empty otherwise. */
     val source: String = "",
-    /** Where the book's EPUB is fetched from when it was added from "Find books"; empty for a book whose file the reader picked. */
+    /** Where the book's EPUB is fetched from when it was added from "Catalogue"; empty for a book whose file the reader picked. */
     val downloadUrl: String = "",
     /** True while [downloadUrl] is set and the EPUB is not on disk yet. Read from the book's folder, never stored: a half-written file does not count. */
     val awaitingDownload: Boolean = false,

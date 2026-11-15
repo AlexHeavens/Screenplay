@@ -71,7 +71,7 @@ data class DownloadProgress(val received: Long, val expected: Long) {
 }
 
 /**
- * Fetches the EPUBs of books added from "Find books" for the import queue. Fetching is network bound, so while one book is made
+ * Fetches the EPUBs of books added from "Catalogue" for the import queue. Fetching is network bound, so while one book is made
  * (OCR and speech, compute bound) [prefetch] fetches the highest book in line that has no file yet ([ImportQueue.nextDownload]), and
  * it is ready when its turn comes. One fetch runs at a time, which also keeps to Project Gutenberg's request that clients do not
  * make parallel requests. A book's turn fetches its own file through [ensure] if nothing did before.

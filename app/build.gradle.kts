@@ -91,7 +91,7 @@ dependencies {
     implementation(files(sherpaAar))
     // Unpacks the natural voice's .tar.bz2 download.
     implementation("org.apache.commons:commons-compress:1.26.2")
-    // Reads the book list ("Find books"), which is xz compressed: 1.7 MB smaller than gzip for the same rows.
+    // Reads the book list ("Catalogue"), which is xz compressed: 1.7 MB smaller than gzip for the same rows.
     implementation("org.tukaani:xz:1.10")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.activity:activity-compose:1.9.0")
