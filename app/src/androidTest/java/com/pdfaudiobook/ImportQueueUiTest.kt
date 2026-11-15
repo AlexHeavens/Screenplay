@@ -264,6 +264,49 @@ class ImportQueueUiTest {
     }
 
     @Test
+    fun aBookStoppedByAMoveCarriesOnAtItsStageAndNeverGoesThroughReadingAgain() {
+        val names = listOf("keep-one", "keep-two")
+        val release = CompletableDeferred<Unit>()
+        // Speech stops after a few sentences, so the book stays in its speaking stage while the test moves things.
+        val speechHold = CompletableDeferred<Unit>()
+        val spoken = AtomicInteger()
+        Engines.synthesizer = {
+            val inner = FakeSynthesizer()
+            object : Synthesizer {
+                override suspend fun speak(text: String, wav: File) { if (spoken.incrementAndGet() > 6) speechHold.await(); inner.speak(text, wav) }
+                override fun close() = inner.close()
+            }
+        }
+        importQueued(names, release)
+        try {
+            release.complete(Unit)
+            compose.waitUntil(120_000) { book("keep-one").status == Status.SPEAKING && Library.segments(ctx, book("keep-one").id).isNotEmpty() }
+            val wordsBefore = book("keep-one").words
+            val totalBefore = book("keep-one").wordsTotal
+            assertTrue(totalBefore > 0)
+            // The waiting book dropped first stops the speaking one, which goes back to the queue.
+            dropOnRowOf("keep-two", "keep-one")
+            compose.waitUntil(90_000) { book("keep-one").status == Status.QUEUED && book("keep-two").status != Status.QUEUED }
+            // Dropped first again, it is made now: from here its row must never show Reading, and it keeps its words and total.
+            dropOnRowOf("keep-one", "keep-two")
+            var reading = 0
+            compose.waitUntil(90_000) {
+                if (book("keep-one").status == Status.READING) reading++
+                book("keep-one").status != Status.QUEUED
+            }
+            repeat(20) { if (book("keep-one").status == Status.READING) reading++; Thread.sleep(100) }
+            assertEquals("the book went through reading again", 0, reading)
+            assertEquals(Status.SPEAKING, book("keep-one").status)
+            assertEquals(totalBefore, book("keep-one").wordsTotal)
+            assertTrue("its words were kept", book("keep-one").words >= wordsBefore)
+            assertEquals("done", compose.onNodeWithTag("stage-READ-keep-one", useUnmergedTree = true).fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription])
+        } finally {
+            speechHold.complete(Unit)
+            for (n in names) Library.delete(ctx, book(n).id)
+        }
+    }
+
+    @Test
     fun aMoveThatCannotBeSavedPutsTheOldOrderBackAndSaysWhy() {
         val names = listOf("fail-one", "fail-two", "fail-three")
         importQueued(names, CompletableDeferred())

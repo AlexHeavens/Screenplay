@@ -95,13 +95,17 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         val ctx = applicationContext
         val dir = Library.dir(ctx, id)
         File(dir, Files.QUEUE).delete()
-        Library.update(ctx, id) { it.copy(status = Status.READING, progress = 0f) }
         val options = Options.load(ctx)
-        val progress = Progress(ctx, id)
+        val before = Library.books.value.first { it.id == id }
+        val pcm = File(dir, "audio.pcm")
+        val kept = if (resume) Speech.kept(Library.segments(ctx, id), before.rate, pcm.length()) else Speech.Kept.NONE
+        // A book stopped to let another go first, after its text was all read, carries on at the stage and progress it had: the pages are read
+        // again from the first (the text is not saved), but the shelf must not go back to Reading for that.
+        val carriesOn = kept.segments.isNotEmpty() && before.wordsTotal > 0
+        if (carriesOn) Library.update(ctx, id) { it.copy(status = Status.SPEAKING) } else Library.update(ctx, id) { it.copy(status = Status.READING, progress = 0f) }
+        val progress = if (carriesOn) Progress(ctx, id, words = before.words, wordsTotal = before.wordsTotal) else Progress(ctx, id)
         val sentences = Channel<String>(Channel.UNLIMITED)
         val wordsAfter = Collections.synchronizedList(ArrayList<Int>())
-        val pcm = File(dir, "audio.pcm")
-        val kept = if (resume) Speech.kept(Library.segments(ctx, id), Library.books.value.first { it.id == id }.rate, pcm.length()) else Speech.Kept.NONE
         if (kept.segments.isNotEmpty()) RandomAccessFile(pcm, "rw").use { it.setLength(kept.bytes) }
 
         val reader = launch {
@@ -223,11 +227,9 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
      * What the shelf shows while reading and speaking overlap: page progress (the first 40%) until the last page is read,
      * then words spoken out of the now known total (the next 50%). The second half can only start after the first.
      */
-    private class Progress(private val ctx: Context, private val id: String) {
+    private class Progress(private val ctx: Context, private val id: String, private var words: Int = 0, private var wordsTotal: Int = 0) {
         private var pages = 0
         private var pagesTotal = 0
-        private var words = 0
-        private var wordsTotal = 0
         private var wordsQueued = 0
 
         @Synchronized
