@@ -51,16 +51,16 @@ class FindBooksUiTest {
     private val agents = CopyOnWriteArrayList<String>()
     private val epubLink = "https://www.gutenberg.org/ebooks/4242.epub3.images"
 
-    /** The book list file as scripts/build-catalogue.py writes it: tags 0 Science Fiction, 1 Adventure; the columns are id, title, authors, languages, downloads, tags. */
+    /** The book list file as scripts/build-catalogue.py writes it: tags 0 Science Fiction, 1 Adventure; the columns are id, title, authors, languages, downloads, tags, rating x10, rating count. */
     private fun list(vararg extra: String): ByteArray {
         val text = (listOf(
-            "catalogue-format 1 build 2026-11-14",
+            "catalogue-format 2 build 2026-11-14",
             "tags\tScience Fiction\tAdventure",
-            "4242\tHarbour Notes\tExample, Ada\ten\t30000\t0",
-            "77\tQuiet Shore\tExample, Ada\ten\t3000\t0",
-            "90\tAdventure Isle\tVoyager, Sam\ten\t2000\t1",
-            "5\tOther Book\tExample, Ada\ten\t100\t",
-            "6\tLe Livre Calme\tLecteur, Léa\tfr\t40000\t",
+            "4242\tHarbour Notes\tExample, Ada\ten\t30000\t0\t40\t3",
+            "77\tQuiet Shore\tExample, Ada\ten\t3000\t0\t45\t20",
+            "90\tAdventure Isle\tVoyager, Sam\ten\t2000\t1\t38\t100",
+            "5\tOther Book\tExample, Ada\ten\t100\t\t50\t1",
+            "6\tLe Livre Calme\tLecteur, Léa\tfr\t40000\t\t\t",
         ) + extra).joinToString("\n", postfix = "\n")
         return ByteArrayOutputStream().also { out -> org.tukaani.xz.XZOutputStream(out, org.tukaani.xz.LZMA2Options()).use { it.write(text.toByteArray()) } }.toByteArray()
     }
@@ -148,7 +148,7 @@ class FindBooksUiTest {
 
     @Test
     fun scrollingToTheEndOfTheListLoadsMoreBooksWithoutAButton() {
-        listAnswer = { it.write(list(*(1..120).map { n -> "${1000 + n}\tBulk Book ${"%03d".format(n)}\tFiller, Fay\ten\t${10 + n}\t" }.toTypedArray())) }
+        listAnswer = { it.write(list(*(1..120).map { n -> "${1000 + n}\tBulk Book ${"%03d".format(n)}\tFiller, Fay\ten\t${10 + n}\t\t\t" }.toTypedArray())) }
         openFindBooks()
         waitForTag("result-1001")
         compose.onNodeWithTag("find-query").performTextInput("bulk")
@@ -180,7 +180,7 @@ class FindBooksUiTest {
         compose.onNodeWithTag("find-query").performTextInput("harbour")
         compose.waitUntil(10_000) { !exists("result-77") }
         compose.onNodeWithTag("result-title-4242", useUnmergedTree = true).assertTextContains("Harbour Notes")
-        compose.onNodeWithTag("result-detail-4242", useUnmergedTree = true).assertTextContains("Ada Example · EN · 30,000 downloads")
+        compose.onNodeWithTag("result-detail-4242", useUnmergedTree = true).assertTextContains("Ada Example · EN · 30,000 downloads · ★ 4.0 (3)")
         compose.onNodeWithTag("find-query").performTextInput("zzz")
         waitForTag("find-empty")
         compose.onNodeWithTag("find-query").performTextReplacement("")
@@ -212,6 +212,19 @@ class FindBooksUiTest {
 
         compose.onNodeWithTag("find-back").performClick()
         compose.onNodeWithTag("book-Harbour Notes").assertIsDisplayed()
+    }
+
+    @Test
+    fun sortsByRatingWithTheFewlyRatedLastAndShowsTheRatingOnTheRow() {
+        openFindBooks()
+        waitForTag("result-4242")
+        compose.onNodeWithTag("sort-RATING").performClick()
+        // 77 is 4.5 of 20 ratings and 90 is 3.8 of 100. 5 has one 5-star vote and 4242 has three ratings: both are too few to rank, so they follow by downloads.
+        compose.waitUntil(10_000) { order(90, 4242, 5, 77) == listOf(77, 90, 4242, 5) }
+        compose.onNodeWithTag("result-detail-77", useUnmergedTree = true).assertTextContains("★ 4.5 (20)", substring = true)
+        compose.onNodeWithTag("result-detail-90", useUnmergedTree = true).assertTextContains("★ 3.8 (100)", substring = true)
+        compose.onNodeWithTag("sort-DOWNLOADS").performClick()
+        compose.waitUntil(10_000) { order(90, 4242, 5, 77) == listOf(4242, 77, 90, 5) }
     }
 
     @Smoke @Test
@@ -253,7 +266,7 @@ class FindBooksUiTest {
         assertTrue("an answer that is not a list is not kept", exists("result-4242") && oldBytes.contentEquals(storedList.readBytes()))
         assertTrue(!File(ctx.filesDir, Catalogue.FILE + ".new").exists())
 
-        listAnswer = { it.write(list("9\tFresh Arrival\tNew, Nia\ten\t40000\t0")) }
+        listAnswer = { it.write(list("9\tFresh Arrival\tNew, Nia\ten\t40000\t0\t\t")) }
         reopenAfterRestart()
         waitForTag("result-9")
         assertEquals(4, listRequests)

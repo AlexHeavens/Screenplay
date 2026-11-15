@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
 """Reduces Project Gutenberg's bulk RDF feed to the small file the app searches.
 
-Usage: build-catalogue.py rdf-files.tar.bz2 catalogue.tsv.gz --build-date 2026-11-14
+Usage: build-catalogue.py rdf-files.tar.bz2 catalogue.tsv.xz --build-date 2026-11-14 [--ratings ol-ratings.tsv.xz]
 
 Input is `feeds/rdf-files.tar.bz2` (one request, updated daily; see docs/gutenberg.md). Output is xz-compressed tab-separated text:
 
-    line 1   `catalogue-format 1 build <date>`   the version line: format number, then the date the feed was built
+    line 1   `catalogue-format 2 build <date>`   the version line: format number, then the date the feed was built
     line 2   `tags<TAB>tag<TAB>tag...`           every bookshelf and subject used below, once each
-    line 3+  `id<TAB>title<TAB>authors<TAB>languages<TAB>downloads<TAB>tag numbers`
+    line 3+  `id<TAB>title<TAB>authors<TAB>languages<TAB>downloads<TAB>tag numbers<TAB>rating x10<TAB>rating count`
 
 `authors` are "Last, First" names joined with "; ", `languages` are codes joined with ",", and `tag numbers` are positions in line 2
-joined with ",". Only books that are text, public domain in the USA and have an EPUB are kept. The output is the same bytes for the
+joined with ",". `rating x10` is the average reader rating times ten (42 is 4.2 stars) and `rating count` how many readers gave one; both are
+empty for a book nobody rated. They come from Open Library (see build-ratings.py and docs/gutenberg.md). Format 1, which the first app
+version reads, had no last two columns. Only books that are text, public domain in the USA and have an EPUB are kept. The output is the same bytes for the
 same feed (rows by id; xz has no timestamp), so a caller can compare hashes to see whether anything changed.
 """
 import argparse
 import lzma
+import re
 import sys
 import tarfile
+import unicodedata
 import xml.etree.ElementTree as ET
 
 NS = {
@@ -27,7 +31,7 @@ NS = {
 }
 RDF_ABOUT = "{%s}about" % NS["rdf"]
 RDF_RESOURCE = "{%s}resource" % NS["rdf"]
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 
 
 def clean(text):
@@ -106,7 +110,51 @@ def read(archive):
     return rows
 
 
-def write(rows, path, build_date):
+def fold(text):
+    return "".join(c for c in unicodedata.normalize("NFD", text.lower()) if unicodedata.category(c) != "Mn")
+
+
+def title_key(title):
+    """The title as books of different editions share it: lower case, no accents, no subtitle or "or, ...", no leading article,
+    letters and digits only."""
+    title = re.split(r"[:;(]| or,? ", fold(title))[0].strip()
+    return re.sub(r"[^a-z0-9]", "", re.sub(r"^(the|a|an) ", "", title))
+
+
+def surname_key(name):
+    """The last word of "Lewis Carroll" (Open Library) or the part before the comma of "Carroll, Lewis" (Gutenberg), letters only."""
+    return re.sub(r"[^a-z]", "", fold(name.split(",")[0] if "," in name else name.split()[-1] if name.split() else ""))
+
+
+def read_ratings(path, books):
+    """Gutenberg id -> (average x10, count) for the books in `books` (rows from read()), from the file build-ratings.py wrote.
+    A `g` row names the Gutenberg id. Otherwise a `w` row (a work) rates the book with the same title and an author with the same
+    surname; if several works match, the one with most ratings."""
+    by_id, by_title = {}, {}
+    with lzma.open(path, "rt", encoding="utf-8") as lines:
+        next(lines)  # The version line, which names the dump the ratings are from.
+        for line in lines:
+            kind, *fields = line.rstrip("\n").split("\t")
+            if kind == "g":
+                by_id[int(fields[0])] = (int(fields[1]), int(fields[2]))
+            elif kind == "w":
+                title, authors, average, count = fields[0], fields[1], int(fields[2]), int(fields[3])
+                for author in authors.split("; "):
+                    key = (title_key(title), surname_key(author))
+                    if not all(key):
+                        continue
+                    if key not in by_title or by_title[key][1] < count:
+                        by_title[key] = (average, count)
+    out = dict(by_id)
+    for ident, title, authors, *_ in books:
+        if ident not in out:
+            matches = [by_title[k] for a in authors.split("; ") if (k := (title_key(title), surname_key(a))) in by_title]
+            if matches:
+                out[ident] = max(matches, key=lambda m: m[1])
+    return out
+
+
+def write(rows, path, build_date, ratings):
     # Most used tags first, so the numbers that appear most are the shortest.
     counts = {}
     for row in rows:
@@ -116,7 +164,8 @@ def write(rows, path, build_date):
     number = {t: str(i) for i, t in enumerate(tags)}
     lines = ["catalogue-format %d build %s" % (FORMAT_VERSION, build_date), "tags\t" + "\t".join(tags)]
     for ident, title, authors, languages, downloads, row_tags in rows:
-        lines.append("\t".join([str(ident), title, authors, languages, str(downloads), ",".join(number[t] for t in row_tags)]))
+        average, count = ratings.get(ident, ("", ""))
+        lines.append("\t".join([str(ident), title, authors, languages, str(downloads), ",".join(number[t] for t in row_tags), str(average), str(count)]))
     # CRC32 is enough for a file the app also parses; the app's xz decoder reads it.
     with lzma.open(path, "wb", format=lzma.FORMAT_XZ, check=lzma.CHECK_CRC32, preset=9 | lzma.PRESET_EXTREME) as out:
         out.write(("\n".join(lines) + "\n").encode("utf-8"))
@@ -127,12 +176,14 @@ def main():
     parser.add_argument("archive")
     parser.add_argument("output")
     parser.add_argument("--build-date", required=True, help="the date the feed was built, YYYY-MM-DD")
+    parser.add_argument("--ratings", help="ol-ratings.tsv.xz from build-ratings.py; without it no book has a rating")
     args = parser.parse_args()
     rows = read(args.archive)
     if len(rows) < 10_000:
         sys.exit("only %d books survived: the feed has changed shape, so the old catalogue stays" % len(rows))
-    write(rows, args.output, args.build_date)
-    print("%d books -> %s" % (len(rows), args.output))
+    ratings = read_ratings(args.ratings, rows) if args.ratings else {}
+    write(rows, args.output, args.build_date, ratings)
+    print("%d books, %d with a rating -> %s" % (len(rows), sum(1 for r in rows if r[0] in ratings), args.output))
 
 
 if __name__ == "__main__":

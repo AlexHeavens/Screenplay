@@ -1,6 +1,6 @@
 name: Book catalogue
 
-# Rebuilds the list "Find books" searches and publishes it to the release tagged `catalogue`. See scripts/publish-catalogue.sh.
+# Rebuilds the list "Find books" searches (Gutenberg books plus Open Library ratings) and publishes it to the release tagged `catalogue`. See scripts/publish-catalogue.sh.
 on:
   schedule:
     - cron: "17 5 * * *"   # Gutenberg rebuilds its bulk feed daily; once a day is as often as it changes
@@ -16,7 +16,7 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 240   # a new Open Library dump (monthly) streams 12.6 GB, about 90 minutes from a home connection; other days take about 5
     steps:
       - uses: actions/checkout@v4
       - run: scripts/publish-catalogue.sh

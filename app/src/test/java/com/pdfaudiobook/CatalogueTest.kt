@@ -104,7 +104,7 @@ class CatalogueTest {
 
     @Test
     fun aFileInAnotherFormatIsRefusedWithAMessageForTheReader() {
-        for (text in listOf("catalogue-format 2 build 2026-11-14\ntags\n", "<html>maintenance</html>\n", "catalogue-format 1 build 2026-11-14\ntags\tFiction\n", "catalogue-format 1 build 2026-11-14\ntags\tFiction\n1\ttoo\tfew\n")) {
+        for (text in listOf("catalogue-format 3 build 2026-11-14\ntags\n", "<html>maintenance</html>\n", "catalogue-format 1 build 2026-11-14\ntags\tFiction\n", "catalogue-format 1 build 2026-11-14\ntags\tFiction\n1\ttoo\tfew\n")) {
             try { CatalogueData.parse(ByteArrayInputStream(xz(text))); fail("expected a refusal for: $text") } catch (e: CatalogueException) {
                 assertEquals("The book list is not in a form this app can read. Updating the app may fix this.", e.message)
             }
@@ -114,5 +114,40 @@ class CatalogueTest {
     @Test
     fun aTagNumberOutsideTheTagLineIsRefused() {
         try { CatalogueData.parse(ByteArrayInputStream(xz("catalogue-format 1 build 2026-11-14\ntags\tFiction\n1\tT\tA, B\ten\t5\t9\n"))); fail("expected a refusal") } catch (e: CatalogueException) {}
+    }
+
+    /** Format 2 adds `rating x10` and `rating count` (both empty when unrated). 11 has 4.5 of 20, 12 has 3.8 of 100, 13 one 5-star vote, 14 three ratings, 15 none. */
+    private val rated = listOf(
+        "catalogue-format 2 build 2026-11-15",
+        "tags\tFiction",
+        "11\tAlpha\tA, A\ten\t100\t0\t45\t20",
+        "12\tBravo\tB, B\ten\t200\t0\t38\t100",
+        "13\tCharlie\tC, C\ten\t50\t0\t50\t1",
+        "14\tDelta\tD, D\ten\t300\t0\t40\t3",
+        "15\tEcho\tE, E\ten\t400\t0\t\t",
+    ).joinToString("\n", postfix = "\n")
+
+    private val ratedData get() = CatalogueData.parse(ByteArrayInputStream(xz(rated)))
+
+    @Test
+    fun aFormat2RowCarriesItsRatingAndAFormat1RowHasNone() {
+        val entries = ratedData.search(CatalogueQuery(), 50).entries.associateBy { it.id }
+        assertEquals(4.5, entries[11]!!.rating!!, 0.0)
+        assertEquals(20, entries[11]!!.ratingCount)
+        assertEquals(null, entries[15]!!.rating)
+        assertTrue("the first file format is still read", data.search(CatalogueQuery(), 50).entries.all { it.rating == null })
+    }
+
+    @Test
+    fun theRatingSortRanksByAverageAndLeavesBooksWithFewRatingsToTheEndByDownloads() {
+        // 11 (4.5) before 12 (3.8). 13 (one 5-star vote), 14 (three ratings) and 15 (none) have under 5 ratings, so they follow by downloads.
+        assertEquals(listOf(11, 12, 15, 14, 13), ratedData.search(CatalogueQuery(sort = Sort.RATING), 50).entries.map { it.id })
+    }
+
+    @Test
+    fun aRatingOutsideOneToFiveStarsOrWithoutACountIsRefused() {
+        for (row in listOf("1\tT\tA, B\ten\t5\t\t60\t2", "1\tT\tA, B\ten\t5\t\tx\t2", "1\tT\tA, B\ten\t5\t\t40\tmany", "1\tT\tA, B\ten\t5\t")) {
+            try { CatalogueData.parse(ByteArrayInputStream(xz("catalogue-format 2 build 2026-11-15\ntags\tFiction\n$row\n"))); fail("expected a refusal: $row") } catch (e: CatalogueException) {}
+        }
     }
 }

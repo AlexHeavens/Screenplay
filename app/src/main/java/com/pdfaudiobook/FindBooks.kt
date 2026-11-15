@@ -161,7 +161,7 @@ private fun ResultRow(entry: CatalogueEntry, added: Boolean, download: DownloadP
     }
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp).testTag("result-${entry.id}")) {
         Text(entry.title, Modifier.testTag("result-title-${entry.id}"), style = MaterialTheme.typography.titleMedium, maxLines = 2)
-        Text("${entry.author} · ${entry.languages.joinToString { it.uppercase() }} · ${"%,d".format(entry.downloads)} downloads", Modifier.testTag("result-detail-${entry.id}"), style = MaterialTheme.typography.bodyMedium)
+        Text("${entry.author} · ${entry.languages.joinToString { it.uppercase() }} · ${"%,d".format(entry.downloads)} downloads${entry.rating?.let { " · ★ %.1f (%,d)".format(it, entry.ratingCount) }.orEmpty()}", Modifier.testTag("result-detail-${entry.id}"), style = MaterialTheme.typography.bodyMedium)
         state?.let { Text(it, Modifier.testTag("result-state-${entry.id}"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
     }
 }
@@ -173,10 +173,12 @@ private fun Attribution() {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         Text(
             "Books from Project Gutenberg. The list comes from Project Gutenberg's public catalogue data, copied daily to this app's GitHub page, and is searched on this device. " +
-                "This app is not made by or endorsed by Project Gutenberg. " +
+                "Ratings come from Open Library, a project of the Internet Archive, and are copied monthly in the same way. " +
+                "This app is not made by or endorsed by Project Gutenberg or Open Library. " +
                 "These books are public domain in the United States; copyright can differ in other countries, so check the law where you live.",
             Modifier.testTag("find-notice"), style = MaterialTheme.typography.bodySmall,
         )
         TextButton({ links.openUri(Gutenberg.SITE_URL) }, Modifier.testTag("find-gutenberg-link")) { Text("gutenberg.org") }
+        TextButton({ links.openUri("https://openlibrary.org") }, Modifier.testTag("find-openlibrary-link")) { Text("openlibrary.org") }
     }
 }

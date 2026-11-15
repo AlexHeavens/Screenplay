@@ -926,24 +926,27 @@ Tests:
 - `CatalogueTest.aGenreMatchesTheBooksBookshelvesAndSubjects`
 - `FindBooksUiTest.searchesByTitleGenreAndSortThenAddsTheTappedBookToTheImportQueue`
 
-#### UC-13c Sort by title or by downloads
+#### UC-13c Sort by title, downloads or rating
 
-Goal: see the books people read most, or find one by its title.
+Goal: see the books people read most or like best, or find one by its title.
 
-- The "Sort by" chips offer "Title A–Z" (the default, ignoring case and accents) and "Most downloaded". Gutenberg publishes no ratings; the download count is the only measure. Books with equal downloads keep the order of their numbers.
+- The "Sort by" chips offer "Title A–Z" (the default, ignoring case and accents), "Most downloaded" and "Best rated". Gutenberg publishes no ratings, so the download count is its only measure. Books with equal downloads keep the order of their numbers.
+- "Best rated" uses the average rating Open Library readers gave the book (UC-13l). A book with at least 5 ratings is ranked by its average, then by how many ratings it has. Books with fewer ratings, or none, follow by downloads, so one 5-star vote cannot put a book first.
 - The sort applies to the books that match the search and the genre. The list shows 50 books and loads 50 more when the reader scrolls near its end, while others match. There is no "More results" button.
 
 Tests:
 - `CatalogueTest.theDefaultOrderIsByTitleAndTheDownloadsSortIsMostDownloadedFirst`
+- `CatalogueTest.theRatingSortRanksByAverageAndLeavesBooksWithFewRatingsToTheEndByDownloads`
 - `CatalogueTest.theResultCarriesTheFirstBooksAndHowManyMatchedInAll`
 - `FindBooksUiTest.scrollingToTheEndOfTheListLoadsMoreBooksWithoutAButton`
 - `FindBooksUiTest.searchesByTitleGenreAndSortThenAddsTheTappedBookToTheImportQueue`
+- `FindBooksUiTest.sortsByRatingWithTheFewlyRatedLastAndShowsTheRatingOnTheRow`
 
 #### UC-13d English books only
 
 Goal: see only books I can read.
 
-- The "English only" switch is on by default. A book in English and another language counts as English. The row shows the author, the languages in capitals, and the downloads.
+- The "English only" switch is on by default. A book in English and another language counts as English. The row shows the author, the languages in capitals, the downloads and, when Open Library has ratings for the book, "★ 4.5 (20)": the average and the number of ratings.
 
 Tests:
 - `CatalogueTest.englishOnlyLeavesOutABookWithNoEnglishAndTheSwitchTurnsItOff`
@@ -1043,6 +1046,22 @@ Tests:
 - `CatalogueTest.readsTheVersionAndEveryBookMostDownloadedFirst`
 
 Unchecked: the scheduled run itself and the reduction of a new feed by an automated test. The first publication was made by running the same script by hand.
+
+#### UC-13l Ratings come from Open Library's monthly dump
+
+Goal: show how readers rated a book without calling Open Library from every phone.
+
+- Open Library publishes a dump each month (`ol_dump_ratings_<date>.txt.gz`, one row per rating, and `ol_dump_editions_<date>.txt.gz`, 12.6 GB). The daily job learns the newest dump date from the redirect of `ol_dump_ratings_latest.txt.gz`, with no download, and compares it with the dump date in the first line of the release asset `ol-ratings.tsv.xz`.
+- Only a newer dump is read. The job streams the editions dump in parallel ranges (`scripts/fetch-ranges.py`), keeps the lines that name a Project Gutenberg id, averages each work's ratings and joins them by that id. It also keeps the works with at least 5 ratings and their authors, so that a book without an id match can match by title and author surname (`scripts/build-ratings.py`, `scripts/build-catalogue.py`). It uploads the small result as `ol-ratings.tsv.xz`. Without a newer dump it rebuilds the catalogue from that asset.
+- The catalogue file (format 2) gains two columns per book, the average times ten and the rating count; both are empty for a book nobody rated. The app still reads format 1 files, whose books have no rating.
+- The screen credits Open Library as the source of the ratings.
+
+Tests:
+- `CatalogueTest.aFormat2RowCarriesItsRatingAndAFormat1RowHasNone`
+- `CatalogueTest.aRatingOutsideOneToFiveStarsOrWithoutACountIsRefused`
+- `scripts/test_build_ratings.py` (id join, title and author match, row safety; run by hand: `cd scripts && python3 -m unittest test_build_ratings`)
+
+Unchecked: the scheduled run on GitHub (CI minutes were used up; the script was run by hand with `DRY_RUN=1`).
 
 ## Making a book
 
