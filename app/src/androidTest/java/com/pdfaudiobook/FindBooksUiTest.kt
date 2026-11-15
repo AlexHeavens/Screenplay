@@ -27,6 +27,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.ByteArrayOutputStream
+import androidx.compose.ui.layout.positionInRoot
 import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.zip.ZipEntry
@@ -119,6 +120,8 @@ class FindBooksUiTest {
     }
 
     private fun exists(tag: String) = compose.onAllNodes(hasTestTag(tag), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+    /** The given book ids, top of the list first, as the screen shows them. */
+    private fun order(vararg ids: Int) = ids.sortedBy { compose.onNodeWithTag("result-$it").fetchSemanticsNode().positionInRoot.y }
     private fun waitForTag(tag: String) = compose.waitUntil(30_000) { exists(tag) }
 
     private fun openFindBooks() {
@@ -127,11 +130,19 @@ class FindBooksUiTest {
     }
 
     @Smoke @Test
-    fun searchesByTitleGenreAndPopularityThenAddsTheTappedBookToTheImportQueue() {
+    fun searchesByTitleGenreAndSortThenAddsTheTappedBookToTheImportQueue() {
         openFindBooks()
         waitForTag("result-4242")
         assertEquals("the list is downloaded once, when the screen opens", listOf(Catalogue.URL), requests.toList())
-        assertTrue("the most downloaded English book is first, and a book in French is not offered", exists("result-77") && !exists("result-6"))
+        assertTrue("a book in French is not offered", exists("result-77") && !exists("result-6"))
+        assertEquals("the default order is by title", listOf(90, 4242, 5, 77), order(90, 4242, 5, 77))
+        compose.onNodeWithTag("sort-DOWNLOADS").performClick()
+        compose.waitUntil(10_000) { order(90, 4242, 5, 77) == listOf(4242, 77, 90, 5) }
+        compose.onNodeWithTag("sort-TITLE").performClick()
+        compose.waitUntil(10_000) { order(90, 4242, 5, 77) == listOf(90, 4242, 5, 77) }
+        compose.onNodeWithTag("sort-DOWNLOADS").performClick()
+        compose.waitUntil(10_000) { order(90, 4242, 5, 77) == listOf(4242, 77, 90, 5) }
+        compose.onNodeWithTag("sort-TITLE").performClick()
 
         compose.onNodeWithTag("find-query").performTextInput("harbour")
         compose.waitUntil(10_000) { !exists("result-77") }
@@ -149,8 +160,6 @@ class FindBooksUiTest {
         waitForTag("result-4242")
         waitForTag("result-77")
 
-        compose.onNodeWithTag("popularity-VERY_POPULAR").performClick()
-        compose.waitUntil(10_000) { !exists("result-77") }
         assertTrue(exists("result-4242"))
         compose.onNodeWithTag("genre-SCIENCE_FICTION").performClick()
         compose.onNodeWithTag("find-english").performScrollTo().performClick()

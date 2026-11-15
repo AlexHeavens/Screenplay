@@ -30,20 +30,18 @@ enum class Genre(val label: String, val topic: String) {
 }
 
 /**
- * Gutenberg has no ratings. The one number it publishes per book is how often it was downloaded, so that is what "popular" means here.
- * The limits come from two real first pages (2026-11-14): the 32 Dickens books had 2,435 to 50,704 downloads (11 at 5,000 or more, 4 at
- * 20,000 or more) and the 32 most downloaded English science fiction books had 6,782 to 182,729 (all at 5,000 or more, 9 at 20,000 or more).
+ * The order of the matching books. Gutenberg has no ratings; the one number it publishes per book is how often it was downloaded,
+ * so [DOWNLOADS] is the only measure of how read a book is. [TITLE] is the default.
  */
-enum class Popularity(val label: String, val minDownloads: Int) {
-    ANY("Any", 0),
-    POPULAR("Popular", 5_000),
-    VERY_POPULAR("Very popular", 20_000),
+enum class Sort(val label: String) {
+    TITLE("Title A–Z"),
+    DOWNLOADS("Most downloaded"),
 }
 
 data class CatalogueQuery(
     val text: String = "",
     val genre: Genre? = null,
-    val popularity: Popularity = Popularity.ANY,
+    val sort: Sort = Sort.TITLE,
     val englishOnly: Boolean = true,
 )
 
@@ -52,11 +50,11 @@ data class CatalogueEntry(val id: Int, val title: String, val author: String, va
     val epubUrl get() = Gutenberg.epubUrl(id)
 }
 
-/** The first [entries] of the [total] books that match, most downloaded first. */
+/** The first [entries] of the [total] books that match, in the order asked for. */
 data class CatalogueResult(val entries: List<CatalogueEntry>, val total: Int)
 
 /**
- * The book list "Find books" searches, held in memory: one row per public-domain text book with an EPUB, most downloaded first.
+ * The book list "Find books" searches, held in memory: one row per public-domain text book with an EPUB.
  * The file it comes from is built daily from Gutenberg's bulk catalogue by scripts/build-catalogue.py, which also describes the format.
  */
 class CatalogueData private constructor(val version: String, private val rows: List<Row>) {
@@ -64,14 +62,16 @@ class CatalogueData private constructor(val version: String, private val rows: L
 
     val size get() = rows.size
 
+    /** The same rows by title, built the first time a search asks for the title order. [rows] is by downloads. */
+    private val byTitle by lazy { rows.sortedWith(compareBy<Row> { fold(it.title) }.thenBy { it.id }) }
+
     /** The books that match [query], up to [limit] of them, and how many matched in all. */
     fun search(query: CatalogueQuery, limit: Int): CatalogueResult {
         val words = fold(query.text).split(' ').filter { it.isNotEmpty() }
         val genre = query.genre?.let { 1 shl it.ordinal } ?: 0
         val found = ArrayList<CatalogueEntry>(limit)
         var total = 0
-        for (row in rows) {
-            if (row.downloads < query.popularity.minDownloads) break // Sorted by downloads, so no later row can match.
+        for (row in if (query.sort == Sort.DOWNLOADS) rows else byTitle) {
             if (query.englishOnly && !row.english) continue
             if (genre != 0 && row.genres and genre == 0) continue
             if (!words.all { row.search.contains(it) }) continue

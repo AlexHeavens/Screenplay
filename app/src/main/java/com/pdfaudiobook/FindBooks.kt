@@ -68,16 +68,16 @@ fun FindBooks(onBack: () -> Unit) {
     val state by Catalogue.state.collectAsState()
     var text by remember { mutableStateOf("") }
     var genre by remember { mutableStateOf<Genre?>(null) }
-    var popularity by remember { mutableStateOf(Popularity.ANY) }
+    var sort by remember { mutableStateOf(Sort.TITLE) }
     var englishOnly by remember { mutableStateOf(true) }
-    var shownCount by remember(text, genre, popularity, englishOnly) { mutableStateOf(PAGE_SIZE) }
+    var shownCount by remember(text, genre, sort, englishOnly) { mutableStateOf(PAGE_SIZE) }
     var message by remember { mutableStateOf<String?>(null) }
     var added by remember { mutableStateOf(setOf<Int>()) }
     BackHandler(onBack = onBack)
     LaunchedEffect(Unit) { Catalogue.open(ctx) }
 
     val data = (state as? Catalogue.State.Ready)?.data
-    val query = CatalogueQuery(text, genre, popularity, englishOnly)
+    val query = CatalogueQuery(text, genre, sort, englishOnly)
     val result by produceState<CatalogueResult?>(null, data, query, shownCount) { value = data?.let { withContext(Dispatchers.Default) { it.search(query, shownCount) } } }
 
     fun add(entry: CatalogueEntry) {
@@ -105,10 +105,10 @@ fun FindBooks(onBack: () -> Unit) {
                     FilterChip(genre == g, { genre = if (genre == g) null else g }, { Text(g.label) }, Modifier.testTag("genre-${g.name}"), shape = ControlShape, colors = themeChipColors())
                 }
             }
-            Text("Popularity (downloads)", Modifier.padding(start = 16.dp, top = 8.dp), style = MaterialTheme.typography.labelLarge)
+            Text("Sort by", Modifier.padding(start = 16.dp, top = 8.dp), style = MaterialTheme.typography.labelLarge)
             Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (p in Popularity.values()) {
-                    FilterChip(popularity == p, { popularity = p }, { Text(if (p.minDownloads == 0) p.label else "${p.label} (${"%,d".format(p.minDownloads)}+)") }, Modifier.testTag("popularity-${p.name}"), shape = ControlShape, colors = themeChipColors())
+                for (o in Sort.values()) {
+                    FilterChip(sort == o, { sort = o }, { Text(o.label) }, Modifier.testTag("sort-${o.name}"), shape = ControlShape, colors = themeChipColors())
                 }
                 FilterChip(englishOnly, { englishOnly = !englishOnly }, { Text("English only") }, Modifier.testTag("find-english"), shape = ControlShape, colors = themeChipColors())
             }
@@ -126,7 +126,7 @@ fun FindBooks(onBack: () -> Unit) {
             if (found != null) Text("${"%,d".format(found.total)} books", Modifier.padding(horizontal = 16.dp, vertical = 4.dp).testTag("find-count"), style = MaterialTheme.typography.bodySmall)
             LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("find-results")) {
                 if (found != null && found.total == 0) item {
-                    Text(if (popularity == Popularity.ANY) "No books found." else "No books found. Choose Any popularity to see more.", Modifier.padding(16.dp).testTag("find-empty"))
+                    Text("No books found.", Modifier.padding(16.dp).testTag("find-empty"))
                 }
                 items(found?.entries.orEmpty(), key = { it.id }) { entry -> ResultRow(entry, entry.id in added, books.firstOrNull { it.source == "gutenberg:${entry.id}" }?.let { downloading[it.id] }) { add(entry) } }
                 if (found != null && found.total > found.entries.size) item {

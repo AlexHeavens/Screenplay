@@ -826,7 +826,7 @@ Unchecked: the notification itself and a long book that survives closing the app
 Goal: get a book without hunting for a file.
 
 - "Find books" on the shelf searches a list of Project Gutenberg's public-domain text books that is stored on the phone. A search answers at once, with no network request, because the list is searched on the device (UC-13j).
-- The list is shown as soon as the screen opens, most downloaded first, and narrows as the reader types or picks a genre or popularity. It says how many books match.
+- The list is shown as soon as the screen opens, in title order, and narrows as the reader types or picks a genre. It says how many books match.
 - Tapping a book adds it to the import queue at once, as an EPUB still to fetch. The EPUB is fetched from gutenberg.org when the book's turn comes, never at the tap.
 - While one book is made (compute bound), the highest book in line that has no file yet is fetched in the background (network bound), so it is ready when its turn comes. Its row says "Downloading 42% · 3.1 of 7.4 MB" under a bar that fills with the bytes received over the length the server announced, then "Queued". With no announced length the bar runs without end and the row says the bytes so far. The result in "Find books" shows the same text. Progress is kept in memory only and updates once per whole percent, so it costs no disk writes.
 - One fetch runs at a time, in queue order, and a reorder, an addition or a deletion is taken into account at the next fetch. A book is never fetched twice.
@@ -834,7 +834,7 @@ Goal: get a book without hunting for a file.
 - A fetch writes to a temporary name and renames it when whole, so a stopped worker or a killed app never leaves a partial file taken for a book.
 
 Tests:
-- `FindBooksUiTest.searchesByTitleGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
+- `FindBooksUiTest.searchesByTitleGenreAndSortThenAddsTheTappedBookToTheImportQueue`
 - `FindBooksUiTest.theSecondBookIsDownloadedWhileTheFirstIsBeingMade`
 - `ImportQueueTest.theHighestWaitingBookWithoutItsFileIsFetchedNext`
 - `ImportQueueTest.fetchedBooksFileBooksAndTheBookBeingMadeAreSkipped`
@@ -855,7 +855,7 @@ Goal: find a book I know.
 Tests:
 - `CatalogueTest.everyWordMustMatchTheTitleOrAnAuthorIgnoringCaseAndAccents`
 - `CatalogueTest.aRowShowsTheTitleTheAuthorsInReadingOrderTheLanguagesAndTheDownloads`
-- `FindBooksUiTest.searchesByTitleGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
+- `FindBooksUiTest.searchesByTitleGenreAndSortThenAddsTheTappedBookToTheImportQueue`
 
 #### UC-13b Choose one of nine genres
 
@@ -866,19 +866,19 @@ Goal: browse by kind of book.
 Tests:
 - `CatalogueTest.everyGenreIsOneOfTheNineOffered`
 - `CatalogueTest.aGenreMatchesTheBooksBookshelvesAndSubjects`
-- `FindBooksUiTest.searchesByTitleGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
+- `FindBooksUiTest.searchesByTitleGenreAndSortThenAddsTheTappedBookToTheImportQueue`
 
-#### UC-13c Keep only popular books
+#### UC-13c Sort by title or by downloads
 
-Goal: not wade through books nobody reads.
+Goal: see the books people read most, or find one by its title.
 
-- "Popularity (downloads)" keeps books with at least the chosen number of downloads: Any, Popular (5,000) or Very popular (20,000). Gutenberg publishes no ratings; the download count is the only measure.
-- The list shows 50 books and "More results" shows 50 more while others match. When nothing matches under a popularity limit, the screen says "No books found. Choose Any popularity to see more."
+- The "Sort by" chips offer "Title A–Z" (the default, ignoring case and accents) and "Most downloaded". Gutenberg publishes no ratings; the download count is the only measure. Books with equal downloads keep the order of their numbers.
+- The sort applies to the books that match the search and the genre. The list shows 50 books and "More results" shows 50 more while others match.
 
 Tests:
-- `CatalogueTest.popularityKeepsBooksDownloadedAtLeastTheLimitOften`
+- `CatalogueTest.theDefaultOrderIsByTitleAndTheDownloadsSortIsMostDownloadedFirst`
 - `CatalogueTest.theResultCarriesTheFirstBooksAndHowManyMatchedInAll`
-- `FindBooksUiTest.searchesByTitleGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
+- `FindBooksUiTest.searchesByTitleGenreAndSortThenAddsTheTappedBookToTheImportQueue`
 
 #### UC-13d English books only
 
@@ -888,7 +888,7 @@ Goal: see only books I can read.
 
 Tests:
 - `CatalogueTest.englishOnlyLeavesOutABookWithNoEnglishAndTheSwitchTurnsItOff`
-- `FindBooksUiTest.searchesByTitleGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
+- `FindBooksUiTest.searchesByTitleGenreAndSortThenAddsTheTappedBookToTheImportQueue`
 
 #### UC-13e Only books that can be added are listed
 
@@ -908,7 +908,7 @@ Goal: add a book with one tap and carry on browsing.
 - The book is added as an EPUB still to fetch, and the screen says "Added to the import queue".
 
 Tests:
-- `FindBooksUiTest.searchesByTitleGenreAndPopularityThenAddsTheTappedBookToTheImportQueue`
+- `FindBooksUiTest.searchesByTitleGenreAndSortThenAddsTheTappedBookToTheImportQueue`
 
 #### UC-13g A book is fetched while another is made
 

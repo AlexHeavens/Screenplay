@@ -37,7 +37,7 @@ class CatalogueTest {
     fun readsTheVersionAndEveryBookMostDownloadedFirst() {
         assertEquals("2026-11-14", data.version)
         assertEquals(7, data.size)
-        assertEquals(listOf(1, 2, 6, 4, 7, 5), ids(CatalogueQuery()))
+        assertEquals(listOf(1, 2, 6, 4, 7, 5), ids(CatalogueQuery(sort = Sort.DOWNLOADS)))
     }
 
     @Test
@@ -63,7 +63,7 @@ class CatalogueTest {
     fun aGenreMatchesTheBooksBookshelvesAndSubjects() {
         assertEquals(listOf(2), ids(CatalogueQuery(genre = Genre.SCIENCE_FICTION)))
         assertEquals("a subject, not only a bookshelf", listOf(4), ids(CatalogueQuery(genre = Genre.MYSTERY)))
-        assertEquals(listOf(1, 2, 4), ids(CatalogueQuery(genre = Genre.FICTION)))
+        assertEquals(listOf(2, 1, 4), ids(CatalogueQuery(genre = Genre.FICTION)))
         assertEquals(listOf(5), ids(CatalogueQuery(genre = Genre.POETRY)))
         assertEquals(listOf(6), ids(CatalogueQuery(genre = Genre.DRAMA)))
         assertEquals(listOf(6), ids(CatalogueQuery(genre = Genre.CHILDREN)))
@@ -86,15 +86,17 @@ class CatalogueTest {
     }
 
     @Test
-    fun popularityKeepsBooksDownloadedAtLeastTheLimitOften() {
-        assertEquals(listOf(1, 2, 6, 4, 7), ids(CatalogueQuery(popularity = Popularity.POPULAR)))
-        assertEquals(listOf(1, 2, 6, 4), ids(CatalogueQuery(popularity = Popularity.VERY_POPULAR)))
-        assertEquals("a book on the limit is kept", listOf(1, 2, 3, 6, 4).sorted(), ids(CatalogueQuery(popularity = Popularity.VERY_POPULAR, englishOnly = false)).sorted())
+    fun theDefaultOrderIsByTitleAndTheDownloadsSortIsMostDownloadedFirst() {
+        assertEquals("by title, ignoring case and accents", listOf(7, 6, 2, 1, 5, 4), ids(CatalogueQuery()))
+        assertEquals(listOf(1, 2, 6, 4, 7, 5), ids(CatalogueQuery(sort = Sort.DOWNLOADS)))
+        assertEquals("the sort applies to the books that match", listOf(1, 2, 4), ids(CatalogueQuery(genre = Genre.FICTION, sort = Sort.DOWNLOADS)))
+        assertEquals("equal downloads are in the order of their numbers", listOf(1, 2, 3, 6, 4, 7, 5), ids(CatalogueQuery(englishOnly = false, sort = Sort.DOWNLOADS)))
+        assertEquals(listOf(7, 6, 2, 3, 1, 5, 4), ids(CatalogueQuery(englishOnly = false)))
     }
 
     @Test
     fun theResultCarriesTheFirstBooksAndHowManyMatchedInAll() {
-        val first = data.search(CatalogueQuery(), 2)
+        val first = data.search(CatalogueQuery(sort = Sort.DOWNLOADS), 2)
         assertEquals(listOf(1, 2), first.entries.map { it.id })
         assertEquals(6, first.total)
         assertEquals(0, data.search(CatalogueQuery(text = "zzz"), 2).total)

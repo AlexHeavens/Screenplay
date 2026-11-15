@@ -18,7 +18,7 @@ It is not legal advice. The author read the pages named below on 2026-11-14. Nob
 - **The app downloads the file once**, the first time "Find books" opens, and keeps it in its private files. It replaces the file
   at most once a day, when the screen opens. A failed or unreadable refresh keeps the old file. The app never calls Gutenberg to search.
 - **Search runs on the device**: title and author words, genre chips (a bookshelf or subject that contains the genre word), English only
-  by default, and a popularity filter. It needs no network after the first download.
+  by default, and a sort by title or by downloads. It needs no network after the first download.
 - **A tap sends one request** for that book's EPUB to gutenberg.org, using `https://www.gutenberg.org/ebooks/<id>.epub3.images`, when the
   book's turn comes in the import queue. The workflow keeps only books whose feed entry lists that file.
 - Every request carries `User-Agent: Screenplay/<version> (+https://github.com/AlexHeavens/Screenplay)`.
@@ -32,10 +32,9 @@ It is not legal advice. The author read the pages named below on 2026-11-14. Nob
 
 ## What "rating" means
 
-Gutenberg has no ratings. The filter is **Popularity (downloads)** from the catalogue's `pgterms:downloads` count: Any, Popular
-(5,000 or more) and Very popular (20,000 or more). The limits come from the first-page counts read on 2026-11-14:
-the 32 Dickens books had 2,435 to 50,704 downloads, and the 32 most downloaded English science fiction books had 6,782 to 182,729.
-Gutenberg does not state what period the count covers. The count is the one in the feed on the day the list was built.
+Gutenberg has no ratings. The only measure is the catalogue's `pgterms:downloads` count, which the list file carries for every book.
+The "Sort by" chips offer **Title A–Z** (the default) and **Most downloaded**. Gutenberg does not state what period the count covers.
+The count is the one in the feed on the day the list was built.
 
 ## What was read, and what it says
 
