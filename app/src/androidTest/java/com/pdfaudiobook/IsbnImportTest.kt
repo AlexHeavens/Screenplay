@@ -47,11 +47,13 @@ class IsbnImportTest {
         Options().save(ctx)
         Engines.synthesizer = { FakeSynthesizer() }
         Engines.recognisePage = { page }
+        Engines.surveyPages = { emptyList() }
     }
 
     @After
     fun restore() {
         Engines.recognisePage = null
+        Engines.surveyPages = null
         Engines.lookupBook = { isbn -> Isbn.openLibrary(isbn) }
         scenario?.close()
     }

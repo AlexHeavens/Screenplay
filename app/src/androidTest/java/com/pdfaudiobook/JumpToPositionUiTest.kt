@@ -56,6 +56,7 @@ class JumpToPositionUiTest {
     fun restore() {
         Engines.synthesizer = { AndroidSynthesizer(it) }
         Engines.recognisePage = null
+        Engines.surveyPages = null
         scenario?.close()
     }
 
@@ -73,6 +74,7 @@ class JumpToPositionUiTest {
         assets.open("ocr/varieties-preface.pdf").use { i -> pdf.outputStream().use { i.copyTo(it) } }
         val pages = ParcelFileDescriptor.open(pdf, ParcelFileDescriptor.MODE_READ_ONLY).use { fd -> PdfRenderer(fd).use { it.pageCount } }
         Engines.recognisePage = cannedOcr(assets, "varieties-preface", pages)
+        Engines.surveyPages = { emptyList() }
         val gate = CompletableDeferred<Unit>()
         val reached = Collections.synchronizedList(ArrayList<String>())
         Engines.synthesizer = {

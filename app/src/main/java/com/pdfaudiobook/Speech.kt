@@ -67,6 +67,12 @@ object Engines {
      */
     var recognisePage: ((page: Int) -> List<String>)? = null
 
+    /**
+     * Stands in for the chapter pre-pass's OCR ([PageSurvey.read], which [recognisePage] does not replace) when set: a test that is not about chapters
+     * returns no pages, so the book has no estimated chapters and the import skips about ten seconds a page.
+     */
+    var surveyPages: (suspend (pdf: File) -> List<OcrPage>)? = null
+
     /** Looks up a book's title and author by ISBN; a test swaps in one that needs no network. Null when the catalogue has no such book. */
     var lookupBook: suspend (isbn: String) -> BookInfo? = { isbn -> withContext(Dispatchers.IO) { Isbn.openLibrary(isbn) } }
 

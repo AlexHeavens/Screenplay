@@ -57,6 +57,7 @@ class StreamingImportTest {
     fun restore() {
         Engines.beforeRecognise = { _, _ -> }
         Engines.recognisePage = null
+        Engines.surveyPages = null
         scenario?.close()
     }
 
@@ -65,6 +66,7 @@ class StreamingImportTest {
         assets.open("ocr/$name.pdf").use { i -> pdf.outputStream().use { i.copyTo(it) } }
         // The book's own text, not a fresh OCR pass: what is under test is how pages become audio, and OCR is slow.
         Engines.recognisePage = cannedOcr(assets, name, pageCount(pdf))
+        Engines.surveyPages = { emptyList() }
         return pdf
     }
 

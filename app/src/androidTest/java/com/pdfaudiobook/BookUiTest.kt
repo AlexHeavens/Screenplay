@@ -603,7 +603,8 @@ class BookUiTest {
     /** Runs [body] with every PDF page read as one fixed sentence, so an import ends in a moment instead of waiting for OCR. [body] must wait for the import to finish. */
     private fun withQuickOcr(body: () -> Unit) {
         Engines.recognisePage = { listOf("A short sentence that the import tests read in a moment.") }
-        try { body() } finally { Engines.recognisePage = null }
+        Engines.surveyPages = { emptyList() }
+        try { body() } finally { Engines.recognisePage = null; Engines.surveyPages = null }
     }
 
     private fun launchViewing(file: File, type: String = "application/pdf") {

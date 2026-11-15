@@ -63,11 +63,13 @@ class FootnoteUiTest {
         spoken.clear()
         Engines.synthesizer = { Recording(spoken) }
         Engines.recognisePage = { page }
+        Engines.surveyPages = { emptyList() }
     }
 
     @After
     fun restore() {
         Engines.recognisePage = null
+        Engines.surveyPages = null
         Options().save(ctx)
         scenario?.close()
     }

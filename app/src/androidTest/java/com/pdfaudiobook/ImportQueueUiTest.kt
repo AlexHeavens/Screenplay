@@ -48,6 +48,11 @@ class ImportQueueUiTest {
     @get:Rule
     val compose = createEmptyComposeRule()
 
+    private companion object {
+        /** No test here plays a book, so its fake speech is short: the speaking stage encodes a tenth of the default audio. */
+        const val QUICK_SPEECH_MS = 40
+    }
+
     private val ctx = InstrumentationRegistry.getInstrumentation().targetContext
     private val assets = InstrumentationRegistry.getInstrumentation().context.assets
     private var scenario: ActivityScenario<MainActivity>? = null
@@ -57,13 +62,15 @@ class ImportQueueUiTest {
         File(ctx.filesDir, "books").deleteRecursively()
         Library.refresh(ctx)
         Options().save(ctx)
-        Engines.synthesizer = { FakeSynthesizer() }
+        Engines.synthesizer = { FakeSynthesizer(msPerWord = QUICK_SPEECH_MS) }
+        Engines.surveyPages = { emptyList() }
     }
 
     @After
     fun restore() {
         Engines.beforeRecognise = { _, _ -> }
         Engines.recognisePage = null
+        Engines.surveyPages = null
         Engines.beforeMoveWrite = {}
         scenario?.close()
     }
@@ -132,7 +139,7 @@ class ImportQueueUiTest {
         val speechHold = CompletableDeferred<Unit>()
         val spoken = AtomicInteger()
         Engines.synthesizer = {
-            val inner = FakeSynthesizer()
+            val inner = FakeSynthesizer(msPerWord = QUICK_SPEECH_MS)
             object : Synthesizer {
                 override suspend fun speak(text: String, wav: File) { if (spoken.incrementAndGet() > 6) speechHold.await(); inner.speak(text, wav) }
                 override fun close() = inner.close()
@@ -271,7 +278,7 @@ class ImportQueueUiTest {
         val speechHold = CompletableDeferred<Unit>()
         val spoken = AtomicInteger()
         Engines.synthesizer = {
-            val inner = FakeSynthesizer()
+            val inner = FakeSynthesizer(msPerWord = QUICK_SPEECH_MS)
             object : Synthesizer {
                 override suspend fun speak(text: String, wav: File) { if (spoken.incrementAndGet() > 6) speechHold.await(); inner.speak(text, wav) }
                 override fun close() = inner.close()
@@ -316,7 +323,7 @@ class ImportQueueUiTest {
         val speechHold = CompletableDeferred<Unit>()
         val spoken = AtomicInteger()
         Engines.synthesizer = {
-            val inner = FakeSynthesizer()
+            val inner = FakeSynthesizer(msPerWord = QUICK_SPEECH_MS)
             object : Synthesizer {
                 override suspend fun speak(text: String, wav: File) { if (spoken.incrementAndGet() > 6) speechHold.await(); inner.speak(text, wav) }
                 override fun close() = inner.close()
@@ -367,7 +374,7 @@ class ImportQueueUiTest {
         val speechHold = CompletableDeferred<Unit>()
         val spoken = AtomicInteger()
         Engines.synthesizer = {
-            val inner = FakeSynthesizer()
+            val inner = FakeSynthesizer(msPerWord = QUICK_SPEECH_MS)
             object : Synthesizer {
                 override suspend fun speak(text: String, wav: File) { if (spoken.incrementAndGet() > 6) speechHold.await(); inner.speak(text, wav) }
                 override fun close() = inner.close()

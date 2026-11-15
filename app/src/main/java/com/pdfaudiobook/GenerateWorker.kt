@@ -156,7 +156,7 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             }
             // The pre-pass: chapters from the contents page, before the book is read, so the contents page stays out of the text.
             var plan = try {
-                ChapterEstimator.plan(PageSurvey.read(File(dir, Files.PDF)))
+                ChapterEstimator.plan(File(dir, Files.PDF).let { pdf -> Engines.surveyPages?.invoke(pdf) ?: PageSurvey.read(pdf) })
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

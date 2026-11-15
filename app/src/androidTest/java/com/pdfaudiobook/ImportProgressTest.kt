@@ -52,6 +52,7 @@ class ImportProgressTest {
     fun restore() {
         Engines.beforeRecognise = { _, _ -> }
         Engines.recognisePage = null
+        Engines.surveyPages = null
         scenario?.close()
     }
 
@@ -68,6 +69,7 @@ class ImportProgressTest {
         val last = ParcelFileDescriptor.open(pdf, ParcelFileDescriptor.MODE_READ_ONLY).use { fd -> PdfRenderer(fd).use { it.pageCount } } - 1
         assertTrue("the fixture needs more than one page", last > 0)
         Engines.recognisePage = cannedOcr(assets, "varieties-preface", last + 1)
+        Engines.surveyPages = { emptyList() }
         val firstPage = CompletableDeferred<Unit>()
         val lastPage = CompletableDeferred<Unit>()
         Engines.beforeRecognise = { page, _ ->
