@@ -407,6 +407,37 @@ class ImportQueueUiTest {
     }
 
     @Test
+    fun aSpeakingBookMovedBackInTheQueueKeepsShowingItsSpeakingStage() {
+        val names = listOf("stage-one", "stage-two")
+        val release = CompletableDeferred<Unit>()
+        val speechHold = CompletableDeferred<Unit>()
+        val spoken = AtomicInteger()
+        Engines.synthesizer = {
+            val inner = FakeSynthesizer()
+            object : Synthesizer {
+                override suspend fun speak(text: String, wav: File) { if (spoken.incrementAndGet() > 6) speechHold.await(); inner.speak(text, wav) }
+                override fun close() = inner.close()
+            }
+        }
+        importQueued(names, release)
+        try {
+            release.complete(Unit)
+            compose.waitUntil(120_000) { book("stage-one").status == Status.SPEAKING && Library.segments(ctx, book("stage-one").id).isNotEmpty() }
+            val state = androidx.compose.ui.semantics.SemanticsProperties.StateDescription
+            assertEquals("in progress", compose.onNodeWithTag("stage-SPEAK-stage-one", useUnmergedTree = true).fetchSemanticsNode().config[state])
+            // Dropped behind the waiting book, the speaking one stops and waits again, but it has not gone back to reading.
+            dropOnRowOf("stage-two", "stage-one")
+            compose.waitUntil(90_000) { book("stage-one").status == Status.QUEUED && book("stage-two").status != Status.QUEUED }
+            assertEquals("done", compose.onNodeWithTag("stage-READ-stage-one", useUnmergedTree = true).fetchSemanticsNode().config[state])
+            assertEquals("next", compose.onNodeWithTag("stage-SPEAK-stage-one", useUnmergedTree = true).fetchSemanticsNode().config[state])
+            compose.onNodeWithTag("stage-text-SPEAK-stage-one", useUnmergedTree = true).assertExists()
+        } finally {
+            speechHold.complete(Unit)
+            for (n in names) Library.delete(ctx, book(n).id)
+        }
+    }
+
+    @Test
     fun aMoveThatCannotBeSavedPutsTheOldOrderBackAndSaysWhy() {
         val names = listOf("fail-one", "fail-two", "fail-three")
         importQueued(names, CompletableDeferred())

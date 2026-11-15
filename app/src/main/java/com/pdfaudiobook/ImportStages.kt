@@ -78,9 +78,16 @@ object Stages {
         else -> ImportStage(StageKind.DOWNLOAD, StageState.DONE)
     }
 
-    private fun reading(book: Book) = when (book.status) {
-        Status.QUEUED -> ImportStage(StageKind.READ, StageState.NEXT)
-        Status.READING, Status.SPELLING -> {
+    /**
+     * A book put back in the queue after its text was all read ([Book.wordsTotal] is known) has been through reading and is waiting to speak again,
+     * keeping the words it had. Its status says only QUEUED, so its stage comes from that progress, not from the status.
+     */
+    private val Book.stoppedWhileSpeaking get() = status == Status.QUEUED && wordsTotal > 0
+
+    private fun reading(book: Book) = when {
+        book.stoppedWhileSpeaking -> ImportStage(StageKind.READ, StageState.DONE)
+        book.status == Status.QUEUED -> ImportStage(StageKind.READ, StageState.NEXT)
+        book.status == Status.READING || book.status == Status.SPELLING -> {
             val fraction = book.readProgress
             ImportStage(StageKind.READ, StageState.ONGOING, fraction, "${percent(fraction)}% · ${book.pages}/${book.pagesTotal} pages")
         }
@@ -98,6 +105,11 @@ object Stages {
             ImportStage(StageKind.SPEAK, StageState.ONGOING, fraction, "${percent(fraction)}% · ${"%,d".format(book.words)} words")
         }
         book.status == Status.ENCODING -> ImportStage(StageKind.SPEAK, StageState.DONE)
+        // Waiting to carry on: the words it had are shown, though it is not running.
+        book.stoppedWhileSpeaking -> {
+            val fraction = (book.words.toFloat() / book.wordsTotal).coerceIn(0f, 1f)
+            ImportStage(StageKind.SPEAK, StageState.NEXT, fraction, "${percent(fraction)}% · ${"%,d".format(book.words)}/${"%,d".format(book.wordsTotal)} words")
+        }
         else -> ImportStage(StageKind.SPEAK, StageState.NEXT)
     }
 
