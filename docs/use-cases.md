@@ -130,6 +130,22 @@ Goal: not be blocked by a title I already have.
 Tests:
 - `BookUiTest.importingTheSamePdfTwiceMakesTwoBooksWithTheSameTitle`
 
+#### UC-01i A picked file is a row under "Importing" from the moment it is picked
+
+Goal: see that my file was taken and what is happening to it.
+
+- A file picked with "Import" is a row under "Importing" at once, after the books already in line, before it is a book. Its stage shows as for a queued book: the fetch (here, the copy) is running, with the status "Checking file" or "Saving file", and reading is next. A zip shows "Restoring backup".
+- When the file is saved the row becomes the book's (UC-01a); a local file's fetch then counts as done and shows no text.
+- A zip that cannot be restored stays as a row with "Failed: " and the reason, and a button to remove it. The Catalogue's downloads are unchanged (UC-13).
+
+Tests:
+- `PendingImportTest.aFileBeingCheckedOrSavedShowsItsStepAsTheFetchAndReadingAsNext`
+- `PendingImportTest.aBackupBeingRestoredHasNoReadingStage`
+- `PendingImportTest.aFailedFileHasNoStagesAndSaysWhy`
+- `PendingImportTest.theStepsAreWorded`
+- `PendingImportUiTest.aPickedPdfIsARowFromTheMomentItIsPickedAndItsStageChangesUntilItIsReady`
+- `PendingImportUiTest.aZipThatIsNoBackupStaysAsAFailedRowWithTheReasonUntilItIsRemoved`
+
 ### UC-02 Open a PDF or EPUB from another app
 
 Goal: start a book from a file manager or a download without opening Screenplay first.

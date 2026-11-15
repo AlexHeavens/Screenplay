@@ -52,6 +52,9 @@ object Engines {
     /** Runs on the saving thread before a moved book's order is written to disk; a test makes saving slow, or fails it, to see the shelf in the meantime. */
     var beforeMoveWrite: () -> Unit = {}
 
+    /** Runs on the importing thread before a picked file is copied into the app; a test holds it to see the file's row while it is being saved. */
+    var beforeCopy: () -> Unit = {}
+
     /** The opt-in neural voice; a test swaps it as it does [synthesizer]. */
     var neural: (Context, Voice) -> Synthesizer = { ctx, voice -> NeuralVoice.Lane(ctx, voice) }
 

@@ -145,16 +145,24 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
     val scope = rememberCoroutineScope()
     // One picker for everything the app exports and reads: a PDF or an EPUB becomes a book to make, a zip is restored.
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) scope.launch {
-            val message = try {
-                if (!withContext(Dispatchers.IO) { Backup.isBackup(ctx, uri) }) { Library.import(ctx, uri); return@launch }
-                "Imported ${withContext(Dispatchers.IO) { Backup.restore(ctx, uri) }.joinToString { "“$it”" }}"
-            } catch (e: BackupException) {
-                e.message ?: "Could not import the backup."
-            } catch (e: Exception) {
-                "Could not import the backup: ${e.message}"
+        if (uri != null) {
+            // The file is listed under "Importing" from here on, while it is checked, then copied or restored.
+            val key = Library.begin(ctx, uri)
+            scope.launch {
+                var failed = true
+                val message = try {
+                    if (!withContext(Dispatchers.IO) { Backup.isBackup(ctx, uri) }) { Library.import(ctx, uri, pendingKey = key); return@launch }
+                    Library.step(key, PendingStep.RESTORING)
+                    "Imported ${withContext(Dispatchers.IO) { Backup.restore(ctx, uri) }.joinToString { "“$it”" }}".also { failed = false }
+                } catch (e: BackupException) {
+                    e.message ?: "Could not import the backup."
+                } catch (e: Exception) {
+                    "Could not import the backup: ${e.message}"
+                }
+                Library.refresh(ctx)
+                if (failed) Library.fail(key, message) else Library.finish(key)
+                snackbar.showSnackbar(message)
             }
-            snackbar.showSnackbar(message)
         }
     }
     LaunchedEffect(Unit) {
@@ -206,7 +214,8 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
             }
         },
     ) { pad ->
-        if (books.isEmpty()) {
+        val pending by Library.pending.collectAsState()
+        if (books.isEmpty() && pending.isEmpty()) {
             Box(Modifier.padding(pad).fillMaxSize().padding(24.dp)) { Text("No audiobooks yet. Import a PDF or EPUB.") }
         }
         val importing = ImportQueue.line(books)
@@ -216,7 +225,7 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
         val imported = ImportQueue.imported(books)
         LazyColumn(Modifier.padding(pad)) {
             // Shown only while a book is still being made; the queue empties and the section goes.
-            if (importing.isNotEmpty()) {
+            if (importing.isNotEmpty() || pending.isNotEmpty()) {
                 item(key = "header-importing") {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.weight(1f)) { SectionHeader("Importing", "section-importing") }
@@ -232,6 +241,8 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
                 items(importing, key = { it.id }) { b ->
                     BookRow(b, ImportQueue.label(books, b, downloading, paused), onOpen, onDelete = { toDelete = b }, drag = drag, download = downloading[b.id])
                 }
+                // Files picked but not yet books join the queue behind the ones in line.
+                items(pending, key = { "pending-${it.key}" }) { p -> PendingRow(p, onDismiss = { Library.finish(p.key) }) }
             }
             if (imported.isNotEmpty()) {
                 item(key = "header-imported") { SectionHeader("Imported", "section-imported") }
@@ -248,6 +259,25 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
 @Composable
 private fun SectionHeader(text: String, tag: String) {
     Text(text, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag(tag).semantics { heading() }, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+}
+
+/** A picked file that is not yet a book: its title, the stage it is in with its status, or why it failed. Tags: `pending-<title>`, `delete-<title>` (remove a failed one), `status-<title>` (the failure). */
+@Composable
+private fun PendingRow(p: PendingImport, onDismiss: () -> Unit) {
+    ListItem(
+        headlineContent = { Text(p.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        supportingContent = {
+            Column {
+                if (p.status.isNotEmpty()) Text(p.status, Modifier.testTag("status-${p.title}"))
+                val stages = p.stages()
+                if (stages.isNotEmpty()) StageStrip(p.title, stages)
+            }
+        },
+        modifier = Modifier.testTag("pending-${p.title}"),
+        trailingContent = if (p.step != null) null else ({
+            IconButton(onClick = onDismiss, modifier = Modifier.testTag("delete-${p.title}")) { Icon(Icons.Filled.Close, contentDescription = "Remove ${p.title}") }
+        }),
+    )
 }
 
 /** One book on the shelf. A book in the import queue can be dragged ([drag]); while one is dragged, a line shows the place it takes if released. Finished books have neither. */

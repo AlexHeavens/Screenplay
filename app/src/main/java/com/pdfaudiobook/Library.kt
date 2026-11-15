@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -56,6 +57,41 @@ object Library {
     val moveFailures: SharedFlow<String> = moveFailed
 
     fun dir(ctx: Context, id: String) = File(ctx.filesDir, "books/$id")
+
+    private val pendingState = MutableStateFlow<List<PendingImport>>(emptyList())
+
+    /** Picked files not yet in the queue, oldest first; the shelf lists them under "Importing" after the books in line. */
+    val pending: StateFlow<List<PendingImport>> = pendingState
+
+    /** The title a file gets: its display name without the file type. */
+    private fun titleOf(name: String?) = (name ?: "Untitled").removeSuffix(".pdf").removeSuffix(".epub").removeSuffix(".zip")
+
+    private fun displayName(ctx: Context, uri: Uri): String? = try {
+        ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null }
+    } catch (_: Exception) { null } ?: uri.lastPathSegment // A file:// link has no display name.
+
+    /**
+     * Lists [uri] as a file being checked at once, before anything is read, and returns its key for [step], [fail] and [finish]. The title is
+     * the file's name, read off the main thread: until then the last part of the link stands in for it.
+     */
+    fun begin(ctx: Context, uri: Uri): String {
+        val key = UUID.randomUUID().toString()
+        val first = uri.lastPathSegment?.substringAfterLast('/')?.substringAfterLast(':')
+        pendingState.update { it + PendingImport(key, titleOf(first), PendingStep.CHECKING) }
+        scope.launch { displayName(ctx, uri)?.let { name -> changePending(key) { it.copy(title = titleOf(name)) } } }
+        return key
+    }
+
+    private fun changePending(key: String, change: (PendingImport) -> PendingImport) = pendingState.update { l -> l.map { if (it.key == key) change(it) else it } }
+
+    /** Moves the pending file to [step], under [title] when the real one is known. */
+    fun step(key: String, step: PendingStep, title: String? = null) = changePending(key) { it.copy(step = step, title = title ?: it.title) }
+
+    /** Keeps the pending file's row with [error] until [dismiss]; the file did not become a book. */
+    fun fail(key: String, error: String) = changePending(key) { it.copy(step = null, error = error) }
+
+    /** Drops the row of a file that is now a book (or whose failure the reader has seen). */
+    fun finish(key: String) = pendingState.update { l -> l.filter { it.key != key } }
 
     @Synchronized
     fun refresh(ctx: Context) {
@@ -169,18 +205,19 @@ object Library {
      * Copies the PDF or EPUB into a new book and starts generating its audio. A download passes its [source] (kept with the book) and
      * [title] (the file has no display name), and a [temporary] file, deleted once copied.
      */
-    fun import(ctx: Context, uri: Uri, source: String = "", title: String? = null, temporary: File? = null) {
+    fun import(ctx: Context, uri: Uri, source: String = "", title: String? = null, temporary: File? = null, pendingKey: String? = null) {
+        // A file the reader picked (not a download) is listed from here on; a caller that listed it already passes its [pendingKey].
+        val key = pendingKey ?: if (source.isEmpty()) begin(ctx, uri) else null
         scope.launch {
             val id = UUID.randomUUID().toString().take(8)
             val dir = dir(ctx, id).apply { mkdirs() }
-            val name = try {
-                ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-                    ?.use { if (it.moveToFirst()) it.getString(0) else null }
-            } catch (_: Exception) { null } ?: uri.lastPathSegment // A file:// link has no display name.
+            val name = displayName(ctx, uri)
             val epub = name?.endsWith(".epub", ignoreCase = true) == true || ctx.contentResolver.getType(uri) == "application/epub+zip"
             val sourceFile = if (epub) Files.EPUB else Files.PDF
-            val meta = JSONObject().put("title", title ?: (name ?: "Untitled").removeSuffix(".pdf").removeSuffix(".epub"))
+            val meta = JSONObject().put("title", title ?: titleOf(name))
                 .put("created", System.currentTimeMillis()).put("order", System.currentTimeMillis())
+            key?.let { step(it, PendingStep.SAVING, meta.getString("title")) }
+            Engines.beforeCopy()
             if (source.isNotEmpty()) meta.put("source", source)
             File(dir, Files.NOTES).writeText("[]")
             try {
@@ -191,9 +228,12 @@ object Library {
                 // An unreadable file (revoked grant, no permission) shows as a failed book instead of crashing the app.
                 File(dir, Files.META).writeText(meta.put("status", Status.FAILED.name).put("error", "Could not read the ${if (epub) "EPUB" else "PDF"}: ${e.message}").toString())
                 refresh(ctx)
+                key?.let(::finish)
                 return@launch
             }
             refresh(ctx)
+            // The book is on the shelf now, so its pending row can go without a gap.
+            key?.let(::finish)
             ImportQueue.start(ctx)
         }
     }
