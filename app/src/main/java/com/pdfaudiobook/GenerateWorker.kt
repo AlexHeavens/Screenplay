@@ -10,7 +10,6 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
@@ -107,7 +106,11 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         val carriesOn = kept.segments.isNotEmpty() && before.wordsTotal > 0
         if (carriesOn) Library.update(ctx, id) { it.copy(status = Status.SPEAKING) } else Library.update(ctx, id) { it.copy(status = Status.READING, progress = 0f) }
         val progress = if (carriesOn) Progress(ctx, id, words = before.words, wordsTotal = before.wordsTotal) else Progress(ctx, id)
-        val sentences = Channel<String>(Channel.UNLIMITED)
+        // Kept sentences have audio already, wherever in the book they are; everything else is spoken in the order [SpeakOrder] decides.
+        val keptText = HashMap<Int, String>().also { m -> kept.segments.forEachIndexed { i, s -> m[if (s.at >= 0) s.at else i] = s.text } }
+        val order = SpeakOrder(keptText.keys, Speaking.from(ctx, id))
+        Speaking.register(id, order)
+        var spokenWords = kept.segments.sumOf { Text.wordCount(it.text) }
         val wordsAfter = Collections.synchronizedList(ArrayList<Int>())
         if (kept.segments.isNotEmpty()) RandomAccessFile(pcm, "rw").use { it.setLength(kept.bytes) }
 
@@ -123,7 +126,8 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
                 for (s in checked) {
                     val n = wordsAfter.size
                     wordsAfter += (wordsAfter.lastOrNull() ?: 0) + Text.wordCount(s)
-                    if (n >= kept.segments.size) sentences.send(s) else if (kept.segments[n].text != s) throw StaleResume()
+                    if (keptText[n]?.let { it != s } == true) throw StaleResume()
+                    order.add(s)
                     progress.queued(wordsAfter.last())
                 }
             }
@@ -147,7 +151,7 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
                 Library.update(ctx, id) { it.copy(title = book.title.ifBlank { it.title }, author = book.author, contents = book.chapters, chapters = book.marks.ifEmpty { null }) }
                 emitChecked(Epub.speakable(book.paragraphs), last = true)
                 progress.readingDone(wordsAfter.lastOrNull() ?: error("No text found in this EPUB"))
-                sentences.close()
+                order.finish()
                 return@launch
             }
             // The pre-pass: chapters from the contents page, before the book is read, so the contents page stays out of the text.
@@ -207,7 +211,7 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             // The text is whole: its chapters are known now, before any audio is finished, and speech and export reuse them.
             Library.detectChapters(ctx, id)
             progress.readingDone(wordsAfter.last())
-            sentences.close()
+            order.finish()
         }
 
         // The shelf's settings sheet downloads the voice when the switch is turned on; this covers a model removed since.
@@ -215,27 +219,38 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         val synths = List(options.voice.lanes) { if (options.voice.neural) Engines.neural(ctx, options.voice) else Engines.synthesizer(ctx) }
         val (segments, rate) = try {
             Speech.render(
-                synths, sentences, File(dir, "sentence.wav"), pcm,
+                synths, order::take, File(dir, "sentence.wav"), pcm,
                 onChunk = { done, rate ->
                     // The transcript is saved after the audio it describes, so a reader never shows text with no sound behind it.
                     Library.saveSegments(ctx, id, done)
                     Library.update(ctx, id) { it.copy(rate = rate, durationMs = done.last().end) }
                 },
                 resume = kept,
-            ) { done -> progress.spoken(wordsAfter[done - 1]) }
+            ) { at, _ ->
+                // Words spoken, wherever in the book: the speech may have jumped, so the running total is not the words before the sentence.
+                spokenWords += wordsAfter[at] - (wordsAfter.getOrNull(at - 1) ?: 0)
+                progress.spoken(spokenWords)
+            }
         } finally {
+            Speaking.unregister(id)
             synths.forEach { it.close() }
         }
         reader.join()
-        if (wordsAfter.size < kept.segments.size) throw StaleResume()
+        if (keptText.keys.any { it >= wordsAfter.size }) throw StaleResume()
         Library.update(ctx, id) { it.copy(status = Status.ENCODING, progress = 0.9f) }
+        // After a jump the audio was made out of order: lay it out in the order of the text before it is encoded.
+        val ordered = if (Speech.inBookOrder(segments)) segments.map { it.copy(at = -1) } else {
+            val laidOut = File(dir, "audio.ordered.pcm")
+            Speech.inBookOrder(segments, rate, pcm, laidOut).also { pcm.delete(); laidOut.renameTo(pcm) }
+        }
         AacEncoder.encode(pcm, rate, File(dir, Files.AUDIO)) { done ->
             Library.update(ctx, id) { it.copy(progress = 0.9f + 0.1f * done) }
         }
         pcm.delete()
         File(dir, Files.QUEUE).delete()
-        Library.saveSegments(ctx, id, segments)
-        Library.update(ctx, id) { it.copy(status = Status.READY, progress = 1f, durationMs = segments.last().end) }
+        File(dir, Files.JUMP).delete()
+        Library.saveSegments(ctx, id, ordered)
+        Library.update(ctx, id) { it.copy(status = Status.READY, progress = 1f, durationMs = ordered.last().end, positionMs = it.positionMs?.let { p -> Speech.moved(p, segments, ordered) }) }
     }
 
     /**

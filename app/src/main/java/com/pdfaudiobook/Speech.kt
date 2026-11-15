@@ -168,6 +168,49 @@ object Speech {
         return Kept(whole, rate, bytesTo(whole.last().end))
     }
 
+    /** True when the audio of [segments] is in the order of the book's text, as it is unless the reader jumped. */
+    fun inBookOrder(segments: List<Segment>) = segments.withIndex().all { (i, s) -> s.at < 0 || s.at == i }
+
+    /**
+     * Copies the audio of [segments] (which follow the audio in [pcm]) into [out] in the order of the book's text, and returns the
+     * segments as they sit in [out], in that order and with their [Segment.at] cleared. Every sentence must have audio.
+     */
+    fun inBookOrder(segments: List<Segment>, rate: Int, pcm: File, out: File): List<Segment> {
+        fun bytesTo(end: Long) = ((end * rate + 499) / 500 + 1) and 1L.inv()
+        val ranges = LongArray(segments.size + 1) { if (it == 0) 0L else bytesTo(segments[it - 1].end) }
+        val order = segments.indices.sortedBy { if (segments[it].at >= 0) segments[it].at else it }
+        val result = ArrayList<Segment>(segments.size)
+        var bytes = 0L
+        java.io.RandomAccessFile(pcm, "r").use { input ->
+            FileOutputStream(out).buffered().use { output ->
+                val buf = ByteArray(64 * 1024)
+                for (i in order) {
+                    input.seek(ranges[i])
+                    var left = ranges[i + 1] - ranges[i]
+                    val start = bytes
+                    while (left > 0) {
+                        val n = input.read(buf, 0, minOf(buf.size.toLong(), left).toInt())
+                        if (n < 0) break
+                        output.write(buf, 0, n)
+                        left -= n
+                        bytes += n
+                    }
+                    result += Segment(ms(start, rate), ms(bytes, rate), segments[i].text)
+                }
+            }
+        }
+        return result
+    }
+
+    /** Where the audio at [ms] of the old [from] segments sits in the same audio laid out as [to] (the same sentences, in the order of the text). */
+    fun moved(ms: Long, from: List<Segment>, to: List<Segment>): Long {
+        val i = Timeline.indexAt(from, ms)
+        val s = from.getOrNull(i) ?: return ms
+        val order = from.indices.sortedBy { if (from[it].at >= 0) from[it].at else it }
+        val place = order.indexOf(i)
+        return (to.getOrNull(place)?.start ?: return ms) + (ms - s.start).coerceAtLeast(0)
+    }
+
     /** One spoken sentence held in memory; [pcm] is null when the engine stalled on it. */
     private class Spoken(val rate: Int, val pcm: ByteArray?)
 
@@ -205,9 +248,33 @@ object Speech {
         flushMs: Long = FLUSH_MS,
         resume: Kept = Kept.NONE,
         onSentence: (done: Int) -> Unit,
+    ): Pair<List<Segment>, Int> {
+        var next = resume.segments.size
+        val source: suspend () -> Pair<Int, String>? = {
+            val got = sentences.receiveCatching()
+            got.exceptionOrNull()?.let { throw it }
+            got.getOrNull()?.let { next++ to it }
+        }
+        return render(synths, source, scratch, pcm, onChunk, flushMs, resume) { _, done -> onSentence(done) }
+    }
+
+    /**
+     * As above, for sentences that [source] hands out in the order to speak them, each with its place in the book's text ([SpeakOrder.take]);
+     * null ends the run. The audio is written in that order, so after a jump it is not in text order: each segment keeps its place in
+     * [Segment.at]. [onSentence] gets that place and the number of sentences spoken so far.
+     */
+    suspend fun render(
+        synths: List<Synthesizer>,
+        source: suspend () -> Pair<Int, String>?,
+        scratch: File,
+        pcm: File,
+        onChunk: (segments: List<Segment>, rate: Int) -> Unit = { _, _ -> },
+        flushMs: Long = FLUSH_MS,
+        resume: Kept = Kept.NONE,
+        onSentence: (at: Int, done: Int) -> Unit,
     ): Pair<List<Segment>, Int> = coroutineScope {
         // Sentences are queued in the order they are taken; the writer drops each once written: a book's audio is larger than the heap.
-        val order = Channel<Pair<String, CompletableDeferred<Spoken>>>(Channel.UNLIMITED)
+        val order = Channel<Triple<Int, String, CompletableDeferred<Spoken>>>(Channel.UNLIMITED)
         // A bounded lead keeps finished sentences from piling up in memory while the writer waits on a slow one.
         val lead = Semaphore(synths.size * 3)
         val take = Mutex()
@@ -217,12 +284,10 @@ object Speech {
                 while (true) {
                     lead.acquire()
                     val job = take.withLock {
-                        val got = sentences.receiveCatching()
-                        got.exceptionOrNull()?.let { throw it }
-                        got.getOrNull()?.let { it to CompletableDeferred<Spoken>().also { d -> order.trySend(it to d) } }
+                        source()?.let { (at, text) -> Triple(at, text, CompletableDeferred<Spoken>().also { d -> order.trySend(Triple(at, text, d)) }) }
                     }
                     if (job == null) { lead.release(); break }
-                    val (text, result) = job
+                    val (_, text, result) = job
                     try {
                         // A sentence the engine cannot speak becomes a pause, so one bad line does not lose the book.
                         val spoken = try {
@@ -258,7 +323,7 @@ object Speech {
                 while (true) { delay(flushMs); writing.withLock { flush() } }
             }
             var done = segments.size
-            for ((text, result) in order) {
+            for ((at, text, result) in order) {
                 val r = result.await()
                 lead.release()
                 writing.withLock {
@@ -272,10 +337,10 @@ object Speech {
                     val gap = (rate * 2L * GAP_MS / 1000).toInt() and 1.inv()
                     out.write(ByteArray(gap))
                     bytes += gap
-                    segments += Segment(start, ms(bytes, rate), text)
+                    segments += Segment(start, ms(bytes, rate), text, at)
                     if (segments.size % CHUNK == 0) flush()
                 }
-                onSentence(++done)
+                onSentence(at, ++done)
             }
             idle.cancelAndJoin()
         }

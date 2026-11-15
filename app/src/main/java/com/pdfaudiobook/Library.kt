@@ -36,6 +36,8 @@ object Files {
     const val FOOTNOTES = "footnotes.json"
     /** Sentences read so far, one per line, while a book is made; speech trails behind it. Gone once the book is ready. */
     const val QUEUE = "queue.txt"
+    /** Where speech of a book being made goes on from, after a jump ([Speaking]). */
+    const val JUMP = "jump.txt"
     const val META = "meta.json"
 }
 
@@ -142,20 +144,19 @@ object Library {
      */
     fun detectChapters(ctx: Context, id: String): List<ChapterMark> {
         val book = readBook(dir(ctx, id)) ?: return emptyList()
-        val spoken = segments(ctx, id)
-        val marks = Chapters.detect(spoken.map { it.text } + queued(ctx, id).drop(spoken.size), book.contents, book.estimates)
+        val marks = Chapters.detect(bookSegments(ctx, id).map { it.text }, book.contents, book.estimates)
         update(ctx, id) { it.copy(chapters = marks) }
         return marks
     }
 
     /** The stored chapters with their audio times; a book stored before chapters were kept gets them detected on this first call. */
-    fun chapters(ctx: Context, id: String, segments: List<Segment> = segments(ctx, id)): List<Chapter> =
+    fun chapters(ctx: Context, id: String, segments: List<Segment> = bookSegments(ctx, id)): List<Chapter> =
         Chapters.place(readBook(dir(ctx, id))?.chapters ?: detectChapters(ctx, id), segments)
 
     /** The title of the chapter [book] is at, from where listening stopped ("Start" before the first heading); null for a book never played or with no transcript. Reads files: call it off the main thread. */
     fun currentChapter(ctx: Context, book: Book): String? {
         if (book.positionMs == null && !book.finished) return null
-        val segments = segments(ctx, book.id)
+        val segments = bookSegments(ctx, book.id)
         if (segments.isEmpty()) return null
         val index = if (book.finished) segments.lastIndex else Timeline.indexAt(segments, book.positionMs ?: 0L)
         return Chapters.at(chapters(ctx, book.id, segments), index)?.title ?: "Start"
@@ -276,7 +277,7 @@ object Library {
         if (!f.exists()) return emptyList()
         return try {
             val a = JSONArray(f.readText())
-            List(a.length()) { val o = a.getJSONObject(it); Segment(o.getLong("start"), o.getLong("end"), o.getString("text")) }
+            List(a.length()) { val o = a.getJSONObject(it); Segment(o.getLong("start"), o.getLong("end"), o.getString("text"), o.optInt("at", -1)) }
         } catch (e: org.json.JSONException) {
             null
         } catch (e: java.io.IOException) {
@@ -284,7 +285,10 @@ object Library {
         }
     }
 
-    /** Sentences read but maybe not yet spoken. Only whole lines count, as the file can be mid-append. */
+    /** The book's text in reading order with the audio times of what is spoken, and the rest pending ([BookText.merge]). A finished book has no queue: its transcript is the text. */
+    fun bookSegments(ctx: Context, id: String): List<Segment> = BookText.merge(segments(ctx, id), queued(ctx, id))
+
+    /** Sentences read so far, in text order, spoken or not. A book not being made has none. Only whole lines count, as the file can be mid-append. */
     fun queued(ctx: Context, id: String): List<String> {
         val f = File(dir(ctx, id), Files.QUEUE)
         if (!f.exists()) return emptyList()
@@ -298,7 +302,7 @@ object Library {
 
     fun saveSegments(ctx: Context, id: String, segments: List<Segment>) {
         val a = JSONArray()
-        segments.forEach { a.put(JSONObject().put("start", it.start).put("end", it.end).put("text", it.text)) }
+        segments.forEach { a.put(JSONObject().put("start", it.start).put("end", it.end).put("text", it.text).also { o -> if (it.at >= 0) o.put("at", it.at) }) }
         writeAtomically(File(dir(ctx, id), Files.TRANSCRIPT), a.toString())
     }
 

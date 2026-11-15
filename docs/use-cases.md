@@ -1501,6 +1501,37 @@ Tests:
 - `BookUiTest.tappingTheSpeakingParagraphPausesAndResumesAndAnotherParagraphSeeks`
 - `BookUiTest.theFirstTapOnAnotherSentenceAfterOpeningTheBookStartsSpeaking`
 
+#### UC-22a Jump into text that is not spoken yet
+
+Goal: hear a later part of a book still being made first, without losing the rest.
+
+- Tapping a sentence that is read but not yet spoken, or a chapter in the Chapters menu, moves speech there. Playback starts at that sentence when its audio is ready.
+- Speech goes on from there to the end of the book, then wraps to the earliest sentence with no audio. It stops when every sentence has audio.
+- A sentence that has audio is never spoken again. A sentence being spoken is not picked twice.
+- Sentences already in progress finish first, so the jump takes effect after those few.
+- The audio is kept in the order it was spoken while the book is made. When the book is finished it is put in the order of the text, and the saved place moves with it.
+- The jump is kept in the book's folder, so a stopped book that carries on resumes from it.
+
+Tests:
+- `SpeakOrderTest.withoutAJumpTheBookIsSpokenInOrder`
+- `SpeakOrderTest.afterAJumpSpeechStartsThereAndWrapsToTheEarliestSentenceWithoutAudio`
+- `SpeakOrderTest.aSentenceThatHasAudioIsNeverSpokenAgain`
+- `SpeakOrderTest.jumpingIntoSpokenTextContinuesAtTheFirstSentenceAfterItWithoutAudio`
+- `SpeakOrderTest.aSecondJumpMovesOnFromWhereItLandsAndTheFirstGapStaysForTheWrap`
+- `SpeakOrderTest.everySentenceIsSpokenExactlyOnceWhateverTheJumps`
+- `SpeakOrderTest.textStillBeingReadIsSpokenBeforeTheWrapAndTheWrapComesAfterTheLastSentence`
+- `SpeakOrderTest.takeWaitsForTextAndEndsWhenTheTextIsFinishedAndAllTaken`
+- `SpeakOrderTest.aJumpWakesAWaitingSpeaker`
+- `SpeakOrderTest.theJumpIsKeptInTheBooksFolderAndReadBack`
+- `BookTextTest.aBookSpokenInOneRunShowsSpokenSentencesThenPendingOnes`
+- `BookTextTest.aJumpLeavesPendingSentencesBetweenSpokenOnesInTheOrderOfTheText`
+- `BookTextTest.aListFollowingTheAudioInTimeIsFoundByTheTimeNotThePositionInTheText`
+- `BookTextTest.anOldTranscriptWithoutPlacesIsTheStartOfTheText`
+- `BookTextTest.textNotReadAgainYetCutsTheListAtTheFirstSentenceNothingKnows`
+- `BookTextTest.speechAfterAJumpSpeaksFromTheJumpWrapsAndNeverRepeatsASentence`
+- `BookTextTest.aBookSpokenInOrderNeedsNoReordering`
+- `JumpToPositionUiTest.tappingAnUnspokenSentenceMovesSpeechAndPlaybackThereAndTheSkippedTextIsSpokenAfterTheEnd`
+
 ### UC-23 Drag the scroll bar through the book
 
 Goal: move quickly through a long book.

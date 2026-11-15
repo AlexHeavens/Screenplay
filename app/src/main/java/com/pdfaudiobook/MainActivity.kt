@@ -462,9 +462,11 @@ fun Reader(id: String, onBack: () -> Unit) {
     val book = Library.books.collectAsState().value.firstOrNull { it.id == id }
     // A book still being made grows: reload its transcript as it does, and swap to the file player once it is finished.
     val ready = book?.status == Status.READY
-    var segments by remember(id, ready) { mutableStateOf(Library.segments(ctx, id)) }
-    // Sentences already read but not yet spoken: shown at once, and become playable as speech reaches them.
-    var queued by remember(id, ready) { mutableStateOf(if (ready) emptyList() else Library.queued(ctx, id).drop(segments.size)) }
+    // Every sentence read so far, in reading order: the spoken ones with their audio times, and the ones read but not yet spoken, shown at once
+    // and playable as speech reaches them. Tapping one of those moves speech to it ([Speaking.jump]).
+    var segments by remember(id, ready) { mutableStateOf(Library.bookSegments(ctx, id)) }
+    // The sentence the reader jumped to that has no audio yet: playback starts there once it has.
+    var waitingFor by remember(id) { mutableStateOf<Int?>(null) }
     var notes by remember(id) { mutableStateOf(Library.notes(ctx, id)) }
     // Footnotes of a scanned book: annotations under their paragraphs, read-only and never spoken. They grow with the book while it is read.
     var footnotes by remember(id, ready) { mutableStateOf(Library.footnotes(ctx, id)) }
@@ -492,13 +494,18 @@ fun Reader(id: String, onBack: () -> Unit) {
             delay(2000)
             Library.refresh(ctx)
             // Parsed off the main thread, and a transcript that cannot be read right now keeps what is shown.
-            withContext(Dispatchers.IO) { Library.readSegments(File(Library.dir(ctx, id), Files.TRANSCRIPT)) }?.let { if (it != segments) segments = it }
-            Library.queued(ctx, id).drop(segments.size).let { if (it != queued) queued = it }
+            withContext(Dispatchers.IO) { Library.readSegments(File(Library.dir(ctx, id), Files.TRANSCRIPT))?.let { BookText.merge(it, Library.queued(ctx, id)) } }?.let { if (it != segments) segments = it }
             withContext(Dispatchers.IO) { Library.footnotes(ctx, id) }.let { if (it != footnotes) footnotes = it }
         }
     }
 
     val current = Timeline.indexAt(segments, player.position)
+    // The jumped-to sentence got its audio: playback starts there.
+    LaunchedEffect(segments, waitingFor) {
+        val at = waitingFor ?: return@LaunchedEffect
+        val s = segments.getOrNull(at) ?: return@LaunchedEffect
+        if (!s.pending) { waitingFor = null; player.seek(s.start); if (!player.playing) player.toggle() }
+    }
     val importing = book?.takeIf { it.importing }?.let { ImportProgress(it.readProgress, it.speechProgress) }
     // A Boolean for the sentence rows: the progress values change on every page, and rows must not recompose with them.
     val importingNow = importing != null
@@ -523,7 +530,7 @@ fun Reader(id: String, onBack: () -> Unit) {
     // Chapters come from the text, spoken or not, and are stored with the book. Until they are (a book still being read, or one stored
     // before chapters were kept) they are found here, off the main thread, and a finished book gets them stored on this first open.
     val stored = book?.chapters
-    val texts = remember(segments, queued) { segments.map { it.text } + queued }
+    val texts = remember(segments) { segments.map { it.text } }
     val marks by produceState(stored.orEmpty(), stored, texts, contents, estimates) {
         value = stored ?: withContext(Dispatchers.Default) { Chapters.detect(texts, contents, estimates) }
     }
@@ -603,7 +610,7 @@ fun Reader(id: String, onBack: () -> Unit) {
 
     // Every note in the book, timestamped and paragraph alike, in reading order with its place in the book.
     val noteItems = remember(notes, placedNotes, placedHighlights, segments, chapters) {
-        val total = (segments.lastOrNull()?.end ?: 0L).coerceAtLeast(1L)
+        val total = (segments.maxOfOrNull { it.end } ?: 0L).coerceAtLeast(1L)
         fun item(key: String, at: Long, text: String, paragraph: Int?) = NoteItem(
             key, at, (at * 100 / total).toInt().coerceIn(0, 100),
             Chapters.at(chapters, Timeline.indexAt(segments, at))?.title ?: "Start", text, paragraph,
@@ -700,7 +707,9 @@ fun Reader(id: String, onBack: () -> Unit) {
                             for (c in chapters) DropdownMenuItem(text = { Text(c.title) }, modifier = Modifier.testTag("chapter-item-${c.index}"), onClick = {
                                 chapterMenu = false
                                 exportScope.launch { list.animateScrollToItem(c.index) }
-                                if (c.index < segments.size && playable) player.seek(c.start)
+                                val target = segments.getOrNull(c.index)
+                                if (target != null && !ready) Speaking.jump(ctx, id, c.index)
+                                if (target != null && target.pending) waitingFor = c.index else if (target != null && playable) player.seek(c.start)
                             })
                         }
                     }
@@ -735,6 +744,20 @@ fun Reader(id: String, onBack: () -> Unit) {
         Box(Modifier.padding(pad).fillMaxSize()) {
         LazyColumn(Modifier.padding(horizontal = 32.dp), state = list) {
             itemsIndexed(segments) { i, s ->
+                if (s.pending) {
+                    // Read but not spoken yet: tapping it moves speech here, and playback follows once it has audio.
+                    val text = s.text
+                    val chapter = headings[i]
+                    val own = chapter != null && Chapters.isTitleOf(chapter, text)
+                    if (chapter != null && !own) ChapterTitle(chapter.title, i)
+                    val found = matchesByParagraph[i]
+                    val shownText = (if (found == null) AnnotatedString(text) else Search.mark(text, found, found.indexOf(currentMatch).takeIf { it >= 0 }, isDarkTheme())).withFootnoteMarks(footnoteMarks[i])
+                    Text(shownText, Modifier.fillMaxWidth().clickable { Speaking.jump(ctx, id, i); waitingFor = i }.padding(vertical = 6.dp).testTag("queued-$i"),
+                        style = if (own) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (own) FontWeight.Bold else null, color = ReadLabelGrey)
+                    placedFootnotes[i]?.let { Box(Modifier.fillMaxWidth()) { FootnoteAnnotation(it, i) } }
+                    return@itemsIndexed
+                }
                 // A heading the text already has is spoken as its own sentence and drawn as a heading there; a title only the contents had gets a row, not spoken.
                 val chapter = headings[i]
                 val own = chapter != null && Chapters.isTitleOf(chapter, s.text)
@@ -761,7 +784,10 @@ fun Reader(id: String, onBack: () -> Unit) {
                 Column(
                     Modifier.fillMaxWidth().combinedClickable(
                         onLongClick = { if (ready) menuFor = i },
-                        onClick = { if (i == current) player.toggle() else { player.seek(s.start); if (!player.playing) player.toggle() } }, // the speaking paragraph pauses and resumes; another one speaks from its start
+                        onClick = {
+                            // The speaking paragraph pauses and resumes; another one speaks from its start, and a book still being made speaks on from there.
+                            if (i == current) player.toggle() else { player.seek(s.start); if (!player.playing) player.toggle(); if (importingNow) Speaking.jump(ctx, id, i) }
+                        },
                     )
                         .padding(vertical = 6.dp)
                         .testTag("sentence-$i").semantics { selected = i == current; painted?.let { highlight = it.name; highlightBands = bands }; matchesByParagraph[i]?.let { searchMarks = it.size } },
@@ -811,25 +837,14 @@ fun Reader(id: String, onBack: () -> Unit) {
                 }
                 }
             }
-            itemsIndexed(queued) { i, text ->
-                val chapter = headings[segments.size + i]
-                val own = chapter != null && Chapters.isTitleOf(chapter, text)
-                if (chapter != null && !own) ChapterTitle(chapter.title, segments.size + i)
-                val found = matchesByParagraph[segments.size + i]
-                val shownText = (if (found == null) AnnotatedString(text) else Search.mark(text, found, found.indexOf(currentMatch).takeIf { it >= 0 }, isDarkTheme())).withFootnoteMarks(footnoteMarks[segments.size + i])
-                Text(shownText, Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("queued-${segments.size + i}"),
-                    style = if (own) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.bodyLarge,
-                    fontWeight = if (own) FontWeight.Bold else null, color = ReadLabelGrey)
-                placedFootnotes[segments.size + i]?.let { Box(Modifier.fillMaxWidth()) { FootnoteAnnotation(it, segments.size + i) } }
-            }
         }
         if (segments.isNotEmpty() || importing != null) {
-            BookScrubber(segments.size + queued.size, chapters, list, { scrubbing = it }, Modifier.align(Alignment.CenterStart).testTag("scrub-left"), importing)
-            BookScrubber(segments.size + queued.size, chapters, list, { scrubbing = it }, Modifier.align(Alignment.CenterEnd).testTag("scrub-right"), importing)
+            BookScrubber(segments.size, chapters, list, { scrubbing = it }, Modifier.align(Alignment.CenterStart).testTag("scrub-left"), importing)
+            BookScrubber(segments.size, chapters, list, { scrubbing = it }, Modifier.align(Alignment.CenterEnd).testTag("scrub-right"), importing)
         }
         scrubbing?.let { i ->
             Surface(Modifier.align(Alignment.Center), shape = MaterialTheme.shapes.medium, tonalElevation = 6.dp) {
-                Text("${Chapters.at(chapters, i)?.title ?: "Start"} · ${segments.getOrNull(i)?.let { clock(it.start) } ?: "not yet spoken"}",
+                Text("${Chapters.at(chapters, i)?.title ?: "Start"} · ${segments.getOrNull(i)?.takeIf { !it.pending }?.let { clock(it.start) } ?: "not yet spoken"}",
                     Modifier.padding(16.dp).testTag("scrub-label"))
             }
         }

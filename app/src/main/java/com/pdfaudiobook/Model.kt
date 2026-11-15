@@ -4,8 +4,12 @@
 
 package com.pdfaudiobook
 
-/** One spoken sentence: where it sits in the audio, in milliseconds. */
-data class Segment(val start: Long, val end: Long, val text: String)
+/**
+ * One spoken sentence: where it sits in the audio, in milliseconds. [at] is the sentence's place in the book's text; -1 means its place in
+ * the list. A book being made speaks out of order after a jump ([SpeakOrder]), so its stored list follows the audio, not the text.
+ * A [pending] one is not in the audio yet: the reader shows it in its place, and its times are 0.
+ */
+data class Segment(val start: Long, val end: Long, val text: String, val at: Int = -1, val pending: Boolean = false)
 
 data class Note(val id: String, val at: Long, val text: String)
 
@@ -99,8 +103,15 @@ fun clock(ms: Long): String {
 
 object Timeline {
     /** The sentence being spoken at [ms]. */
-    fun indexAt(segments: List<Segment>, ms: Long): Int =
-        segments.indexOfLast { it.start <= ms }.coerceAtLeast(0)
+    fun indexAt(segments: List<Segment>, ms: Long): Int {
+        // The spoken sentence that starts last at or before [ms]; a book spoken in one run is in time order, one with jumps is not, and pending ones have no time.
+        var best = -1
+        for (i in segments.indices) {
+            val s = segments[i]
+            if (!s.pending && s.start <= ms && (best < 0 || s.start >= segments[best].start)) best = i
+        }
+        return best.coerceAtLeast(0)
+    }
 }
 
 /** A chapter heading found in the transcript, as the sentence index and audio time where it starts. */
