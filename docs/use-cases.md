@@ -2313,6 +2313,16 @@ Tests:
 - `BackupImportTest.exportsTheWholeLibraryFromTheSettingsAndImportsItBack`
 - `ThemeModeTest.optionsPaneSwitchesBetweenLightDarkAndFollowSystem`
 
+#### UC-41c Long option notes never touch the switch
+
+Goal: read every option's note in full, at any font size.
+
+- Each option's text keeps a gap of 16 dp from its switch, and the note wraps within the space left, at normal and large font scale.
+
+Tests:
+- `OptionsLayoutUiTest.textStopsShortOfTheSwitchAtNormalFontScale`
+- `OptionsLayoutUiTest.textStopsShortOfTheSwitchAtLargeFontScale`
+
 ### UC-42 Skip the front matter
 
 Goal: start the speech at the first chapter, not at the copyright page.

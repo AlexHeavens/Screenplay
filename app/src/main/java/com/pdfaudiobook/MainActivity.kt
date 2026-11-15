@@ -353,6 +353,9 @@ fun FootnoteAnnotation(notes: List<String>, index: Int) {
     )
 }
 
+/** Gap kept between an option's text and its control, so a long hint never touches the switch. */
+val OptionGap = 16.dp
+
 /** One labelled on/off switch, with an optional line saying more under it. The whole row toggles and carries the Switch role, so semantics expose the state. */
 @Composable
 fun SwitchRow(label: String, checked: Boolean, tag: String, hint: String? = null, onChange: (Boolean) -> Unit) {
@@ -360,13 +363,13 @@ fun SwitchRow(label: String, checked: Boolean, tag: String, hint: String? = null
         Modifier.fillMaxWidth().toggleable(checked, role = Role.Switch, onValueChange = onChange).padding(horizontal = 24.dp, vertical = 12.dp).testTag(tag),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(label)
-            hint?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        Column(Modifier.weight(1f).padding(end = OptionGap)) {
+            Text(label, Modifier.testTag("$tag-label"))
+            hint?.let { Text(it, Modifier.testTag("$tag-hint"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         val on = MaterialTheme.colorScheme.primary
         Switch(
-            checked, null,
+            checked, null, Modifier.testTag("$tag-switch"),
             colors = SwitchDefaults.colors(
                 checkedThumbColor = on, checkedTrackColor = on.copy(alpha = 0.4f), checkedBorderColor = on,
                 uncheckedThumbColor = Color.Gray, uncheckedTrackColor = Color.LightGray, uncheckedBorderColor = Color.Gray,
@@ -400,7 +403,7 @@ fun SettingsPanel(options: Options, onExportBackup: () -> Unit, set: (Options) -
         var status by remember { mutableStateOf<String?>(null) }
         var menu by remember { mutableStateOf(false) }
         Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Voice", Modifier.weight(1f))
+            Text("Voice", Modifier.weight(1f).padding(end = OptionGap))
             Box {
                 OutlinedButton({ menu = true }, Modifier.testTag("opt-voice")) { Text(options.voice.label) }
                 DropdownMenu(menu, { menu = false }) {
