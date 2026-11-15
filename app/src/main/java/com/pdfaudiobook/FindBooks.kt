@@ -166,7 +166,7 @@ private fun ResultRow(entry: CatalogueEntry, added: Boolean, download: DownloadP
     }
 }
 
-/** Says where the books come from and what the reader must check. The wording matches docs/gutenberg.md. */
+/** Says where the data comes from and what the reader must check, then links each source in [DATA_SOURCES]. The wording matches docs/gutenberg.md. */
 @Composable
 private fun Attribution() {
     val links = LocalUriHandler.current
@@ -178,7 +178,15 @@ private fun Attribution() {
                 "These books are public domain in the United States; copyright can differ in other countries, so check the law where you live.",
             Modifier.testTag("find-notice"), style = MaterialTheme.typography.bodySmall,
         )
-        TextButton({ links.openUri(Gutenberg.SITE_URL) }, Modifier.testTag("find-gutenberg-link")) { Text("gutenberg.org") }
-        TextButton({ links.openUri("https://openlibrary.org") }, Modifier.testTag("find-openlibrary-link")) { Text("openlibrary.org") }
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("find-sources"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (source in DATA_SOURCES) {
+                TextButton({ links.openUri(source.url) }, Modifier.testTag("find-source-${source.name}")) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(source.name)
+                        Text(source.provides, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        }
     }
 }

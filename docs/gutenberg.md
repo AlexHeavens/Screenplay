@@ -34,7 +34,7 @@ It is not legal advice. The author read the pages named below on 2026-11-14. Nob
   (`GutenbergTest.theProjectGutenbergLicenceSurvivesReadingAndWritingTheBook`). The book keeps `source` = `gutenberg:<id>` in its details.
 - The screen says that the books come from Project Gutenberg's catalogue data, copied daily to this app's GitHub page, that the app is not
   made or endorsed by Project Gutenberg, that the books are public domain in the US only, and that the reader must check the law where
-  they live. It links to gutenberg.org. The app has no About screen yet, so this text is the attribution.
+  they live. A row of links at the bottom names each contributing site and what it gives (Project Gutenberg: books; Open Library: ratings) and opens its home page in the browser. The row is built from `DATA_SOURCES` in `DataSources.kt`: a new source is one entry. The app has no About screen yet, so this text and the row are the attribution.
 
 ## What "rating" and "downloads" mean
 

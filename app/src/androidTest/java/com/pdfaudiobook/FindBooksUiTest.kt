@@ -4,7 +4,12 @@
 
 package com.pdfaudiobook
 
+import android.app.Activity
+import android.app.Instrumentation
+import android.content.Intent
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.test.espresso.intent.Intents
+import androidx.test.espresso.intent.matcher.IntentMatchers.hasAction
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
@@ -228,6 +233,23 @@ class FindBooksUiTest {
         compose.onNodeWithTag("result-detail-90", useUnmergedTree = true).assertTextContains("★ 3.8 (100)", substring = true)
         compose.onNodeWithTag("sort-DOWNLOADS").performClick()
         compose.waitUntil(10_000) { order(90, 4242, 5, 77) == listOf(4242, 77, 90, 5) }
+    }
+
+    @Test
+    fun theBottomRowLinksEachContributingSiteAndOpensItInTheBrowser() {
+        openFindBooks()
+        for (source in DATA_SOURCES) compose.onNodeWithTag("find-source-${source.name}", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("Project Gutenberg").assertIsDisplayed()
+        compose.onNodeWithText("Open Library").assertIsDisplayed()
+        Intents.init()
+        try {
+            Intents.intending(hasAction(Intent.ACTION_VIEW)).respondWith(Instrumentation.ActivityResult(Activity.RESULT_OK, null))
+            compose.onNodeWithTag("find-source-Open Library").performClick()
+            compose.waitUntil(10_000) { Intents.getIntents().any { it.action == Intent.ACTION_VIEW } }
+            assertEquals("https://openlibrary.org", Intents.getIntents().first { it.action == Intent.ACTION_VIEW }.data.toString())
+        } finally {
+            Intents.release()
+        }
     }
 
     @Smoke @Test
