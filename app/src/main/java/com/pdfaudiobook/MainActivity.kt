@@ -222,7 +222,8 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
         val importing = ImportQueue.line(books)
         val downloading by QueueDownload.active.collectAsState()
         val paused by ImportQueue.paused.collectAsState()
-        val drag = rememberQueueDrag(books) { id, to -> Library.moveTo(ctx, id, to) }
+        val rows = ImportQueue.rows(books, pending)
+        val drag = rememberQueueDrag(rows) { id, isPending, place -> if (isPending) Library.placePending(id, place) else Library.moveTo(ctx, id, place) }
         val imported = ImportQueue.imported(books)
         LazyColumn(Modifier.padding(pad)) {
             // Shown only while a book is still being made; the queue empties and the section goes.
@@ -239,11 +240,15 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
                         ) { Text(if (paused) "Resume" else "Pause") }
                     }
                 }
-                items(importing, key = { it.id }) { b ->
-                    BookRow(b, ImportQueue.label(books, b, downloading, paused), onOpen, onDelete = { toDelete = b }, drag = drag, download = downloading[b.id])
+                // Files picked but not yet books stand among the books at the place they were dropped, by default behind the ones in line.
+                items(rows, key = { if (it.pending) "pending-${it.id}" else it.id }) { r ->
+                    if (r.pending) pending.firstOrNull { it.key == r.id }?.let { p -> PendingRow(p, onDismiss = { Library.finish(p.key) }, drag = drag) }
+                    else books.firstOrNull { it.id == r.id }?.let { b ->
+                        BookRow(b, ImportQueue.label(books, b, downloading, paused), onOpen, onDelete = { toDelete = b }, drag = drag, download = downloading[b.id])
+                    }
                 }
-                // Files picked but not yet books join the queue behind the ones in line.
-                items(pending, key = { "pending-${it.key}" }) { p -> PendingRow(p, onDismiss = { Library.finish(p.key) }) }
+                // A file that failed, or a backup being restored, is not in the queue: it cannot be moved.
+                items(pending.filter { it.key !in rows.map { r -> r.id } }, key = { "pending-${it.key}" }) { p -> PendingRow(p, onDismiss = { Library.finish(p.key) }, drag = null) }
             }
             if (imported.isNotEmpty()) {
                 item(key = "header-imported") { SectionHeader("Imported", "section-imported") }
@@ -264,7 +269,10 @@ private fun SectionHeader(text: String, tag: String) {
 
 /** A picked file that is not yet a book: its title, the stage it is in with its status, or why it failed. Tags: `pending-<title>`, `delete-<title>` (remove a failed one), `status-<title>` (the failure). */
 @Composable
-private fun PendingRow(p: PendingImport, onDismiss: () -> Unit) {
+private fun PendingRow(p: PendingImport, onDismiss: () -> Unit, drag: QueueDrag?) {
+    val dragging = drag?.isDragging(p.key) == true
+    val above = drag?.dropLineAbove(p.key)
+    Box {
     ListItem(
         headlineContent = { Text(p.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
         supportingContent = {
@@ -274,11 +282,17 @@ private fun PendingRow(p: PendingImport, onDismiss: () -> Unit) {
                 if (stages.isNotEmpty()) StageStrip(p.title, stages)
             }
         },
-        modifier = Modifier.testTag("pending-${p.title}"),
+        leadingContent = if (drag == null) null else ({
+            Icon(Icons.Filled.Menu, contentDescription = "Drag to reorder ${p.title}", Modifier.testTag("drag-handle-${p.title}").then(drag.handle(p.key)).padding(8.dp))
+        }),
+        colors = ListItemDefaults.colors(containerColor = if (dragging) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface),
+        modifier = Modifier.testTag("pending-${p.title}").then(drag?.modifier(p.key) ?: Modifier).semantics { if (drag != null) selected = dragging },
         trailingContent = if (p.step != null) null else ({
             IconButton(onClick = onDismiss, modifier = Modifier.testTag("delete-${p.title}")) { Icon(Icons.Filled.Close, contentDescription = "Remove ${p.title}") }
         }),
     )
+    if (above != null) Box(Modifier.fillMaxWidth().height(2.dp).background(MaterialTheme.colorScheme.primary).align(if (above) Alignment.TopStart else Alignment.BottomStart).testTag("drop-line-${p.title}"))
+    }
 }
 
 /** One book on the shelf. A book in the import queue can be dragged ([drag]); while one is dragged, a line shows the place it takes if released. Finished books have neither. */

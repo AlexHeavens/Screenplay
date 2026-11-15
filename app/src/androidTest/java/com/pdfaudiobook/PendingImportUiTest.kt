@@ -13,6 +13,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.core.content.FileProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.intent.Intents
@@ -55,6 +56,7 @@ class PendingImportUiTest {
     @After
     fun restore() {
         Engines.beforeCopy = {}
+        Engines.beforeRecognise = { _, _ -> }
         Engines.recognisePage = null
         Engines.surveyPages = null
         scenario?.close()
@@ -113,5 +115,54 @@ class PendingImportUiTest {
         compose.onNodeWithTag("delete-bogus-backup", useUnmergedTree = true).performClick()
         compose.waitUntil(30_000) { !exists("pending-bogus-backup") }
         assertTrue("the section goes with its last row", !exists("section-importing"))
+    }
+
+    private fun top(tag: String) = compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.top
+
+    @Test
+    fun aFileBeingSavedCanBeDraggedUpTheQueueAndTakesThatPlaceWhenItIsABook() {
+        val names = listOf("drag-a", "drag-b", "drag-c")
+        val files = names.map { n -> File(ctx.cacheDir, "$n.pdf").also { f -> assets.open("ocr/varieties-preface.pdf").use { i -> f.outputStream().use { i.copyTo(it) } } } }
+        val pages = ParcelFileDescriptor.open(files[0], ParcelFileDescriptor.MODE_READ_ONLY).use { fd -> PdfRenderer(fd).use { it.pageCount } }
+        Engines.recognisePage = cannedOcr(assets, "varieties-preface", pages)
+        // The first page is held so the first book stays being made and the second waits behind it.
+        val hold = CountDownLatch(1)
+        Engines.beforeRecognise = { page, _ -> if (page == 0) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { hold.await() } }
+        val copies = java.util.concurrent.atomic.AtomicInteger()
+        val copying = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        Engines.beforeCopy = { if (copies.incrementAndGet() == 3) { copying.countDown(); release.await() } }
+
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        val picks = ArrayDeque(files.map { FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", it) })
+        Intents.init()
+        try {
+            Intents.intending(hasAction(Intent.ACTION_OPEN_DOCUMENT)).respondWithFunction {
+                Instrumentation.ActivityResult(Activity.RESULT_OK, Intent().setData(picks.removeFirst()))
+            }
+            for ((i, n) in names.withIndex()) {
+                compose.onNodeWithTag("import").performClick()
+                if (i < 2) compose.waitUntil(60_000) { Library.books.value.size == i + 1 && exists("book-$n") }
+            }
+        } finally {
+            Intents.release()
+        }
+        assertTrue(copying.await(30, java.util.concurrent.TimeUnit.SECONDS))
+        compose.waitUntil(30_000) { exists("drag-handle-drag-c") && Library.books.value.count { it.status == Status.READING } == 1 }
+        assertTrue("the file is last, behind both books", top("book-drag-b") < top("pending-drag-c"))
+
+        // Drop it onto the second book: it takes that place once it is a book, and the second waits behind it.
+        compose.onNodeWithTag("drag-handle-drag-c", useUnmergedTree = true).performTouchInput {
+            val dy = top("book-drag-b") - top("pending-drag-c")
+            down(center)
+            moveBy(androidx.compose.ui.geometry.Offset(0f, dy / 2), delayMillis = 20)
+            moveBy(androidx.compose.ui.geometry.Offset(0f, dy / 2), delayMillis = 20)
+            up()
+        }
+        compose.waitUntil(30_000) { top("pending-drag-c") < top("book-drag-b") }
+        release.countDown()
+        compose.waitUntil(60_000) { Library.books.value.size == 3 && !exists("pending-drag-c") }
+        compose.waitUntil(30_000) { ImportQueue.line(Library.books.value).map { it.title } == listOf("drag-a", "drag-c", "drag-b") }
+        hold.countDown()
     }
 }

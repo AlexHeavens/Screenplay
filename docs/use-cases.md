@@ -136,6 +136,7 @@ Goal: see that my file was taken and what is happening to it.
 
 - A file picked with "Import" is a row under "Importing" at once, after the books already in line, before it is a book. Its stage shows as for a queued book: the fetch (here, the copy) is running, with the status "Checking file" or "Saving file", and reading is next. A zip shows "Restoring backup".
 - When the file is saved the row becomes the book's (UC-01a); a local file's fetch then counts as done and shows no text.
+- While its row shows "Checking file" or "Saving file", I can drag it by its handle among the books in line, as I can a queued book. It takes that place once it is a book.
 - A zip that cannot be restored stays as a row with "Failed: " and the reason, and a button to remove it. The Catalogue's downloads are unchanged (UC-13).
 
 Tests:
@@ -143,6 +144,10 @@ Tests:
 - `PendingImportTest.aBackupBeingRestoredHasNoReadingStage`
 - `PendingImportTest.aFailedFileHasNoStagesAndSaysWhy`
 - `PendingImportTest.theStepsAreWorded`
+- `PendingImportTest.aPickedFileJoinsBehindTheLineUnlessItWasDropped`
+- `PendingImportTest.aFailedFileOrARestoreIsNotInTheQueue`
+- `PendingImportTest.theDropPlaceOfAFileIsTheNumberOfBooksAboveIt`
+- `PendingImportUiTest.aFileBeingSavedCanBeDraggedUpTheQueueAndTakesThatPlaceWhenItIsABook`
 - `PendingImportUiTest.aPickedPdfIsARowFromTheMomentItIsPickedAndItsStageChangesUntilItIsReady`
 - `PendingImportUiTest.aZipThatIsNoBackupStaysAsAFailedRowWithTheReasonUntilItIsRemoved`
 

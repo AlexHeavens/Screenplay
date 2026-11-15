@@ -12,7 +12,10 @@ enum class PendingStep(val text: String) { CHECKING("Checking file"), SAVING("Sa
  * The shelf lists it under "Importing" from the moment it is picked, after the books already in line, which is where it joins the queue.
  * A [step] of null with an [error] is an import that failed before it became a book: the row stays, with the reason, until the reader removes it.
  */
-data class PendingImport(val key: String, val title: String, val step: PendingStep?, val error: String? = null) {
+data class PendingImport(val key: String, val title: String, val step: PendingStep?, val error: String? = null,
+    /** Where the reader dragged the file: the number of books above it once it joins the queue; null to join at the end. */
+    val place: Int? = null,
+) {
     /** The stages the row shows, as a queued book's: the file being fetched (here, copied) now, reading next. Backups are restored whole, so they have no reading. */
     fun stages(): List<ImportStage> = when (step) {
         null -> emptyList()

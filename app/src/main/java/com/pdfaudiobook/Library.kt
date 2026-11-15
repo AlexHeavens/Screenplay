@@ -87,6 +87,9 @@ object Library {
     /** Moves the pending file to [step], under [title] when the real one is known. */
     fun step(key: String, step: PendingStep, title: String? = null) = changePending(key) { it.copy(step = step, title = title ?: it.title) }
 
+    /** Remembers where the reader dropped the pending file: [place] books above it. The file takes that place in the queue once it is a book. */
+    fun placePending(key: String, place: Int) = changePending(key) { it.copy(place = place) }
+
     /** Keeps the pending file's row with [error] until [dismiss]; the file did not become a book. */
     fun fail(key: String, error: String) = changePending(key) { it.copy(step = null, error = error) }
 
@@ -232,8 +235,11 @@ object Library {
                 return@launch
             }
             refresh(ctx)
-            // The book is on the shelf now, so its pending row can go without a gap.
-            key?.let(::finish)
+            // The book is on the shelf now: it takes the place the reader dropped the file at, and then the pending row can go without a gap.
+            key?.let { k ->
+                pendingState.value.firstOrNull { it.key == k }?.place?.let { moveTo(ctx, id, it) }
+                finish(k)
+            }
             ImportQueue.start(ctx)
         }
     }

@@ -70,6 +70,37 @@ object ImportQueue {
         return if (at < 0) -1 else (at + rows).coerceIn(0, line.lastIndex)
     }
 
+    /** One row of the Importing section the reader can drag: a book in [line], or a picked file ([PendingImport]) that is not yet a book. */
+    data class QueueRow(val id: String, val pending: Boolean)
+
+    /**
+     * The rows of the section in order: [line], with each picked file still being copied at its [PendingImport.place] (the number of books above it)
+     * or after the last book when it has none. Files with the same place keep the order they were picked in.
+     */
+    fun rows(books: List<Book>, pending: List<PendingImport>): List<QueueRow> {
+        val out = line(books).mapTo(ArrayList()) { QueueRow(it.id, false) }
+        for (p in pending.filter { it.step != null && it.step != PendingStep.RESTORING }.sortedBy { it.place ?: Int.MAX_VALUE }) {
+            val at = p.place?.let { place -> out.withIndex().filter { !it.value.pending }.getOrNull(place)?.index } ?: out.size
+            out.add(at, QueueRow(p.key, true))
+        }
+        return out
+    }
+
+    /** The row [id] takes if dropped [rows] rows from where it stands in [all] (negative is up); -1 when it is not there. */
+    fun dropRow(all: List<QueueRow>, id: String, rows: Int): Int {
+        val at = all.indexOfFirst { it.id == id }
+        return if (at < 0) -1 else (at + rows).coerceIn(0, all.lastIndex)
+    }
+
+    /** [all] with [id] moved to row [to]. */
+    fun moveRow(all: List<QueueRow>, id: String, to: Int): List<QueueRow> {
+        val at = all.indexOfFirst { it.id == id }
+        return if (at < 0) all else all.toMutableList().also { it.add(to.coerceIn(0, it.lastIndex), it.removeAt(at)) }
+    }
+
+    /** How many books stand above [id] in [all]: the place in [line] a book (or a picked file once it is a book) with that row takes. */
+    fun booksAbove(all: List<QueueRow>, id: String) = all.takeWhile { it.id != id }.count { !it.pending }
+
     /** Where [id] stands among the waiting books, 0 for the next to be made; -1 when it is not waiting. */
     fun waitingIndex(books: List<Book>, id: String) = waiting(books).indexOfFirst { it.id == id }
 
