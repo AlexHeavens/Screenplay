@@ -82,8 +82,9 @@ object MediaControl {
 
     /** Stops and forgets the book; the service sees it gone on its next tick and removes the notification. */
     fun close() {
-        current?.player?.release()
+        val player = current?.player
         current = null
+        player?.release()
         sleep.cancel()
     }
 

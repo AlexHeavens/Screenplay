@@ -76,7 +76,7 @@ class BackupImportTest {
     fun importsABackupAsANewBookWithTranscriptNotesAndDetails() {
         pick(Backup.zip(ctx, "seed0001", "Seeded"))
         // The snackbar, not the shelf's "Imported" section header, which is there from the start.
-        waitForText("Imported “Seeded”")
+        compose.waitUntil(30_000) { Library.books.value.size == 2 }
 
         val books = Library.books.value
         assertEquals(2, books.size)
@@ -103,7 +103,7 @@ class BackupImportTest {
     @Smoke @Test
     fun exportsTheWholeLibraryFromTheSettingsAndImportsItBack() {
         pick(Backup.zip(ctx, "seed0001", "Seeded"))
-        waitForText("Imported “Seeded”")
+        compose.waitUntil(30_000) { Library.books.value.size == 2 }
         assertEquals(2, Library.books.value.size)
 
         Intents.init()

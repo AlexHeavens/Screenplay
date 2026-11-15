@@ -13,6 +13,8 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -79,7 +81,9 @@ class ThemeModeTest {
         for ((mode, scheme) in listOf(ThemeMode.DARK to DarkColors, ThemeMode.LIGHT to LightColors)) {
             pick(mode)
             expect(mode.name.lowercase())
-            // A taller font on some devices (redroid) pushes the chips below the screen edge, where the capture is blank: scroll them into view.
+            // The sheet opens half-height, below which the chips are off screen and the capture fails: open it fully, then scroll them into view.
+            compose.onNodeWithTag("settings-panel").performTouchInput { swipeUp() }
+            compose.waitForIdle()
             runCatching { compose.onNodeWithTag("theme-${mode.name}").performScrollTo() }
             compose.waitForIdle()
             val bmp = compose.onNodeWithTag("theme-${mode.name}").captureToImage().asAndroidBitmap()

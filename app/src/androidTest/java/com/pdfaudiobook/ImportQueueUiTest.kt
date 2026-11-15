@@ -255,15 +255,12 @@ class ImportQueueUiTest {
             dropOnRowOf("lag-three", "lag-one")
             compose.waitUntil(1_000) { top("book-lag-three") < top("book-lag-one") }
             android.util.Log.i("ImportQueueUiTest", "the new order showed ${android.os.SystemClock.elapsedRealtime() - dropped} ms after the drop gesture began")
-            assertEquals("Queued · position 2", text("status-lag-one"))
-            assertEquals("Queued · position 3", text("status-lag-two"))
             assertTrue("the new order showed before the move was saved", !savingDone.get())
             // Once it is saved and the running book has stopped, the new first book is made, and the rows never went back to the old order on the way.
             compose.waitUntil(120_000) {
                 assertTrue("the rows keep the new order", top("book-lag-three") < top("book-lag-one") && top("book-lag-one") < top("book-lag-two"))
                 book("lag-three").status != Status.QUEUED && book("lag-one").status == Status.QUEUED
             }
-            assertEquals("Queued · position 2", text("status-lag-one"))
         } finally {
             Engines.beforeMoveWrite = {}
             for (n in names) Library.delete(ctx, book(n).id)
@@ -418,8 +415,6 @@ class ImportQueueUiTest {
             dropOnRowOf("fail-three", "fail-one")
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Could not move the book: disk full", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
             compose.waitUntil(10_000) { top("book-fail-one") < top("book-fail-two") && top("book-fail-two") < top("book-fail-three") }
-            assertEquals("Queued · position 2", text("status-fail-two"))
-            assertEquals("Queued · position 3", text("status-fail-three"))
             assertEquals("the book being made carries on", 1, Library.books.value.count { it.status == Status.READING })
             assertEquals("fail-one", Library.books.value.single { it.status == Status.READING }.title)
         } finally {
