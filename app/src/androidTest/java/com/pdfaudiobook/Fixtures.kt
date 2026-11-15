@@ -25,13 +25,15 @@ object Fixtures {
         "How vexingly quick daft zebras jump.",
     )
 
-    /** A one-page PDF of big black text on white: the shape of a clean scan, without needing a scanner. */
-    fun pdf(ctx: Context): Uri {
+    /** A PDF of [pages] pages of big black text on white: the shape of a clean scan, without needing a scanner. */
+    fun pdf(ctx: Context, pages: Int = 1): Uri {
         val doc = PdfDocument()
-        val page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, 1).create())
         val paint = Paint().apply { color = Color.BLACK; textSize = 20f; isAntiAlias = true }
-        sentences.forEachIndexed { i, s -> page.canvas.drawText(s, 40f, 200f + i * 120f, paint) }
-        doc.finishPage(page)
+        repeat(pages) { n ->
+            val page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, n + 1).create())
+            sentences.forEachIndexed { i, s -> page.canvas.drawText(s, 40f, 200f + i * 120f, paint) }
+            doc.finishPage(page)
+        }
         val file = File(ctx.cacheDir, "$TITLE.pdf")
         file.outputStream().use { doc.writeTo(it) }
         doc.close()

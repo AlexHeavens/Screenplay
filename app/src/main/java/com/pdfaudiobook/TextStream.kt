@@ -36,6 +36,9 @@ class SentenceStream(private val options: Options) {
     }
     private val contentsTracker = ContentsTracker()
 
+    /** Shows the stream a contents page that is kept out of the speech, so its titles still give the book's chapters. */
+    fun noteContents(paragraphs: List<String>) = paragraphs.forEach(contentsTracker::add)
+
     /** Chapter titles from the contents page, as far as the text so far shows them. */
     val contents: List<String> get() = contentsTracker.titles
 

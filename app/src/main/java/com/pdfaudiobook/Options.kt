@@ -15,6 +15,8 @@ data class Options(
     val cleanText: Boolean = true,
     /** Keep a scanned book's footnotes as quiet annotations under their paragraphs, never spoken, instead of reading them in the text. */
     val footnotes: Boolean = true,
+    /** Keep a contents page out of the speech and the progress, but show it at the start of the reading view. Off: it is read like any page. */
+    val contents: Boolean = true,
     val voice: Voice = Voice.PHONE,
     /** Look of the app, not an import option: kept here so it shares the settings store. */
     val theme: ThemeMode = ThemeMode.SYSTEM,
@@ -22,7 +24,7 @@ data class Options(
     fun save(ctx: Context) {
         ctx.getSharedPreferences("settings", Context.MODE_PRIVATE).edit()
             .putBoolean("spell", spell).putBoolean("trim", trimFront).putBoolean("merge", mergeFragments)
-            .putBoolean("clean", cleanText).putBoolean("footnotes", footnotes).putString("voice", voice.name).putString("theme", theme.name).apply()
+            .putBoolean("clean", cleanText).putBoolean("footnotes", footnotes).putBoolean("contents", contents).putString("voice", voice.name).putString("theme", theme.name).apply()
     }
 
     companion object {
@@ -36,7 +38,7 @@ data class Options(
             return Options(
                 spell = p.getBoolean("spell", d.spell), trimFront = p.getBoolean("trim", d.trimFront),
                 mergeFragments = p.getBoolean("merge", d.mergeFragments), cleanText = p.getBoolean("clean", d.cleanText),
-                footnotes = p.getBoolean("footnotes", d.footnotes),
+                footnotes = p.getBoolean("footnotes", d.footnotes), contents = p.getBoolean("contents", d.contents),
                 voice = voiceOf(p.getString("voice", null), p.getBoolean("natural", false)),
                 theme = ThemeMode.values().firstOrNull { it.name == p.getString("theme", null) } ?: d.theme,
             )

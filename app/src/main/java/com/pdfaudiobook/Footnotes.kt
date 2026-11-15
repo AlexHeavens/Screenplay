@@ -8,11 +8,15 @@ package com.pdfaudiobook
  * A footnote of a scanned page, kept as a read-only annotation of the paragraph that cites it. It is never spoken and is not in the transcript.
  * [anchor] is the text just before the citing marker (or the end of the page's last paragraph when no marker was found), which
  * [Footnotes.place] searches for in the transcript; an empty anchor means "the paragraph of the footnote before".
+ * A [contents] note is a contents page kept the same way: shown at the start of the book, with no marker, never spoken.
  */
-data class Footnote(val anchor: String, val text: String)
+data class Footnote(val anchor: String, val text: String, val contents: Boolean = false)
 
-/** One page's paragraphs to read, and the footnotes taken out of them. */
-data class PageText(val paragraphs: List<String>, val footnotes: List<Footnote> = emptyList())
+/**
+ * One page's paragraphs to read, and the footnotes taken out of them. [lines] are the page's lines as OCR read them, before any are joined
+ * into paragraphs or dropped; [ContentsPages] reads the shape of a page from them. Empty when the source has none.
+ */
+data class PageText(val paragraphs: List<String>, val footnotes: List<Footnote> = emptyList(), val lines: List<String> = emptyList())
 
 /**
  * Finds the footnotes of a page of OCR paragraphs and matches each to the paragraph that cites it. Geometry decides first where it can
@@ -160,7 +164,7 @@ object Footnotes {
     /** Where each paragraph shows its notes' labels, as (offset in the paragraph, label), in order; the transcript has no marker, so none is spoken. */
     fun markers(footnotes: List<Footnote>, texts: List<String>): Map<Int, List<Pair<Int, String>>> {
         val out = LinkedHashMap<Int, MutableList<Pair<Int, String>>>()
-        for ((at, offset, f) in locate(footnotes, texts)) label(f.text)?.let { out.getOrPut(at) { ArrayList() } += offset to it }
+        for ((at, offset, f) in locate(footnotes, texts)) if (!f.contents) label(f.text)?.let { out.getOrPut(at) { ArrayList() } += offset to it }
         return out
     }
 

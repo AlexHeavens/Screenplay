@@ -45,9 +45,9 @@ object Epub {
     private val fontAlgorithms = setOf("http://www.idpf.org/2008/embedding", "http://ns.adobe.com/pdf/enc#RC")
 
     /** Reads the book at [file]; [onDoc] counts the spine's documents as each is read. Throws [EpubException] with a message for the user. */
-    fun read(file: File, footnotes: Boolean = false, onDoc: (done: Int, total: Int) -> Unit = { _, _ -> }): EpubBook {
+    fun read(file: File, footnotes: Boolean = false, contents: Boolean = false, onDoc: (done: Int, total: Int) -> Unit = { _, _ -> }): EpubBook {
         try {
-            ZipFile(file).use { return read(it, footnotes, onDoc) }
+            ZipFile(file).use { return read(it, footnotes, contents, onDoc) }
         } catch (e: ZipException) {
             throw EpubException("This is not an EPUB: the file is not a zip archive.")
         } catch (e: IOException) {
@@ -55,7 +55,7 @@ object Epub {
         }
     }
 
-    private fun read(zip: ZipFile, footnotes: Boolean, onDoc: (Int, Int) -> Unit): EpubBook {
+    private fun read(zip: ZipFile, footnotes: Boolean, contents: Boolean, onDoc: (Int, Int) -> Unit): EpubBook {
         zip.text("META-INF/encryption.xml")?.let { xml ->
             val algorithms = Regex("Algorithm\\s*=\\s*[\"']([^\"']+)[\"']").findAll(xml).map { it.groupValues[1] }
             if (algorithms.any { it !in fontAlgorithms }) throw EpubException("This EPUB is protected by DRM, so it cannot be imported.")
@@ -67,11 +67,14 @@ object Epub {
         val spine = opf.spine.filter { it.linear }.mapNotNull { opf.manifest[it.idref] }
             .filter { it.type.endsWith("html+xml") || it.type == "text/html" }.filter { "nav" !in it.properties }
         val docs = ArrayList<Pair<String, Doc>>()
+        var afterContents = false
         for ((n, item) in spine.withIndex()) {
             onDoc(n, spine.size)
             val path = resolve(opfPath, item.href).first
             val xml = zip.text(path) ?: continue // A listed file the zip lacks costs that file only.
-            docs += path to Doc(footnotes).also { parse(xml, it) }.also { it.finish() }
+            val doc = Doc(footnotes, contents && n < ContentsPages.FRONT, afterContents).also { parse(xml, it) }.also { it.finish() }
+            afterContents = doc.contentsText != null
+            docs += path to doc
         }
         onDoc(spine.size, spine.size)
 
@@ -88,6 +91,8 @@ object Epub {
 
         var marks = chapterEntries(zip, opf, opfPath).mapNotNull { (from, e) -> place(from, e.href)?.let { it to e.title } }.filter { it.first < total }
         if (marks.isEmpty()) marks = docs.mapNotNull { (path, d) -> d.firstHeading?.let { start.getValue(path) + it to d.paragraphs[it] } }
+        // A contents page taken out of the speech is no chapter, even where the book's own navigation lists it.
+        if (contents) marks = marks.filterNot { ContentsPages.isHeading(it.second) }
         marks = marks.map { (at, title) -> at to TitleCase.of(title) }.sortedBy { it.first } // Stable, so two titles at one place (a part and its first chapter) keep their order.
 
         val all = ArrayList<String>(total + marks.size)
@@ -104,7 +109,7 @@ object Epub {
         }
         val sentencesBefore = IntArray(all.size + 1) // Sentences speech makes of the paragraphs before each one, so a heading's index survives the splitting of long paragraphs.
         for ((i, p) in all.withIndex()) sentencesBefore[i + 1] = sentencesBefore[i] + speakable(listOf(p)).size
-        return EpubBook(opf.title, opf.creators.joinToString(", "), all, marks.map { it.second }, headings.map { (i, title) -> ChapterMark(sentencesBefore[i], title) }, docs.flatMap { it.second.footnotes })
+        return EpubBook(opf.title, opf.creators.joinToString(", "), all, marks.map { it.second }, headings.map { (i, title) -> ChapterMark(sentencesBefore[i], title) }, docs.mapNotNull { it.second.contentsText }.map { Footnote("", it, contents = true) } + docs.flatMap { it.second.footnotes })
     }
 
     /** Paragraphs a speech engine takes: any longer than [MAX_PARAGRAPH] is split into sentences. */
@@ -275,7 +280,10 @@ object Epub {
     private fun tidy(s: String) = s.replace("\u00AD", "").replace(space, " ").trim()
 
     /** One content document: its paragraphs, and where each `id` sits among them. */
-    private class Doc(private val withNotes: Boolean) : DefaultHandler() {
+    private class Doc(private val withNotes: Boolean, private val withContents: Boolean = false, private val afterContents: Boolean = false) : DefaultHandler() {
+        /** The lines of a contents list taken out of [paragraphs] (when asked for), one per line of text; null when the document has none. */
+        var contentsText: String? = null
+            private set
         val paragraphs = ArrayList<String>()
         /** The notes the document marks as footnotes, when asked for: kept out of [paragraphs], each matched to the paragraph before it that cites it. */
         val footnotes = ArrayList<Footnote>()
@@ -296,6 +304,8 @@ object Epub {
             )
             val headings = setOf("h1", "h2", "h3")
             val noteWords = setOf("footnote", "endnote", "rearnote")
+            /** Paragraphs before a contents heading in a file: a title page and a licence can come first. */
+            const val MAX_HEADING = 60
         }
 
         override fun startElement(uri: String, local: String, qName: String, atts: Attributes) {
@@ -335,6 +345,21 @@ object Epub {
             if (p.any { it.isLetterOrDigit() }) noted += paragraphs.size to p
         }
 
+        /**
+         * Moves a contents list out of [paragraphs]: the paragraphs after it move up, and an id, a heading or a note that stood inside or after it
+         * moves with them. Contents lists are in files near the start, so a file with the heading anywhere in it counts.
+         */
+        private fun takeContents() {
+            val found = ContentsPages.find(paragraphs, afterContents, maxHeading = MAX_HEADING) ?: return
+            contentsText = paragraphs.slice(found).joinToString("\n")
+            val gone = found.count()
+            fun moved(i: Int) = if (i > found.last) i - gone else if (i >= found.first) found.first else i
+            paragraphs.subList(found.first, found.last + 1).clear()
+            for (k in anchors.keys.toList()) anchors[k] = moved(anchors.getValue(k))
+            firstHeading = firstHeading?.takeIf { it !in found }?.let(::moved)
+            for ((k, n) in noted.withIndex()) noted[k] = moved(n.first) to n.second
+        }
+
         /** A block the book marks as a footnote, by class (Project Gutenberg), `epub:type` (EPUB 3) or ARIA role. */
         private fun isNote(atts: Attributes): Boolean =
             atts.attr("class")?.split(' ')?.any { it in noteWords } == true ||
@@ -342,6 +367,7 @@ object Epub {
 
         fun finish() {
             flush()
+            if (withContents) takeContents()
             for ((before, text) in noted) footnotes += Footnotes.cite(paragraphs, text, before - 1, nearest = true)
         }
     }

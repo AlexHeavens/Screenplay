@@ -73,10 +73,10 @@ object PdfText {
                                     inOrder.send(async {
                                         try {
                                             Engines.beforeRecognise(p, total)
-                                            Engines.recognisePage?.let { return@async it(p).let { text -> if (footnotes) Footnotes.split(text) else PageText(text) } }
+                                            Engines.recognisePage?.let { return@async it(p).let { text -> (if (footnotes) Footnotes.split(text) else PageText(text)).copy(lines = text) } }
                                             val text = Tasks.await(recognizer.process(InputImage.fromBitmap(bitmap, 0)))
                                             val blocks = text.textBlocks.map { block ->
-                                                block.lines.mapNotNull { l -> l.boundingBox?.let { OcrLine(it.top, it.bottom, l.text) } }
+                                                block.lines.mapNotNull { l -> l.boundingBox?.let { OcrLine(it.top, it.bottom, l.text, it.left) } }
                                             }.filter { it.isNotEmpty() }
                                             Layout.page(blocks, h, footnotes)
                                         } finally {

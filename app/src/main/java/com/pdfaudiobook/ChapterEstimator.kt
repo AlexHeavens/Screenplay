@@ -131,8 +131,13 @@ object ChapterEstimator {
     }
 
     /** The lines of [p] grouped by the row they sit on, top to bottom; the lines of a row are ordered by their left edge. */
-    private fun rows(p: OcrPage): List<Row> {
-        val lines = p.blocks.flatten().filter { it.text.isNotBlank() }.sortedBy { it.top + it.bottom }
+    private fun rows(p: OcrPage): List<Row> = rows(p.blocks)
+
+    /** A page's lines as text, one per row of the page, top to bottom: the label, title and number of one entry that OCR split into blocks come back as one line. */
+    fun lines(blocks: List<List<OcrLine>>): List<String> = rows(blocks).map { clean(it.text) }
+
+    private fun rows(blocks: List<List<OcrLine>>): List<Row> {
+        val lines = blocks.flatten().filter { it.text.isNotBlank() }.sortedBy { it.top + it.bottom }
         if (lines.isEmpty()) return emptyList()
         val tolerance = lines.map { it.height }.sorted()[lines.size / 2] * 0.6
         val out = ArrayList<Row>()

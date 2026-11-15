@@ -370,6 +370,10 @@ fun SettingsPanel(options: Options, onImportBackup: () -> Unit, onExportBackup: 
             "Footnotes as notes, not spoken", options.footnotes, "opt-footnotes",
             hint = "Scanned PDFs: kept under their paragraph and skipped by the voice. Applies to books made from now on.",
         ) { set(options.copy(footnotes = it)) }
+        SwitchRow(
+            "Contents pages shown, not spoken", options.contents, "opt-contents",
+            hint = "Kept at the start of the book and skipped by the voice. Applies to books made from now on.",
+        ) { set(options.copy(contents = it)) }
         Text("Theme", Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (m in ThemeMode.values()) FilterChip(options.theme == m, { set(options.copy(theme = m)) }, { Text(m.label) }, Modifier.testTag("theme-${m.name}"), shape = ControlShape, colors = themeChipColors())

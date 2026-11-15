@@ -411,6 +411,44 @@ Tests:
 - `CleanupTest.mergesAfterAbbreviationAndBeforeLowercase`
 - `CleanupTest.keepsShortSentencesAndParagraphsEndingInAYearAmongHeadings`
 
+#### UC-05h A contents page is shown, not spoken
+
+Goal: see the book's contents page in the reader without hearing it read.
+
+- The option "Contents pages shown, not spoken" is on by default. It applies to books made from now on.
+- A contents page is found from its text alone, in the first 15 pages (or EPUB files). A scanned PDF is read after OCR. An EPUB is read as paragraphs.
+- Each line has a shape. An entry is a short line that ends in a page number or Roman numeral (after dot leaders), or starts with "Chapter", a number or a Roman numeral.
+- A page is contents when it has the heading "Contents" or "Table of Contents" and at least 3 entries. The heading alone is not enough, so an index or a list of illustrations stays text.
+- Only a page with the heading counts. A route for the next page of a long list, with no heading, is built and tested but off (`ContentsPages.HEADLESS`), so a list that runs onto a second page has its later pages spoken.
+- The contents is kept as a note under the first paragraph, in small type, with no mark. It is not in the transcript, is not spoken and is not counted in the progress.
+- With the option off, the contents page is spoken as before.
+- Measured on saved scans with the headingless route on: all 10 contents pages of two books were found and no other front page was. With it off, only the pages that carry the heading are found. A contents list that sits after page 15 or has neither a heading nor page numbers is missed.
+
+Tests:
+- `ContentsPagesTest.aHeadingAndEntriesWithPageNumbersIsAContentsPage`
+- `ContentsPagesTest.aHeadingWithTooFewEntriesIsNotEnough`
+- `ContentsPagesTest.anIndexOrAListOfIllustrationsHasNoContentsHeading`
+- `ContentsPagesTest.aPageWithoutAHeadingThatFollowsAContentsPageIsItsContinuation`
+- `ContentsPagesTest.aPageWithoutAHeadingIsNotContentsUnlessThePageBeforeWas`
+- `ContentsPagesTest.theHeadinglessRouteIsOffByDefault`
+- `ContentsPagesTest.anIndexPageContinuedIsNotAContentsPageEvenAfterOne`
+- `ContentsPagesTest.aNormalChapterPageIsNotContents`
+- `ContentsPagesTest.aListInAFileOfProseEndsWhereTheProseStarts`
+- `ContentsPagesTest.aListThatFollowsAContentsPageButIsHeadedByAnotherTitleIsNotItsContinuation`
+- `ContentsPagesTest.aPageThatOnlyStartsWithAContentsListIsAPageOfText`
+- `ContentsPagesTest.entriesHaveTheShapeOfALineThatEndsInAPageOrOpensWithALabel`
+- `ContentsPagesTest.entriesWithoutPageNumbersAreFoundByTheirChapterLabelsAndTheTitlesAmongThem`
+- `ContentsPagesTest.theHeadingIsReadThroughOcrPunctuationCaseAndARunningHeadsPageNumber`
+- `ContentsPagesTest.findsEveryContentsPageOfTwoRealScansAndNoOtherFrontPage`
+- `ContentsPagesTest.noBodyPageOfTheSavedScansIsContents`
+- `EpubTest.aContentsListInTheMiddleOfAFileIsTakenOutOfTheTextAndKeptAsANote`
+- `EpubTest.withTheContentsOptionOffAContentsListIsReadAsBefore`
+- `EpubTest.aFileOfTheBookThatMerelyHasAHeadingCalledContentsIsLeftAlone`
+- `EpubTest.aNavEntryThatPointsAtTheContentsListDoesNotMakeAChapterNamedContents`
+- `ContentsUiTest.aContentsPageIsShownInTheReaderButNeverSpokenOrInTheTranscript`
+- `ContentsUiTest.withTheOptionOffTheContentsPageIsSpokenAsBefore`
+- `ContentsUiTest.theContentsOptionIsOnByDefaultAndSavedWithTheOthers`
+
 ### UC-06 Get the title and author from the ISBN
 
 Goal: see a real title and author on the shelf, not a file name.

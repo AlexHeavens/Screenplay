@@ -331,7 +331,7 @@ object Library {
         if (!f.exists()) return emptyList()
         return try {
             val a = JSONArray(f.readText())
-            List(a.length()) { val o = a.getJSONObject(it); Footnote(o.getString("anchor"), o.getString("text")) }
+            List(a.length()) { val o = a.getJSONObject(it); Footnote(o.getString("anchor"), o.getString("text"), o.optBoolean("contents")) }
         } catch (e: org.json.JSONException) {
             emptyList()
         } catch (e: java.io.IOException) {
@@ -341,7 +341,7 @@ object Library {
 
     fun saveFootnotes(ctx: Context, id: String, footnotes: List<Footnote>) {
         val a = JSONArray()
-        footnotes.forEach { a.put(JSONObject().put("anchor", it.anchor).put("text", it.text)) }
+        footnotes.forEach { a.put(JSONObject().put("anchor", it.anchor).put("text", it.text).apply { if (it.contents) put("contents", true) }) }
         writeAtomically(File(dir(ctx, id), Files.FOOTNOTES), a.toString())
     }
 

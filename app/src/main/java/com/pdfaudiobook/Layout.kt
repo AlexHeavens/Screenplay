@@ -40,7 +40,8 @@ object Layout {
     fun page(blocks: List<List<OcrLine>>, pageHeight: Int, footnotes: Boolean): PageText {
         val (body, notes) = split(blocks, pageHeight)
         val paragraphs = joinDropCaps(body).map(::text)
-        return if (footnotes) Footnotes.split(paragraphs, notes.map(::text)) else PageText(paragraphs)
+        val page = if (footnotes) Footnotes.split(paragraphs, notes.map(::text)) else PageText(paragraphs)
+        return page.copy(lines = ChapterEstimator.lines(blocks))
     }
 
     /**

@@ -171,6 +171,81 @@ class EpubTest {
         assertEquals(mapOf(0 to listOf("See the author's own preface.")), Footnotes.place(b.footnotes, b.paragraphs))
     }
 
+    /** The first file of The Prince from Project Gutenberg: a licence, a title, a contents list with no page numbers (linked entries), then the book's own text. */
+    private fun princeFile(vararg entries: String) = epub(
+        "META-INF/container.xml" to container,
+        "OEBPS/content.opf" to opf(
+            """<item id="a" href="a.xhtml" media-type="application/xhtml+xml"/><item id="b" href="b.xhtml" media-type="application/xhtml+xml"/>""",
+            """<itemref idref="a"/><itemref idref="b"/>""",
+        ),
+        "OEBPS/a.xhtml" to xhtml(
+            """<p>The Project Gutenberg eBook of The Prince</p><p>Translated by W. K. Marriott</p><h2>Contents</h2>""" +
+                entries.joinToString("") { """<p><a href="b.xhtml#c">$it</a></p>""" } +
+                """<p id="start">Nicolo Machiavelli was born at Florence on 3rd May 1469, the second son of a lawyer of some repute.</p>""",
+        ),
+        "OEBPS/b.xhtml" to xhtml("""<h2 id="c">CHAPTER I</h2><p>All states, all powers, that have held and hold rule over men have been and are either republics or principalities.</p>"""),
+    )
+
+    private val princeEntries = arrayOf(
+        "INTRODUCTION", "DEDICATION", "CHAPTER I. HOW MANY KINDS OF PRINCIPALITIES THERE ARE", "CHAPTER II. CONCERNING HEREDITARY PRINCIPALITIES",
+        "CHAPTER III. CONCERNING MIXED PRINCIPALITIES", "THE LIFE OF CASTRUCCIO CASTRACANI OF LUCCA",
+    )
+
+    @Test
+    fun aContentsListInTheMiddleOfAFileIsTakenOutOfTheTextAndKeptAsANote() {
+        val b = Epub.read(princeFile(*princeEntries), footnotes = true, contents = true)
+        assertEquals(
+            listOf("The Project Gutenberg eBook of The Prince", "Translated by W. K. Marriott",
+                "Nicolo Machiavelli was born at Florence on 3rd May 1469, the second son of a lawyer of some repute.",
+                "CHAPTER I", "All states, all powers, that have held and hold rule over men have been and are either republics or principalities."),
+            b.paragraphs,
+        )
+        val note = b.footnotes.single()
+        assertTrue(note.contents)
+        assertEquals(listOf("Contents") + princeEntries, note.text.lines())
+        // The note is shown, with no marker, at the start of the book.
+        assertEquals(mapOf(0 to listOf(note.text)), Footnotes.place(b.footnotes, b.paragraphs))
+        assertTrue(Footnotes.markers(b.footnotes, b.paragraphs).isEmpty())
+    }
+
+    @Test
+    fun withTheContentsOptionOffAContentsListIsReadAsBefore() {
+        val b = Epub.read(princeFile(*princeEntries), footnotes = true)
+        assertTrue(b.footnotes.isEmpty())
+        assertTrue("Contents" in b.paragraphs)
+        assertTrue(princeEntries.all { it in b.paragraphs })
+    }
+
+    @Test
+    fun aFileOfTheBookThatMerelyHasAHeadingCalledContentsIsLeftAlone() {
+        val f = epub(
+            "META-INF/container.xml" to container,
+            "OEBPS/content.opf" to opf("""<item id="a" href="a.xhtml" media-type="application/xhtml+xml"/>""", """<itemref idref="a"/>"""),
+            "OEBPS/a.xhtml" to xhtml("""<h2>Contents</h2><p>The contents of the jar were never known to the keeper, who would not open it for any price.</p><p>He wrote only that it was heavy.</p>"""),
+        )
+        val b = Epub.read(f, footnotes = true, contents = true)
+        assertTrue(b.footnotes.isEmpty())
+        assertEquals(3, b.paragraphs.size)
+    }
+
+    @Test
+    fun aNavEntryThatPointsAtTheContentsListDoesNotMakeAChapterNamedContents() {
+        val f = epub(
+            "META-INF/container.xml" to container,
+            "OEBPS/content.opf" to opf(
+                """<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="a" href="a.xhtml" media-type="application/xhtml+xml"/><item id="b" href="b.xhtml" media-type="application/xhtml+xml"/>""",
+                """<itemref idref="a"/><itemref idref="b"/>""",
+            ),
+            "OEBPS/nav.xhtml" to xhtml("""<nav epub:type="toc" xmlns:epub="http://www.idpf.org/2007/ops"><ol><li><a href="a.xhtml#toc">Contents</a></li><li><a href="b.xhtml#c">One</a></li></ol></nav>"""),
+            "OEBPS/a.xhtml" to xhtml("""<h2 id="toc">Contents</h2><p>One 1</p><p>Two 9</p><p>Three 17</p><p>Four 25</p>"""),
+            "OEBPS/b.xhtml" to xhtml("""<h2 id="c">One</h2><p>The keeper climbed ninety steps to the lamp every evening of his life.</p>"""),
+        )
+        val b = Epub.read(f, footnotes = true, contents = true)
+        assertEquals(listOf("One"), b.chapters)
+        assertEquals(listOf("One", "The keeper climbed ninety steps to the lamp every evening of his life."), b.paragraphs)
+        assertEquals(listOf(0), b.marks.map { it.index })
+    }
+
     @Test
     fun aDrmEpubIsRefusedWithAClearMessage() {
         val enc = """<encryption xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><EncryptedData><EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#aes128-cbc"/><CipherData><CipherReference URI="OEBPS/a.xhtml"/></CipherData></EncryptedData></encryption>"""

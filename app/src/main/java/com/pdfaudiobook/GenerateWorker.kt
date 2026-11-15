@@ -139,7 +139,7 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             val epub = File(dir, Files.EPUB)
             if (epub.exists()) {
                 // An EPUB has its text already: no OCR, no cleaning that would cut a real chapter, and the chapters come from its own contents.
-                val book = withContext(Dispatchers.IO) { Epub.read(epub, options.footnotes) { done, total -> progress.page(done, total) } }
+                val book = withContext(Dispatchers.IO) { Epub.read(epub, options.footnotes, options.contents) { done, total -> progress.page(done, total) } }
                 if (book.footnotes.isNotEmpty()) Library.saveFootnotes(ctx, id, book.footnotes)
                 Library.update(ctx, id) { it.copy(title = book.title.ifBlank { it.title }, author = book.author, contents = book.chapters, chapters = book.marks.ifEmpty { null }) }
                 emitChecked(Epub.speakable(book.paragraphs), last = true)
@@ -158,6 +158,7 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             if (plan.chapters.isNotEmpty()) Library.update(ctx, id) { it.copy(estimates = plan.chapters) }
             var frontPages = 0
             var page = 0
+            var afterContents = false
             PdfText.pages(File(dir, Files.PDF), options.footnotes, progress::page) { read ->
                 val blocks = read.paragraphs
                 page++
@@ -175,7 +176,18 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
                     plan = anchored
                     Library.update(ctx, id) { it.copy(estimates = anchored.chapters) }
                 }
-                if (page in plan.contentsPages) return@pages
+                // A contents page is kept as a note at the start of the book and never spoken: the survey's pages, and any page whose lines have a contents list's shape.
+                if (options.contents) {
+                    val lines = read.lines.ifEmpty { blocks }
+                    val shaped = page <= ContentsPages.FRONT && ContentsPages.isPage(lines, afterContents)
+                    afterContents = shaped || page in plan.contentsPages
+                    if (afterContents) {
+                        if (shaped) stream.noteContents(blocks)
+                        footnotes += Footnote("", lines.filter { it.isNotBlank() }.joinToString("\n"), contents = true)
+                        Library.saveFootnotes(ctx, id, footnotes)
+                        return@pages
+                    }
+                }
                 if (read.footnotes.isNotEmpty()) {
                     footnotes += read.footnotes
                     Library.saveFootnotes(ctx, id, footnotes)
