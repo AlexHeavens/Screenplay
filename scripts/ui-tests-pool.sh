@@ -70,6 +70,6 @@ for s in $serials; do worker "$s" & done
 wait
 sort "$work/results.tsv"
 fails=$(grep -vc 'rc=0$' "$work/results.tsv")
-for f in "$work"/fail.*.log; do [ -e "$f" ] && { echo "--- $(basename "$f")"; grep -E 'FAILURES|Failures|Time:|^[0-9]+\) |Exception|Error' "$f" | head -12; }; done
+for f in "$work"/fail.*.log; do [ -e "$f" ] && { echo "--- $(basename "$f")"; grep -E 'FAILURES|Failures|Time:|^[0-9]+\) |Exception|Error|^\s+at com\.pdfaudiobook' "$f" | head -16; }; done
 echo "EXIT=$([ "$fails" -eq 0 ] && echo 0 || echo 1) devices=$(wc -w <<<"$serials") classes=$(wc -l < "$work/results.tsv") failed=$fails BUILD=$(( built - start ))s INSTALL=$(( installed - built ))s RUN=$(( $(date +%s) - installed ))s WALL=$(( $(date +%s) - start ))s"
 [ "$fails" -eq 0 ]

@@ -4,7 +4,6 @@
 
 package com.pdfaudiobook
 
-import android.content.Intent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -53,9 +52,10 @@ class HighlightUiTest {
     private fun waitFor(what: String, matcher: SemanticsMatcher) =
         compose.waitUntil(120_000) { compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() }
 
+    /** Opens a book made by [Fixtures.seedSpokenBook] in place of an import: these tests check the swipe wheel, not OCR. */
     private fun openBook() {
-        val intent = Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setDataAndType(Fixtures.pdf(ctx), "application/pdf")
-        scenario = ActivityScenario.launch(intent)
+        Fixtures.seedSpokenBook(ctx)
+        scenario = ActivityScenario.launch(MainActivity::class.java)
         waitFor("ready", hasContentDescription("Listened"))
         compose.onNodeWithTag("book-${Fixtures.TITLE}").performClick()
         waitFor("transcript", SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "sentence-0"))

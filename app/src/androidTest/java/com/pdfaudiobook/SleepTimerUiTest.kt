@@ -4,7 +4,6 @@
 
 package com.pdfaudiobook
 
-import android.content.Intent
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertTextEquals
@@ -59,9 +58,8 @@ class SleepTimerUiTest {
 
     @Smoke @Test
     fun theTimerCountsInTheServiceAndPausesTheSpeechWhenItRunsOut() {
-        scenario = ActivityScenario.launch(
-            Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setDataAndType(Fixtures.pdf(ctx), "application/pdf"),
-        )
+        Fixtures.seedSpokenBook(ctx, msPerWord = 2500)
+        scenario = ActivityScenario.launch(MainActivity::class.java)
         compose.waitUntil(120_000) { compose.onAllNodes(hasContentDescription("Listened")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("book-${Fixtures.TITLE}").performClick()
         compose.waitUntil(60_000) { compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "sleep")).fetchSemanticsNodes().isNotEmpty() }

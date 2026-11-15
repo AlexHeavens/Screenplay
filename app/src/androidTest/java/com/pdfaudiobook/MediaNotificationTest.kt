@@ -80,9 +80,8 @@ class MediaNotificationTest {
 
     @Smoke @Test
     fun theNotificationShowsTheBookAndItsButtonsAndSeekAndHeadsetKeysDriveThePlayer() {
-        scenario = ActivityScenario.launch(
-            Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setDataAndType(Fixtures.pdf(ctx), "application/pdf"),
-        )
+        Fixtures.seedSpokenBook(ctx, msPerWord = 2500)
+        scenario = ActivityScenario.launch(MainActivity::class.java)
         compose.waitUntil(120_000) { compose.onAllNodes(hasContentDescription("Listened")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("book-${Fixtures.TITLE}").performClick()
         compose.waitUntil(60_000) { compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "sentence-0")).fetchSemanticsNodes().isNotEmpty() }

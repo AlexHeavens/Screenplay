@@ -4,7 +4,6 @@
 
 package com.pdfaudiobook
 
-import android.content.Intent
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assert
@@ -60,9 +59,10 @@ class ParagraphMenuUiTest {
 
     private fun waitForTag(tag: String) = waitFor(SemanticsMatcher.expectValue(SemanticsProperties.TestTag, tag))
 
+    /** Opens a book made by [Fixtures.seedSpokenBook] in place of an import: these tests check the menu, not OCR. */
     private fun openBook() {
-        val intent = Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setDataAndType(Fixtures.pdf(ctx), "application/pdf")
-        scenario = ActivityScenario.launch(intent)
+        Fixtures.seedSpokenBook(ctx)
+        scenario = ActivityScenario.launch(MainActivity::class.java)
         waitFor(hasContentDescription("Listened"))
         compose.onNodeWithTag("book-${Fixtures.TITLE}").performClick()
         waitForTag("sentence-0")

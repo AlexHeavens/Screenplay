@@ -72,10 +72,10 @@ object Fixtures {
      * by the production [Speech.render] and [AacEncoder], as in an import, but without OCR. Its chapters are detected and stored too.
  * The id is random, as an import's is: a playback service left over from an earlier test must not recognise the book.
      */
-    fun seedSpokenBook(ctx: Context, id: String = java.util.UUID.randomUUID().toString().take(8), title: String = TITLE, sentences: List<String> = this.sentences): String {
+    fun seedSpokenBook(ctx: Context, id: String = java.util.UUID.randomUUID().toString().take(8), title: String = TITLE, sentences: List<String> = this.sentences, msPerWord: Int = 400): String {
         val scratch = File(ctx.cacheDir, "seed-audio").apply { deleteRecursively(); mkdirs() }
         val pcm = File(scratch, "audio.pcm")
-        val (segments, rate) = runBlocking { Speech.render(listOf(FakeSynthesizer()), sentences, File(scratch, "sentence.wav"), pcm) {} }
+        val (segments, rate) = runBlocking { Speech.render(listOf(FakeSynthesizer(msPerWord)), sentences, File(scratch, "sentence.wav"), pcm) {} }
         val m4a = File(scratch, Files.AUDIO)
         AacEncoder.encode(pcm, rate, m4a)
         seedBook(ctx, id, title, segments, m4a.readBytes(), rate = rate)
