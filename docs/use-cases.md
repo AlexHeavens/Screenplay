@@ -1557,7 +1557,7 @@ Tests:
 
 Goal: use the book screen's buttons whatever the title.
 
-- A long title takes two lines and then an ellipsis, so the Back, Export and Back up buttons stay in view.
+- A long title takes two lines and then an ellipsis, so the Back, Share and search buttons stay in view.
 - The controls and the progress under them are centred.
 
 Tests:
@@ -1939,11 +1939,12 @@ Tests:
 
 Goal: keep a copy of a book and my notes outside the app.
 
-- Back up on the book screen shares one zip through the share sheet.
+- Share on the book screen, then "Zip backup", shares one zip through the share sheet. There is no separate Back up button.
+- Import backup restores that zip as a new book. The zip format is unchanged.
 - The zip holds the PDF or EPUB, the audio, the transcript, the notes, the highlights and the details.
 
 Tests:
-- `BookUiTest.backupSharesAZipOfPdfAudioTranscriptAndNotes`
+- `BookUiTest.theShareMenuOffersEveryFormatAndTheZipBackupRestoresAsABook`
 - `BackupExtractTest.extractsTheKnownEntriesAndIgnoresOthers`
 - `BackupExtractTest.extractsTheHighlights`
 
@@ -1956,15 +1957,16 @@ Goal: recognise the file in my cloud drive.
 - The file name is the title with unsafe characters replaced, cut to 80 characters, and "audiobook" if nothing is left.
 
 Tests:
-- `BookUiTest.backupSharesAZipOfPdfAudioTranscriptAndNotes`
+- `BookUiTest.theShareMenuOffersEveryFormatAndTheZipBackupRestoresAsABook`
 
 #### UC-35b Back up a book that is still being made
 
-Goal: know what happens if I press Back up too early.
+Goal: know what happens if I share a zip too early.
 
-- The button is not disabled for a book that is still being made. The zip has no finished audio, so restoring it fails with "Not an audiobook backup: missing audio.m4a…". The zip is built on the main thread with no error handling. See [Gaps](#gaps).
+- The Share button waits until the book is ready, like the other formats, so no zip of an unfinished book is made. A failure shows the toast "Export failed: <message>".
 
-Tests: none yet
+Tests:
+- `ExportTest.exportWaitsUntilTheBookIsReady`
 
 ### UC-36 Restore a book from a backup
 
@@ -2083,8 +2085,8 @@ Tests: none yet
 
 Goal: listen in another audiobook player.
 
-- Export, then "Audiobook (one M4B)", shares one M4B with the title, the author and the chapters.
-- Export waits until the book is ready.
+- Share, then "Audiobook (one M4B)", shares one M4B with the title, the author and the chapters.
+- Share waits until the book is ready.
 
 Tests:
 - `ExportTest.exportsOneM4bWithChaptersTitleAndAuthor`
@@ -2146,7 +2148,7 @@ Tests:
 
 Goal: put chapters on a player that has no chapter support.
 
-- Export, then "One M4A per chapter", shares one file per chapter. The durations match the chapters.
+- Share, then "One M4A per chapter", shares one file per chapter. The durations match the chapters.
 
 Tests:
 - `ExportTest.exportsOneM4aPerChapterWithMatchingDurations`
@@ -2155,7 +2157,7 @@ Tests:
 
 Goal: read the transcript, with its chapters and edits, in an e-reader.
 
-- Export, then "Export as EPUB", shares an EPUB 3 file with the title, the author, the chapters and the paragraphs.
+- Share, then "EPUB", shares an EPUB 3 file with the title, the author, the chapters and the paragraphs.
 - Importing that file gives the same book back.
 
 Tests:
@@ -2498,12 +2500,11 @@ Entries with no test, and why:
 - UC-51b: the text-layer PDF that is read with OCR. It is a limit, not a feature.
 - UC-48a: deleting a book in the middle of OCR.
 - UC-53f: searching a book still being made. It needs a book that grows while the screen is open, and the count follows the same transcript reload as the text.
-- UC-35b, UC-49d: see the bugs below.
+- UC-49d: see the bugs below.
 
 Bugs found while writing these entries. They are not fixed here:
 
 - `Library.readBook` throws on a damaged `meta.json`, and `Library.refresh` calls it for every book. One damaged details file would stop the whole shelf from loading (UC-49d).
-- The "Back up" button on the book screen builds the zip on the main thread with no `try`/`catch`, and it is enabled for a book that is still being made. Restoring such a zip fails with "Not an audiobook backup: missing audio.m4a…" (UC-35b).
 - A library backup with no ready book is an empty zip. Restoring it says "Not an audiobook backup: missing …", which does not say that the library was empty (UC-37c).
 - A share or "Open with" whose stream cannot be opened makes a failed book with the text "Could not read the PDF: null" (UC-04c).
 - A full disk during the copy of the file shows the same "Could not read the PDF: …" message, which names the wrong cause (UC-04c).

@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -417,8 +418,8 @@ fun SettingsPanel(options: Options, onImportBackup: () -> Unit, onExportBackup: 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookTopBar(
-    title: String, exportLabel: String, exportEnabled: Boolean,
-    onBack: () -> Unit, onSearch: () -> Unit, onExport: () -> Unit, onBackup: () -> Unit, exportMenu: @Composable () -> Unit,
+    title: String, exportEnabled: Boolean,
+    onBack: () -> Unit, onSearch: () -> Unit, onExport: () -> Unit, exportMenu: @Composable () -> Unit,
 ) {
     TopAppBar(
         title = { Text(title, Modifier.testTag("title"), maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium) },
@@ -426,10 +427,9 @@ fun BookTopBar(
         actions = {
             IconButton(onClick = onSearch, modifier = Modifier.testTag("search")) { Icon(Icons.Filled.Search, contentDescription = "Search the book") }
             Box {
-                TextButton(onClick = onExport, enabled = exportEnabled, modifier = Modifier.testTag("export")) { Text(exportLabel, maxLines = 1) }
+                IconButton(onClick = onExport, enabled = exportEnabled, modifier = Modifier.testTag("export")) { Icon(Icons.Filled.Share, contentDescription = "Share") }
                 exportMenu()
             }
-            TextButton(onClick = onBackup, modifier = Modifier.testTag("backup")) { Text("Back up", maxLines = 1) }
         },
     )
 }
@@ -621,22 +621,24 @@ fun Reader(id: String, onBack: () -> Unit) {
                 highlightAll = highlightAll, onHighlightAll = { highlightAll = it },
             ) else BookTopBar(
                 title = book?.title ?: "",
-                exportLabel = if (exporting) "Exporting…" else "Export",
                 // The audio is one file only once the book is ready, so an export waits until then.
                 exportEnabled = ready && !exporting,
                 onBack = onBack,
                 onSearch = { scrollBeforeSearch = list.firstVisibleItemIndex to list.firstVisibleItemScrollOffset; movedToMatch = false; searching = true },
                 onExport = { exportMenu = true },
-                onBackup = { Backup.share(ctx, Backup.zip(ctx, id, book?.title ?: id)) },
             ) {
                 DropdownMenu(exportMenu, { exportMenu = false }) {
                     DropdownMenuItem(text = { Text("Audiobook (one M4B)") }, modifier = Modifier.testTag("export-m4b"), onClick = {
                         exportMenu = false
                         runExport { Export.share(ctx, Export.m4b(ctx, id), "Export audiobook") }
                     })
-                    DropdownMenuItem(text = { Text("Export as EPUB") }, modifier = Modifier.testTag("export-epub"), onClick = {
+                    DropdownMenuItem(text = { Text("EPUB") }, modifier = Modifier.testTag("export-epub"), onClick = {
                         exportMenu = false
                         runExport { Export.share(ctx, Export.epub(ctx, id), "Export EPUB") }
+                    })
+                    DropdownMenuItem(text = { Text("Zip backup") }, modifier = Modifier.testTag("export-zip"), onClick = {
+                        exportMenu = false
+                        runExport { Backup.share(ctx, Backup.zip(ctx, id, book?.title ?: id)) }
                     })
                     DropdownMenuItem(text = { Text("One M4A per chapter") }, modifier = Modifier.testTag("export-chapters"), onClick = {
                         exportMenu = false

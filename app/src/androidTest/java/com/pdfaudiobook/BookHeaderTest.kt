@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -35,17 +36,18 @@ class BookHeaderTest {
                 Box(Modifier.width(width)) {
                     BookTopBar(
                         title = "The Extraordinarily Long and Winding Title of a Book Whose Subtitle Goes On: A Complete History of Everything",
-                        exportLabel = "Export", exportEnabled = true,
-                        onBack = {}, onSearch = {}, onExport = {}, onBackup = {}, exportMenu = {},
+                        exportEnabled = true,
+                        onBack = {}, onSearch = {}, onExport = {}, exportMenu = {},
                     )
                 }
             }
         }
-        for (tag in listOf("back", "export", "backup", "title")) compose.onNodeWithTag(tag).assertIsDisplayed()
+        for (tag in listOf("back", "export", "title")) compose.onNodeWithTag(tag).assertIsDisplayed()
         val bar = compose.onNodeWithTag("title").getBoundsInRoot()
-        val backup = compose.onNodeWithTag("backup").getBoundsInRoot()
         val export = compose.onNodeWithTag("export").getBoundsInRoot()
-        assertTrue("backup ends past ${width}: ${backup.right}", backup.right <= width)
+        assertTrue("share ends past ${width}: ${export.right}", export.right <= width)
+        compose.onNodeWithTag("backup").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Share").assertIsDisplayed()
         assertTrue("title ${bar.right} overlaps export ${export.left}", bar.right <= export.left)
         // Two lines of the medium title style at most: the text is cut by an ellipsis, not left to overflow the bar.
         assertTrue("title ${bar.height} too tall", bar.height <= 48.dp)

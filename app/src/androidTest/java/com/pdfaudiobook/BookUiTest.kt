@@ -15,6 +15,7 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.getBoundsInRoot
@@ -557,13 +558,16 @@ class BookUiTest {
     }
 
     @Smoke @Test
-    fun backupSharesAZipOfPdfAudioTranscriptAndNotes() {
+    fun theShareMenuOffersEveryFormatAndTheZipBackupRestoresAsABook() {
         openSeededBook()
         Intents.init()
         try {
             intending(hasAction(Intent.ACTION_CHOOSER)).respondWith(Instrumentation.ActivityResult(Activity.RESULT_OK, null))
-            compose.onNodeWithTag("backup").performClick()
-            intended(hasAction(Intent.ACTION_CHOOSER))
+            compose.onNodeWithTag("backup").assertDoesNotExist()
+            compose.onNodeWithContentDescription("Share").performClick()
+            for (label in listOf("Audiobook (one M4B)", "EPUB", "Zip backup", "One M4A per chapter")) compose.onNodeWithText(label).assertIsDisplayed()
+            compose.onNodeWithText("Zip backup").performClick()
+            compose.waitUntil(30_000) { Intents.getIntents().any { it.action == Intent.ACTION_CHOOSER } }
             val chooser = Intents.getIntents().first { it.action == Intent.ACTION_CHOOSER }
             @Suppress("DEPRECATION")
             val send = chooser.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)!!
@@ -576,6 +580,8 @@ class BookUiTest {
                 while (true) { val e = z.nextEntry ?: break; names += e.name; assertTrue("${e.name} is empty", z.readBytes().isNotEmpty()) }
             }
             assertEquals(listOf(Files.PDF, Files.AUDIO, Files.TRANSCRIPT, Files.NOTES, Files.META).sorted(), names.sorted())
+            // The zip the share sheet receives is what Import backup restores.
+            assertEquals(listOf(title), Backup.restore(ctx, uri))
         } finally {
             Intents.release()
         }

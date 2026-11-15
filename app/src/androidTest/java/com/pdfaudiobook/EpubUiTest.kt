@@ -13,6 +13,7 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.core.content.FileProvider
 import androidx.test.core.app.ActivityScenario
@@ -154,14 +155,14 @@ class EpubUiTest {
         waitFor(hasContentDescription("Listened"))
         val original = Library.books.value.single()
         compose.onNodeWithTag("book-$title").performClick()
-        waitFor(hasText("Export"))
+        waitFor(hasContentDescription("Share"))
 
         val exported = File(ctx.cacheDir, "exported.epub")
         Intents.init()
         try {
             Intents.intending(hasAction(Intent.ACTION_CHOOSER)).respondWith(Instrumentation.ActivityResult(Activity.RESULT_OK, null))
             compose.onNodeWithTag("export").performClick()
-            compose.onNodeWithTag("export-epub").performClick()
+            compose.onNodeWithText("EPUB").performClick()
             compose.waitUntil(60_000) { Intents.getIntents().any { it.action == Intent.ACTION_CHOOSER } }
             @Suppress("DEPRECATION")
             val send = Intents.getIntents().first { it.action == Intent.ACTION_CHOOSER }.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)!!
