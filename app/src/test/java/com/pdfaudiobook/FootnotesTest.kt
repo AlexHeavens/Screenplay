@@ -118,4 +118,18 @@ class FootnotesTest {
         assertEquals(1, read.paragraphs.size)
         assertEquals(listOf("[3] Louis XII. entered Italy in 1499 at the invitation"), read.footnotes.map { it.text })
     }
+
+    @Test
+    fun markersSitJustAfterTheTextBeforeTheCitationEvenWhenTheWhitespaceDiffers() {
+        val notes = listOf(Footnote("allowed", "[3] Louis XII."), Footnote("", "* A note with no anchor."))
+        val texts = listOf("Opening paragraph.", "King Louis  allowed the weaker powers to be destroyed.")
+        assertEquals(mapOf(1 to listOf(texts[1].indexOf("allowed") + 7 to "[3]", texts[1].length to "*")), Footnotes.markers(notes, texts))
+    }
+
+    @Test
+    fun anUnlabelledNoteHasNoMarkerAndAPlainNumberIsShownInBrackets() {
+        assertEquals(null, Footnotes.label("See the preface."))
+        assertEquals("[3]", Footnotes.label("3. Louis XII."))
+        assertEquals("†", Footnotes.label("† Louis XII."))
+    }
 }

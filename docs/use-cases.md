@@ -2367,9 +2367,10 @@ Goal: not hear a scanned book's footnotes in the middle of a paragraph, and stil
 
 - With "Footnotes as notes, not spoken" on (the default), a footnote on a scanned page is kept as an annotation of the paragraph that cites it. A footnote is found by its place and small type at the foot of the page, or by its label (`[3]`, `*`, `†`, `‡`, a superscript or a number the text cites). A numbered list or a figure caption is not taken for one.
 - The reader shows the annotation under its paragraph in small muted type. It is read-only, is not the reader's own paragraph note, and a tap on it does not start the audio.
+- The citation stays in the paragraph as a small raised mark, such as `[3]`, just where the text cites the note, so it is clear what the note is about. The mark is shown only, never spoken, and search, chapters and word counts do not see it. A note with no label has no mark.
 - The annotation is never spoken, and is not in the transcript, so the audio has no gap for it, and search, chapters and word counts do not see it. A footnote with no marker in the text goes with the last paragraph of its page; none is dropped.
 - The footnotes are kept in `footnotes.json` with the book, so they survive a restart, and they travel in a backup. A backup made by an older build has none and restores without them.
-- An EPUB's footnotes are kept the same way when the book marks them: a block with class `footnote`, `endnote` or `rearnote`, `epub:type` footnote, endnote or rearnote, or ARIA role `doc-footnote` or `doc-endnote` (Project Gutenberg marks them so). The note goes with the nearest paragraph before it that cites it, and its `[3]` marker is taken out of that paragraph.
+- An EPUB's footnotes are kept the same way when the book marks them: a block with class `footnote`, `endnote` or `rearnote`, `epub:type` footnote, endnote or rearnote, or ARIA role `doc-footnote` or `doc-endnote` (Project Gutenberg marks them so). The note goes with the nearest paragraph before it that cites it, and its `[3]` marker is taken out of the spoken text.
 - EPUB export leaves the annotations out, so the exported book reads back as the same paragraphs.
 - The option applies to books made from now on: a book already made keeps its text. With the option off, a book reads exactly as it did before the option existed.
 
@@ -2389,6 +2390,8 @@ Tests:
 - `FootnotesTest.aPageWithoutFootnotesIsUnchanged`
 - `FootnotesTest.withTheOptionOffAPageReadsAsItAlwaysDid`
 - `FootnotesTest.geometryFindsASmallTypeNoteAtTheFootOfThePageWhateverItSays`
+- `FootnotesTest.markersSitJustAfterTheTextBeforeTheCitationEvenWhenTheWhitespaceDiffers`
+- `FootnotesTest.anUnlabelledNoteHasNoMarkerAndAPlainNumberIsShownInBrackets`
 - `FootnoteUiTest.aFootnoteIsAnAnnotationUnderItsParagraphAndIsNeverSpoken`
 - `FootnoteUiTest.withTheOptionOffTheFootnoteIsSpokenAsBefore`
 - `FootnoteUiTest.theFootnoteOptionIsOnByDefaultAndSavedWithTheOthers`

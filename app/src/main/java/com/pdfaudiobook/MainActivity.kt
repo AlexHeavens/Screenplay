@@ -67,6 +67,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.style.BaselineShift
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -301,6 +306,24 @@ fun MiniPlayer(onOpen: (String) -> Unit) {
  * The footnotes of paragraph [index], under it in small muted type. Read-only (unlike the reader's own paragraph note), never spoken and never
  * a place to seek to: a tap is taken here, so it does not start the paragraph's audio.
  */
+/** The paragraph with each footnote's label shown as a small raised mark where the note belongs. The mark is not in the transcript, so it is never spoken or searched. */
+@Composable
+private fun AnnotatedString.withFootnoteMarks(marks: List<Pair<Int, String>>?): AnnotatedString {
+    if (marks.isNullOrEmpty()) return this
+    val style = SpanStyle(fontSize = 0.75.em, baselineShift = BaselineShift.Superscript, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val sorted = marks.sortedBy { it.first }.map { (at, label) -> at.coerceIn(0, text.length) to label }
+    // A span that starts at a mark follows it, and one that ends at a mark stops before it.
+    fun shifted(offset: Int, start: Boolean) = offset + sorted.filter { if (start) it.first <= offset else it.first < offset }.sumOf { it.second.length }
+    val source = this
+    return buildAnnotatedString {
+        var at = 0
+        for ((pos, label) in sorted) { append(source.text.substring(at, pos)); withStyle(style) { append(label) }; at = pos }
+        append(source.text.substring(at))
+        for (s in source.spanStyles) addStyle(s.item, shifted(s.start, true), shifted(s.end, false))
+        for (p in source.paragraphStyles) addStyle(p.item, shifted(p.start, true), shifted(p.end, false))
+    }
+}
+
 @Composable
 fun FootnoteAnnotation(notes: List<String>, index: Int) {
     Text(
@@ -492,6 +515,7 @@ fun Reader(id: String, onBack: () -> Unit) {
     val chapters = remember(marks, segments) { Chapters.place(marks, segments) }
     // Per transcript change, not per playback tick; the annotations are no part of the transcript, so search, chapters and word counts never see them.
     val placedFootnotes = remember(footnotes, texts) { Footnotes.place(footnotes, texts) }
+    val footnoteMarks = remember(footnotes, texts) { Footnotes.markers(footnotes, texts) }
     // Search over every sentence read so far, spoken or only queued: a book still being made is searched as far as it goes, and the count follows it.
     // The query and the match survive a rotation; the work runs off the main thread, 200 ms after the last key.
     var searching by rememberSaveable { mutableStateOf(false) }
@@ -725,7 +749,7 @@ fun Reader(id: String, onBack: () -> Unit) {
                         .testTag("sentence-$i").semantics { selected = i == current; painted?.let { highlight = it.name; highlightBands = bands }; matchesByParagraph[i]?.let { searchMarks = it.size } },
                 ) {
                     val found = matchesByParagraph[i]
-                    val shownText = if (found == null) AnnotatedString(s.text) else Search.mark(s.text, found, found.indexOf(currentMatch).takeIf { it >= 0 }, darkTheme)
+                    val shownText = (if (found == null) AnnotatedString(s.text) else Search.mark(s.text, found, found.indexOf(currentMatch).takeIf { it >= 0 }, darkTheme)).withFootnoteMarks(footnoteMarks[i])
                     Text(shownText, (if (own) Modifier.chapterHeading(i) else Modifier).then(if (painted != null) Modifier.highlighterBands(bands, painted.pen(darkTheme)) else Modifier),
                         onTextLayout = { textLayout = it },
                         style = if (own) MaterialTheme.typography.headlineSmall else if (i == current) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
@@ -774,7 +798,7 @@ fun Reader(id: String, onBack: () -> Unit) {
                 val own = chapter != null && Chapters.isTitleOf(chapter, text)
                 if (chapter != null && !own) ChapterTitle(chapter.title, segments.size + i)
                 val found = matchesByParagraph[segments.size + i]
-                val shownText = if (found == null) AnnotatedString(text) else Search.mark(text, found, found.indexOf(currentMatch).takeIf { it >= 0 }, isDarkTheme())
+                val shownText = (if (found == null) AnnotatedString(text) else Search.mark(text, found, found.indexOf(currentMatch).takeIf { it >= 0 }, isDarkTheme())).withFootnoteMarks(footnoteMarks[segments.size + i])
                 Text(shownText, Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("queued-${segments.size + i}"),
                     style = if (own) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.bodyLarge,
                     fontWeight = if (own) FontWeight.Bold else null, color = ReadLabelGrey)

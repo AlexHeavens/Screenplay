@@ -129,23 +129,41 @@ object Footnotes {
         return (if (sentence != null && sentence.length >= MIN_SENTENCE_ANCHOR) sentence else tail).trim()
     }
 
-    /** Whitespace squeezed, as [place] compares text. */
-    private fun squeeze(text: String) = text.replace(spaces, " ")
-
     /**
-     * Each footnote's paragraph: the first one at or after the previous footnote's paragraph that holds its anchor. One whose anchor is
-     * gone (the paragraph was edited, or cleaning dropped it) goes with the footnote before it, so no note is lost. Notes of one paragraph keep their order.
+     * Each footnote's paragraph, and where in it the marker was: the first paragraph at or after the previous footnote's that holds its anchor,
+     * with the offset just after the anchor. One whose anchor is gone (the paragraph was edited, or cleaning dropped it) goes with the footnote
+     * before it, at the end of that paragraph, so no note is lost. Notes of one paragraph keep their order.
      */
-    fun place(footnotes: List<Footnote>, texts: List<String>): Map<Int, List<String>> {
-        if (texts.isEmpty() || footnotes.isEmpty()) return emptyMap()
-        val squeezed = texts.map(::squeeze)
-        val out = LinkedHashMap<Int, MutableList<String>>()
+    private fun locate(footnotes: List<Footnote>, texts: List<String>): List<Triple<Int, Int, Footnote>> {
+        if (texts.isEmpty()) return emptyList()
+        val out = ArrayList<Triple<Int, Int, Footnote>>()
         var from = 0
         for (f in footnotes) {
-            val at = (from until texts.size).firstOrNull { f.anchor in squeezed[it] } ?: from
+            val words = f.anchor.split(' ').filter { it.isNotEmpty() }
+            val regex = if (words.isEmpty()) null else Regex(words.joinToString("\\s+") { Regex.escape(it) })
+            var found: Pair<Int, Int>? = null
+            if (regex != null) for (i in from until texts.size) { regex.find(texts[i])?.let { found = i to it.range.last + 1 }; if (found != null) break }
+            val (at, offset) = found ?: (from to texts[from].length)
             from = at
-            out.getOrPut(at) { ArrayList() } += f.text
+            out += Triple(at, offset, f)
         }
         return out
     }
+
+    /** Each paragraph's footnote texts, by paragraph index. */
+    fun place(footnotes: List<Footnote>, texts: List<String>): Map<Int, List<String>> {
+        val out = LinkedHashMap<Int, MutableList<String>>()
+        for ((at, _, f) in locate(footnotes, texts)) out.getOrPut(at) { ArrayList() } += f.text
+        return out
+    }
+
+    /** Where each paragraph shows its notes' labels, as (offset in the paragraph, label), in order; the transcript has no marker, so none is spoken. */
+    fun markers(footnotes: List<Footnote>, texts: List<String>): Map<Int, List<Pair<Int, String>>> {
+        val out = LinkedHashMap<Int, MutableList<Pair<Int, String>>>()
+        for ((at, offset, f) in locate(footnotes, texts)) label(f.text)?.let { out.getOrPut(at) { ArrayList() } += offset to it }
+        return out
+    }
+
+    /** The label a note opens with, as it is shown in the text: `[3]`, a symbol, or a plain number in brackets; null for an unlabelled note. */
+    fun label(note: String): String? = marker(note)?.let { if (it.key[0].isDigit()) "[${it.key}]" else it.key }
 }

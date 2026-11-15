@@ -104,6 +104,8 @@ class FootnoteUiTest {
         val at = citingParagraph()
         assertTrue("the paragraph with the marker is in the transcript: $texts", at >= 0)
         compose.onNodeWithTag("footnote-$at", useUnmergedTree = true).assertTextContains(footnote)
+        // The citation stays in the shown text, where the note belongs, though it is not in the transcript and is not spoken.
+        compose.onNode(hasText("allowed[3] the weaker", substring = true), useUnmergedTree = true).assertExists()
         assertEquals("only the paragraph that cites it carries the footnote", 1, compose.onAllNodesWithTag("footnote-$at", useUnmergedTree = true).fetchSemanticsNodes().size)
         assertEquals(1, texts.indices.count { compose.onAllNodesWithTag("footnote-$it", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() })
         // A tap on the annotation is not a tap on the paragraph: the audio does not start.
@@ -165,7 +167,7 @@ class FootnoteUiTest {
             Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
                 .setDataAndType(androidx.core.content.FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", gutenbergEpub()), "application/epub+zip"),
         )
-        compose.waitUntil(120_000) { compose.onAllNodes(hasText("Ready", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(120_000) { Library.books.value.any { it.status == Status.READY } }
     }
 
     @Test
@@ -179,6 +181,7 @@ class FootnoteUiTest {
         openBook()
         val at = citingParagraph()
         compose.onNodeWithTag("footnote-$at", useUnmergedTree = true).assertTextContains("[3] $FOOT_TEXT")
+        compose.onNode(hasText("allowed[3] the weaker", substring = true), useUnmergedTree = true).assertExists()
     }
 
     @Test
