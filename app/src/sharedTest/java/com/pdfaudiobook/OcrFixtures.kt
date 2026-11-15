@@ -58,7 +58,7 @@ object OcrFixtures {
         mustContain = listOf("Lecturer on Natural Religion", "with no small amount of trepidation"),
         mustNotContain = listOf("CONTENTS", "neurally conditioned", "personal branch", "LECTURE III", "Percepts versus abstract concepts"),
         // The contents page prints "LECTURE I" too, so the opening's repeat of it and its title must still reach the chapter list.
-        chapters = listOf("PREFACE", "LECTURE I RELIGION AND NEUROLOGY"),
+        chapters = listOf("Preface", "Lecture I Religion and Neurology"),
     )
 
 

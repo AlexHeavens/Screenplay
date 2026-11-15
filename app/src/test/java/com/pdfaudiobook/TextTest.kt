@@ -252,12 +252,12 @@ class CleanupTest {
     @Test fun findsChaptersFromTheirNumbersAndTitles() {
         val body = Text.prepare(contentsThenOpenings, Options())
         val c = Chapters.find(body.mapIndexed { i, x -> Segment(i * 10L, i * 10L + 9, x) })
-        assertEquals(listOf("PREFACE", "ONE The Harbour \"Lights\"", "TWO The Harbour Office", "THREE The Rise of the Salt Trade"), c.map { it.title })
+        assertEquals(listOf("Preface", "ONE The Harbour \"Lights\"", "TWO The Harbour Office", "THREE The Rise of the Salt Trade"), c.map { it.title })
     }
 
     @Test fun findsALectureHeadingAndItsTitle() {
         val s = listOf(prose, "LECTURE I", "RELIGION AND NEUROLOGY", prose).mapIndexed { i, x -> Segment(i * 10L, i * 10L + 9, x) }
-        assertEquals(listOf("LECTURE I RELIGION AND NEUROLOGY"), Chapters.find(s).map { it.title })
+        assertEquals(listOf("Lecture I Religion and Neurology"), Chapters.find(s).map { it.title })
     }
 
     @Test fun aRunOfChapterNumbersIsAContentsListNotChapters() {

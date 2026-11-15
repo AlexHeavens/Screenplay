@@ -88,7 +88,7 @@ object Epub {
 
         var marks = chapterEntries(zip, opf, opfPath).mapNotNull { (from, e) -> place(from, e.href)?.let { it to e.title } }.filter { it.first < total }
         if (marks.isEmpty()) marks = docs.mapNotNull { (path, d) -> d.firstHeading?.let { start.getValue(path) + it to d.paragraphs[it] } }
-        marks = marks.sortedBy { it.first } // Stable, so two titles at one place (a part and its first chapter) keep their order.
+        marks = marks.map { (at, title) -> at to TitleCase.of(title) }.sortedBy { it.first } // Stable, so two titles at one place (a part and its first chapter) keep their order.
 
         val all = ArrayList<String>(total + marks.size)
         val headings = ArrayList<Pair<Int, String>>() // Index in [all] of each chapter's heading, and its title.

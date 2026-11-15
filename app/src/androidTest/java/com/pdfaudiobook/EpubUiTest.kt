@@ -124,6 +124,31 @@ class EpubUiTest {
     }
 
     @Smoke @Test
+    fun anEpubWithBlockCapitalChapterTitlesShowsThemInStandardCapitals() {
+        val xhtml = { body: String -> """<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>$body</body></html>""" }
+        val book = File(ctx.cacheDir, "block-capitals.epub")
+        ZipOutputStream(book.outputStream()).use { z ->
+            fun put(name: String, text: String) { z.putNextEntry(ZipEntry(name)); z.write(text.toByteArray()); z.closeEntry() }
+            put("META-INF/container.xml", """<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container" version="1.0"><rootfiles><rootfile full-path="c.opf" media-type="application/oebps-package+xml"/></rootfiles></container>""")
+            put("c.opf", """<package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Block Capitals</dc:title><dc:creator>Ann Author</dc:creator></metadata>
+                <manifest><item id="nav" href="nav.xhtml" properties="nav" media-type="application/xhtml+xml"/><item id="a" href="a.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="a"/></spine></package>""")
+            put("nav.xhtml", """<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><ol>
+                <li><a href="a.xhtml#one">CHAPTER III</a></li><li><a href="a.xhtml#two">THE PRINCE'S DUTIES</a></li><li><a href="a.xhtml#three">The Last Word</a></li></ol></nav></body></html>""")
+            put("a.xhtml", xhtml("""<h2 id="one">CHAPTER III</h2><p>The first chapter is short.</p><h2 id="two">THE PRINCE'S DUTIES</h2><p>The second chapter is short too.</p><h2 id="three">The Last Word</h2><p>The third chapter ends the book.</p>"""))
+        }
+        importThroughThePicker(book)
+        waitFor(hasContentDescription("Listened"))
+
+        val id = Library.books.value.single().id
+        assertEquals(listOf("Chapter III", "The Prince's Duties", "The Last Word"), Library.chapters(ctx, id).map { it.title })
+
+        compose.onNodeWithTag("book-Block Capitals").performClick()
+        waitFor(hasText("The second chapter is short too."))
+        compose.onNodeWithTag("chapters").performClick()
+        waitFor(hasText("The Prince's Duties"))
+    }
+
+    @Smoke @Test
     fun exportsAnEpubThatImportsAgainAsTheSameBook() {
         importThroughThePicker(asset("lighthouse.epub"))
         waitFor(hasContentDescription("Listened"))

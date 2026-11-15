@@ -187,7 +187,7 @@ object Chapters {
      * first paragraph of its page, which is how the estimate's anchors were taken.
      */
     fun find(segments: List<Segment>, saved: List<String> = emptyList(), estimates: List<ChapterEstimate> = emptyList()): List<Chapter> =
-        withEstimates(scan(segments, saved), segments, estimates)
+        withEstimates(scan(segments, saved), segments, estimates).map { it.copy(title = TitleCase.of(it.title)) }
 
     /** Whether [text] is the chapter's own heading, as opposed to a sentence that merely opens the chapter. */
     fun isTitleOf(chapter: Chapter, text: String) = norm(chapter.title) == norm(text)

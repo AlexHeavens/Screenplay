@@ -77,6 +77,31 @@ Tests:
 - `CleanupTest.findsChaptersFromTheirNumbersAndTitles`
 - `CleanupTest.findsALectureHeadingAndItsTitle`
 
+#### UC-01h A chapter title printed in block capitals shows in standard capitals
+
+Goal: read "The Prince's Duties", not "THE PRINCE'S DUTIES", in the chapter list and on the reading page.
+
+- A detected title with no lower-case letter is turned into title case. Small words stay lower case except at the start, Roman numerals and well-known acronyms stay upper case, and "PRINCE'S" becomes "Prince's".
+- A title with any lower-case letter stays as it is.
+- A book imported before this change keeps its stored titles until it is imported again.
+
+Tests:
+- `TitleCaseTest.capitalisesANameAfterAnApostropheInitial`
+- `TitleCaseTest.capitalisesASmallWordAfterAColon`
+- `TitleCaseTest.capitalisesEachPartOfAHyphenatedWord`
+- `TitleCaseTest.capitalisesEachWordOfABlockCapitalTitle`
+- `TitleCaseTest.doesNotTakeWordsForRomanNumerals`
+- `TitleCaseTest.keepsAcronymsUpperCase`
+- `TitleCaseTest.keepsNumbersAndPunctuation`
+- `TitleCaseTest.keepsOrdinalsLowerCase`
+- `TitleCaseTest.keepsRomanNumeralsUpperCase`
+- `TitleCaseTest.keepsSmallWordsLowerCaseExceptAtTheStart`
+- `TitleCaseTest.keepsTheLetterOfAnAppendix`
+- `TitleCaseTest.leavesMixedCaseTitlesAlone`
+- `TitleCaseTest.leavesTitlesWithoutLettersAlone`
+- `TitleCaseTest.lowersTheLetterAfterAnApostrophe`
+- `EpubUiTest.anEpubWithBlockCapitalChapterTitlesShowsThemInStandardCapitals`
+
 #### UC-01e A PDF with an ISBN gets its title from the catalogue
 
 Goal: see a real title and author, not a file name.
