@@ -18,7 +18,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.zIndex
-import kotlin.math.roundToInt
+import kotlin.math.abs
 
 /**
  * Drag a row of the import queue (a book, or a picked file still being saved) up or down: the row follows the finger and, on release, [onDrop] is given
@@ -31,18 +31,30 @@ class QueueDrag(
 ) {
     private var dragging by mutableStateOf<String?>(null)
     private var offset by mutableFloatStateOf(0f)
-    private var rowHeight = 0f
+    /** Each row's own height: a book being made is taller than one waiting, so one shared height would misjudge the drop place. */
+    private val heights = HashMap<String, Float>()
+    /** [heights] as they were when the drag began: rows change height as the drag goes on, so only the start is a fair measure. */
+    private var slots = emptyMap<String, Float>()
 
     fun isDragging(id: String) = dragging == id
 
-    private fun start(id: String) { dragging = id; offset = 0f }
+    private fun start(id: String) { dragging = id; offset = 0f; slots = HashMap(heights) }
 
     private fun move(amount: Float) { offset += amount }
 
     private fun cancel() { dragging = null; offset = 0f }
 
-    /** One row of drag is one place; the rows sit in line order, one below the other. */
-    private fun moved() = if (rowHeight > 0f) (offset / rowHeight).roundToInt() else 0
+    /** How many places the dragged row has moved: it takes the place of the row whose middle is nearest to its own middle. Rows sit one below the other in line order. */
+    private fun moved(): Int {
+        val moving = dragging ?: return 0
+        val line = rows().filter { it.id in slots }
+        val at = line.indexOfFirst { it.id == moving }
+        if (at < 0) return 0
+        var top = 0f
+        val middles = line.map { r -> val h = slots.getValue(r.id); (top + h / 2).also { top += h } }
+        val nearest = middles.indices.minByOrNull { abs(middles[it] - (middles[at] + offset)) } ?: return 0
+        return nearest - at
+    }
 
     /** A book is dropped at the number of books above it; a picked file that is not yet a book is given the same number, which it takes up once it is one. */
     private fun end(id: String) {
@@ -65,7 +77,7 @@ class QueueDrag(
     }
 
     fun modifier(id: String): Modifier = Modifier
-        .onSizeChanged { rowHeight = it.height.toFloat() }
+        .onSizeChanged { heights[id] = it.height.toFloat() }
         .zIndex(if (dragging == id) 1f else 0f)
         .graphicsLayer { translationY = if (dragging == id) offset else 0f }
         .pointerInput(id) {
