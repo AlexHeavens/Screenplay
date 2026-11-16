@@ -1,0 +1,11 @@
+{
+  "spell": true,
+  "trim": false,
+  "merge": true,
+  "clean": true,
+  "contents": true,
+  "natural": true,
+  "theme": "DARK",
+  "speed": 1.5,
+  "asked-notifications": true
+}

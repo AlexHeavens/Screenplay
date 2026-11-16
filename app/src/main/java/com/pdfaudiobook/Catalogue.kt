@@ -5,6 +5,7 @@
 package com.pdfaudiobook
 
 import android.content.Context
+import android.content.SharedPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -208,14 +209,23 @@ object Catalogue {
     private const val LANGUAGES_KEY = "catalogue-languages"
 
     /** Keeps the list's languages ("en:60000,fr:2000"), so the options can offer them before the list is read. */
-    private fun rememberLanguages(ctx: Context, data: CatalogueData) {
-        ctx.getSharedPreferences("settings", Context.MODE_PRIVATE).edit().putString(LANGUAGES_KEY, data.languages.joinToString(",") { "${it.code}:${it.count}" }).apply()
+    private fun rememberLanguages(ctx: Context, data: CatalogueData) =
+        rememberLanguages(ctx.getSharedPreferences("settings", Context.MODE_PRIVATE), data.languages)
+
+    /** [rememberLanguages] on any store, so a test can drive it without a device. */
+    internal fun rememberLanguages(prefs: SharedPreferences, languages: List<LanguageCount>) {
+        prefs.edit().putString(LANGUAGES_KEY, languages.joinToString(",") { "${it.code}:${it.count}" }).apply()
     }
 
     /** The languages of the list, from memory or else from the last time a list was read; empty when none has been. */
     fun knownLanguages(ctx: Context): List<LanguageCount> {
         (current.value as? State.Ready)?.let { return it.data.languages }
-        val saved = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE).getString(LANGUAGES_KEY, null).orEmpty()
+        return savedLanguages(ctx.getSharedPreferences("settings", Context.MODE_PRIVATE))
+    }
+
+    /** The languages kept by [rememberLanguages]; empty when none were, and pairs that do not parse are skipped. */
+    internal fun savedLanguages(prefs: SharedPreferences): List<LanguageCount> {
+        val saved = prefs.getString(LANGUAGES_KEY, null).orEmpty()
         return saved.split(',').mapNotNull { pair -> pair.split(':').takeIf { it.size == 2 }?.let { (c, n) -> n.toIntOrNull()?.let { LanguageCount(c, it) } } }
     }
 

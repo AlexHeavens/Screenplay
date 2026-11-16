@@ -5,6 +5,7 @@
 package com.pdfaudiobook
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.media.MediaPlayer
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,7 +39,7 @@ class Player(ctx: Context, id: String) : Playback {
     override var playing by mutableStateOf(false)
         private set
     /** Playback speed, kept across books and launches. */
-    override var speed by mutableStateOf(prefs.getFloat("speed", 1f))
+    override var speed by mutableStateOf(savedSpeed(prefs))
         private set
     override val duration: Long get() = media.duration.toLong()
 
@@ -54,7 +55,7 @@ class Player(ctx: Context, id: String) : Playback {
     /** Steps to the next entry of [SPEEDS], wrapping round. */
     override fun cycleSpeed() {
         speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.size]
-        prefs.edit().putFloat("speed", speed).apply()
+        saveSpeed(prefs, speed)
         applySpeed()
     }
 
@@ -78,5 +79,10 @@ class Player(ctx: Context, id: String) : Playback {
 
     companion object {
         val SPEEDS = listOf(1f, 1.25f, 1.5f, 2f, 0.75f)
+
+        /** The saved playback speed, 1 until one is saved; shared by [Player] and [LivePlayer]. */
+        fun savedSpeed(prefs: SharedPreferences) = prefs.getFloat("speed", 1f)
+
+        fun saveSpeed(prefs: SharedPreferences, speed: Float) { prefs.edit().putFloat("speed", speed).apply() }
     }
 }

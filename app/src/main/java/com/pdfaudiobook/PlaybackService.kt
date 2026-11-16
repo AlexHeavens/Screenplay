@@ -11,6 +11,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.ServiceInfo
 import android.graphics.drawable.Icon
 import android.media.MediaMetadata
@@ -64,10 +65,14 @@ object MediaControl {
     fun askOnce(ctx: Context, ask: () -> Unit) {
         if (android.os.Build.VERSION.SDK_INT < 33) return
         if (ctx.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED) return
-        val prefs = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        if (prefs.getBoolean("asked-notifications", false)) return
+        if (markAsked(ctx.getSharedPreferences("settings", Context.MODE_PRIVATE))) ask()
+    }
+
+    /** True the first time only, and records that the question was asked. */
+    internal fun markAsked(prefs: SharedPreferences): Boolean {
+        if (prefs.getBoolean("asked-notifications", false)) return false
         prefs.edit().putBoolean("asked-notifications", true).apply()
-        ask()
+        return true
     }
 
     /** Moves the spoken position by [deltaMs], clamped to the audio there is; the transcript and progress bar follow the player. */

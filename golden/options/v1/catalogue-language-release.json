@@ -1,0 +1,14 @@
+{
+  "spell": false,
+  "trim": true,
+  "merge": true,
+  "clean": true,
+  "footnotes": true,
+  "contents": true,
+  "voice": "PHONE",
+  "theme": "LIGHT",
+  "speed": 1.25,
+  "asked-notifications": true,
+  "language": "fr",
+  "catalogue-languages": "en:60000,fr:2000"
+}

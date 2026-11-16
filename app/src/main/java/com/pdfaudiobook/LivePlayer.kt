@@ -29,7 +29,7 @@ class LivePlayer(ctx: Context, id: String, private val rate: Int, startMs: Long 
         private set
     override var playing by mutableStateOf(false)
         private set
-    override var speed by mutableStateOf(prefs.getFloat("speed", 1f))
+    override var speed by mutableStateOf(Player.savedSpeed(prefs))
         private set
     /** Grows as the book is spoken. */
     override var duration by mutableStateOf(available())
@@ -75,7 +75,7 @@ class LivePlayer(ctx: Context, id: String, private val rate: Int, startMs: Long 
 
     override fun cycleSpeed() {
         speed = Player.SPEEDS[(Player.SPEEDS.indexOf(speed) + 1) % Player.SPEEDS.size]
-        prefs.edit().putFloat("speed", speed).apply()
+        Player.saveSpeed(prefs, speed)
         // A new track also resets the head position, which is the only clock the position is read from.
         if (track != null) open(position, playing)
     }

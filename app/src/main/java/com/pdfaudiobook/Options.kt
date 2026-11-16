@@ -5,6 +5,7 @@
 package com.pdfaudiobook
 
 import android.content.Context
+import android.content.SharedPreferences
 
 /** What to do to the text of a new book. Chosen on the shelf, kept across launches, read when a book starts to be made. */
 data class Options(
@@ -21,8 +22,11 @@ data class Options(
     /** Look of the app, not an import option: kept here so it shares the settings store. */
     val theme: ThemeMode = ThemeMode.SYSTEM,
 ) {
-    fun save(ctx: Context) {
-        ctx.getSharedPreferences("settings", Context.MODE_PRIVATE).edit()
+    fun save(ctx: Context) = save(ctx.getSharedPreferences("settings", Context.MODE_PRIVATE))
+
+    /** [save] on any store, so a test can drive it without a device. */
+    fun save(prefs: SharedPreferences) {
+        prefs.edit()
             .putBoolean("spell", spell).putBoolean("trim", trimFront).putBoolean("merge", mergeFragments)
             .putBoolean("clean", cleanText).putBoolean("footnotes", footnotes).putBoolean("contents", contents).putString("voice", voice.name).putString("theme", theme.name).apply()
     }
@@ -32,8 +36,10 @@ data class Options(
         private fun voiceOf(name: String?, legacyNatural: Boolean) =
             Voice.values().firstOrNull { it.name == name } ?: if (legacyNatural) Voice.KOKORO else Voice.PHONE
 
-        fun load(ctx: Context): Options {
-            val p = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        fun load(ctx: Context): Options = load(ctx.getSharedPreferences("settings", Context.MODE_PRIVATE))
+
+        /** [load] on any store, so a test can drive it without a device. */
+        fun load(p: SharedPreferences): Options {
             val d = Options()
             return Options(
                 spell = p.getBoolean("spell", d.spell), trimFront = p.getBoolean("trim", d.trimFront),

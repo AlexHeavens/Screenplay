@@ -1,0 +1,16 @@
+{
+  "options": {
+    "spell": true,
+    "trimFront": false,
+    "mergeFragments": true,
+    "cleanText": true,
+    "footnotes": true,
+    "contents": true,
+    "voice": "KOKORO",
+    "theme": "DARK"
+  },
+  "speed": 1.5,
+  "askedNotifications": true,
+  "catalogueLanguage": null,
+  "catalogueLanguages": []
+}

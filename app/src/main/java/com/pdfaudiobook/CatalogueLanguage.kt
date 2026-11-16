@@ -5,6 +5,7 @@
 package com.pdfaudiobook
 
 import android.content.Context
+import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.Locale
@@ -24,11 +25,17 @@ object CatalogueLanguage {
     /** The reader's choice: a language code, [ALL], or null when none was made yet. */
     val chosen: StateFlow<String?> = saved
 
-    fun load(ctx: Context) { saved.value = prefs(ctx).getString(KEY, null) }
+    fun load(ctx: Context) = load(prefs(ctx))
 
-    fun choose(ctx: Context, code: String) {
+    /** [load] on any store, so a test can drive it without a device. */
+    fun load(p: SharedPreferences) { saved.value = p.getString(KEY, null) }
+
+    fun choose(ctx: Context, code: String) = choose(prefs(ctx), code)
+
+    /** [choose] on any store. */
+    fun choose(p: SharedPreferences, code: String) {
         saved.value = code
-        prefs(ctx).edit().putString(KEY, code).apply()
+        p.edit().putString(KEY, code).apply()
     }
 
     /** Forgets the choice, so it is [ALL] again; a test starts from here. */

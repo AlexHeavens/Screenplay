@@ -1,0 +1,25 @@
+{
+  "options": {
+    "spell": false,
+    "trimFront": true,
+    "mergeFragments": true,
+    "cleanText": true,
+    "footnotes": true,
+    "contents": true,
+    "voice": "PHONE",
+    "theme": "LIGHT"
+  },
+  "speed": 1.25,
+  "askedNotifications": true,
+  "catalogueLanguage": "fr",
+  "catalogueLanguages": [
+    {
+      "code": "en",
+      "count": 60000
+    },
+    {
+      "code": "fr",
+      "count": 2000
+    }
+  ]
+}

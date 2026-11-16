@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlexHeavens/Screenplay/schemas/options/v1.json",
+  "title": "Saved options, version 1",
+  "description": "Every key of the Android SharedPreferences file \"settings\", as a map of key to stored value. A key that is absent takes its default. Keys not listed here are ignored by the app, so additionalProperties stays true. Frozen once released: never edit, add a v2.json.",
+  "type": "object",
+  "properties": {
+    "spell": {
+      "description": "Options.spell: fix OCR typos with a spell checker in a new book.",
+      "type": "boolean",
+      "default": false
+    },
+    "trim": {
+      "description": "Options.trimFront: drop the front matter of a new book.",
+      "type": "boolean",
+      "default": true
+    },
+    "merge": {
+      "description": "Options.mergeFragments: join text fragments that were split across lines or pages.",
+      "type": "boolean",
+      "default": true
+    },
+    "clean": {
+      "description": "Options.cleanText: drop back matter, tables, lists and page numbers.",
+      "type": "boolean",
+      "default": true
+    },
+    "footnotes": {
+      "description": "Options.footnotes: keep a scanned book's footnotes as unspoken annotations.",
+      "type": "boolean",
+      "default": true
+    },
+    "contents": {
+      "description": "Options.contents: keep a contents page out of the speech, shown at the start of the reading view.",
+      "type": "boolean",
+      "default": true
+    },
+    "voice": {
+      "description": "Options.voice, a Voice enum constant name. An unknown name falls back to PHONE, or to KOKORO when the legacy \"natural\" key is true.",
+      "type": "string",
+      "enum": ["PHONE", "KOKORO", "PIPER"],
+      "default": "PHONE"
+    },
+    "theme": {
+      "description": "Options.theme, a ThemeMode enum constant name. An unknown name falls back to SYSTEM.",
+      "type": "string",
+      "enum": ["SYSTEM", "LIGHT", "DARK"],
+      "default": "SYSTEM"
+    },
+    "natural": {
+      "description": "Legacy, read only, never written now. The first build had a Natural voice switch; true means voice KOKORO when \"voice\" is absent or unknown. Nothing removes it, so it may stay beside \"voice\".",
+      "type": "boolean",
+      "default": false,
+      "deprecated": true
+    },
+    "speed": {
+      "description": "Playback speed, one of Player.SPEEDS. Read as any float; written only from that list.",
+      "type": "number",
+      "enum": [0.75, 1, 1.25, 1.5, 2],
+      "default": 1
+    },
+    "asked-notifications": {
+      "description": "True once the notification permission was asked, so it is asked once only.",
+      "type": "boolean",
+      "default": false
+    },
+    "language": {
+      "description": "CatalogueLanguage: the Catalogue's language, a Gutenberg language code or \"all\". Absent means none chosen yet, which acts as \"all\". The old English only switch was never stored, so it has no migration.",
+      "type": "string",
+      "minLength": 1,
+      "default": "all"
+    },
+    "catalogue-languages": {
+      "description": "Catalogue: the languages of the last book list read, \"code:count\" pairs joined by commas, e.g. \"en:60000,fr:2000\". Pairs that do not parse are skipped on read.",
+      "type": "string",
+      "pattern": "^([^,:]+:[0-9]+(,[^,:]+:[0-9]+)*)?$",
+      "default": ""
+    }
+  },
+  "additionalProperties": true
+}

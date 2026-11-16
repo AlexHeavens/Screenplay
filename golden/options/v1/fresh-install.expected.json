@@ -1,0 +1,16 @@
+{
+  "options": {
+    "spell": false,
+    "trimFront": true,
+    "mergeFragments": true,
+    "cleanText": true,
+    "footnotes": true,
+    "contents": true,
+    "voice": "PHONE",
+    "theme": "SYSTEM"
+  },
+  "speed": 1.0,
+  "askedNotifications": false,
+  "catalogueLanguage": null,
+  "catalogueLanguages": []
+}
