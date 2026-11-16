@@ -2,6 +2,7 @@
 # Builds the book catalogue from Project Gutenberg's bulk feed and Open Library's ratings and publishes it to the release tagged `catalogue`,
 # unless nothing changed. Open Library publishes a dump each month; the dump is read only when it is newer than the one the ratings in the
 # release (the asset ol-ratings.tsv.xz, whose first line names its dump) came from. Otherwise those ratings are reused.
+# The built file is checked against schemas/catalogue/vN.json (scripts/validate-schema.py) before anything is uploaded.
 # DRY_RUN=1 does everything except write to the release (reads still need `gh auth login` or GH_TOKEN).
 # The workflow .github/workflows/catalogue.yml runs this; run it by hand the same way: scripts/publish-catalogue.sh (needs gh, curl, python3).
 # One request for one bulk file, as Gutenberg's robot page asks; no per-book requests. The app downloads the result from
@@ -59,6 +60,9 @@ modified=$(awk 'tolower($1) == "last-modified:" { sub(/^[^:]*: */, ""); sub(/\r$
 build_date=$(date --utc --date "$modified" +%F)
 
 python3 -I scripts/build-catalogue.py "$work/rdf-files.tar.bz2" "$work/catalogue.tsv.xz" --build-date "$build_date" --ratings "$ratings"
+# A file that breaks its schema (docs/data-specs.md) is not published: the old catalogue stays and the job fails.
+format=$(xz --decompress --stdout "$work/catalogue.tsv.xz" | head --lines 1 | awk '{ print $2 }')
+python3 -I scripts/validate-schema.py "schemas/catalogue/v$format.json" "$work/catalogue.tsv.xz"
 size=$(stat --format %s "$work/catalogue.tsv.xz")
 echo "catalogue built $build_date: $size bytes"
 

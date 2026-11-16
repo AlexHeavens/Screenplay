@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "$id": "https://github.com/AlexHeavens/Screenplay/schemas/catalogue/v1.json",
+  "title": "Catalogue row, format 1",
+  "description": "One book of catalogue.tsv.xz (scripts/build-catalogue.py writes it; app/.../Catalogue.kt reads it), after the tab-separated columns are split by x-column-order. FROZEN: released files may only gain optional properties; see docs/data-specs.md. Format 1 had no rating columns.",
+  "x-column-order": [
+    "id",
+    "title",
+    "authors",
+    "languages",
+    "downloads",
+    "tags"
+  ],
+  "x-header-lines": [
+    "^catalogue-format 1 build \\d{4}-\\d{2}-\\d{2}$",
+    "^tags(\\t|$)"
+  ],
+  "required": [
+    "id",
+    "title",
+    "authors",
+    "languages",
+    "downloads",
+    "tags"
+  ],
+  "properties": {
+    "id": {
+      "description": "Project Gutenberg book number; the EPUB is https://www.gutenberg.org/ebooks/<id>.epub3.images",
+      "type": "integer",
+      "minimum": 1
+    },
+    "title": {
+      "description": "First line of the title, at most 80 characters, no tab or newline.",
+      "type": "string",
+      "minLength": 1
+    },
+    "authors": {
+      "description": "\"Last, First\" names joined with \"; \"; empty when the feed names none.",
+      "type": "string"
+    },
+    "languages": {
+      "description": "Gutenberg language codes joined with \",\".",
+      "type": "string",
+      "pattern": "^[a-z]{2,3}(,[a-z]{2,3})*$"
+    },
+    "downloads": {
+      "description": "Gutenberg's download count for the book.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "tags": {
+      "description": "Positions in the file's tag line (line 2), most used tag first; empty cell is no tags.",
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      }
+    }
+  }
+}

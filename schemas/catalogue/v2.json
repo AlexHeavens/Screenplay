@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "$id": "https://github.com/AlexHeavens/Screenplay/schemas/catalogue/v2.json",
+  "title": "Catalogue row, format 2",
+  "description": "One book of catalogue.tsv.xz (scripts/build-catalogue.py writes it; app/.../Catalogue.kt reads it), after the tab-separated columns are split by x-column-order. FROZEN: released files may only gain optional properties; see docs/data-specs.md. Format 2 adds the two rating columns to format 1.",
+  "x-column-order": [
+    "id",
+    "title",
+    "authors",
+    "languages",
+    "downloads",
+    "tags",
+    "rating10",
+    "ratingCount"
+  ],
+  "x-header-lines": [
+    "^catalogue-format 2 build \\d{4}-\\d{2}-\\d{2}$",
+    "^tags(\\t|$)"
+  ],
+  "required": [
+    "id",
+    "title",
+    "authors",
+    "languages",
+    "downloads",
+    "tags",
+    "rating10",
+    "ratingCount"
+  ],
+  "properties": {
+    "id": {
+      "description": "Project Gutenberg book number; the EPUB is https://www.gutenberg.org/ebooks/<id>.epub3.images",
+      "type": "integer",
+      "minimum": 1
+    },
+    "title": {
+      "description": "First line of the title, at most 80 characters, no tab or newline.",
+      "type": "string",
+      "minLength": 1
+    },
+    "authors": {
+      "description": "\"Last, First\" names joined with \"; \"; empty when the feed names none.",
+      "type": "string"
+    },
+    "languages": {
+      "description": "Gutenberg language codes joined with \",\".",
+      "type": "string",
+      "pattern": "^[a-z]{2,3}(,[a-z]{2,3})*$"
+    },
+    "downloads": {
+      "description": "Gutenberg's download count for the book.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "tags": {
+      "description": "Positions in the file's tag line (line 2), most used tag first; empty cell is no tags.",
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "rating10": {
+      "description": "Open Library average rating times ten (42 is 4.2 stars); empty (null) when nobody rated the book.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 10,
+      "maximum": 50
+    },
+    "ratingCount": {
+      "description": "How many Open Library readers rated the book; empty (null) when nobody did.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    }
+  },
+  "anyOf": [
+    {
+      "description": "unrated",
+      "properties": {
+        "rating10": {
+          "type": "null"
+        },
+        "ratingCount": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "description": "rated",
+      "properties": {
+        "rating10": {
+          "type": "integer"
+        },
+        "ratingCount": {
+          "type": "integer"
+        }
+      }
+    }
+  ]
+}
