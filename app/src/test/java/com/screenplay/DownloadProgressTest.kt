@@ -56,4 +56,11 @@ class DownloadProgressTest {
         for (received in 0..2 * megabyte step 1024) if (throttle.accept(DownloadProgress(received, -1))) passed++
         assertTrue("passed $passed reports", passed in 20..40)
     }
+
+    @Test
+    fun aRetryTellsItsTryNumberUntilTheFirstByteArrives() {
+        assertEquals("Downloading…", DownloadProgress(0, -1).label)
+        assertEquals("Retrying download… (try 2 of 3)", DownloadProgress(0, -1, attempt = 2).label)
+        assertEquals("try 2 of 3", DownloadProgress(0, -1, attempt = 2).counts)
+    }
 }

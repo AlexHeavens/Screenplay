@@ -39,8 +39,11 @@ object ImportQueue {
     /** Every book whose import is not over, in the order it is made: the one running (or interrupted by a restart), then the waiting ones. */
     fun line(books: List<Book>): List<Book> = books.filter { it.status in running }.sortedBy { it.created } + waiting(books)
 
-    /** The books the shelf lists as imported: the ones not in [line], a failed one with its error. */
-    fun imported(books: List<Book>): List<Book> = books.filter { it.status == Status.READY || it.status == Status.FAILED }
+    /** The books the shelf lists as imported: the ones not in [line], a failed one with its error, except a failed download ([failedDownloads]). */
+    fun imported(books: List<Book>): List<Book> = books.filter { it.status == Status.READY || (it.status == Status.FAILED && !it.awaitingDownload) }
+
+    /** Books whose file could not be fetched and that gave up: not imported, so the shelf lists them at the end of "Importing", with Retry. */
+    fun failedDownloads(books: List<Book>): List<Book> = books.filter { it.status == Status.FAILED && it.awaitingDownload }.sortedWith(compareBy({ it.queueOrder }, { it.created }, { it.id }))
 
     /** The next book to make, skipping those in [skip]. */
     fun next(books: List<Book>, skip: Set<String> = emptySet()): Book? = line(books).firstOrNull { it.id !in skip }

@@ -1043,12 +1043,14 @@ Tests:
 
 Goal: get a book again after a dropped connection, without deleting its row and adding it again.
 
-- A temporary failure (no connection, "too many requests", a server error) is tried again by itself, up to 3 tries in all, each after the catalogue client's back-off (2 s, then 4 s).
-- A permanent failure (for example error 404: the file is not there) is not tried again. The book stays under "Imported" as "Failed: " with the reason.
-- A book still waiting in the queue whose background fetch failed ("Download failed: …") has the same "Retry" button, which fetches it again at once.
-- A failed book whose file was not fetched has a "Retry" button. It puts the same book back in the queue at the start of its download stage, in the place its saved queue order gives it, and starts the worker. The stored book details do not change.
+- A temporary failure (no connection, "too many requests", a server error) is tried again by itself, up to 3 tries in all, each after the catalogue client's back-off (2 s, then 4 s). The row says "Retrying download… (try 2 of 3)" from the moment a later try starts, also while it waits out the back-off.
+- A permanent failure (for example error 404: the file is not there) is not tried again. The book ends the "Importing" section as "Failed: " with the reason, not under "Imported", since it is not imported.
+- A book still waiting in the queue whose background fetch failed ("Download failed: …") has the same Retry button, which fetches it again at once.
+- A failed book whose file was not fetched has a Retry button (a circular arrow, described as "Retry <title>"). It puts the same book back in the queue at the start of its download stage, in the place its saved queue order gives it, and starts the worker. The stored book details do not change.
 
 Tests:
+- `DownloadProgressTest.aRetryTellsItsTryNumberUntilTheFirstByteArrives`
+- `ImportQueueTest.aDownloadThatFailedForGoodEndsTheImportingSectionInsteadOfBeingImported`
 - `RetryTransientTest.aTransientFailureIsTriedAgainAndTheBookCarriesOnWhenALaterTryWorks`
 - `RetryTransientTest.aTransientFailureThatKeepsComingIsThrownAfterTheLastTry`
 - `RetryTransientTest.aPermanentFailureIsThrownAtOnceWithoutAnotherTry`

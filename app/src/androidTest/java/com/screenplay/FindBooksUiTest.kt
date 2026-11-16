@@ -476,6 +476,7 @@ class FindBooksUiTest {
         val failed = Library.books.value.single()
         compose.onNodeWithTag("find-back").performClick()
         waitForTag("retry-Harbour Notes")
+        assertTrue("a failed download is listed under Importing, not Imported", exists("section-importing") && !exists("section-imported"))
         compose.onNodeWithTag("status-Harbour Notes", useUnmergedTree = true).assertTextContains("no such file (error 404)", substring = true)
 
         missing = false

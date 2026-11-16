@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Search
@@ -243,14 +244,15 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
         val rows = ImportQueue.rows(books, pending)
         val drag = rememberQueueDrag(rows) { id, isPending, place -> if (isPending) Library.placePending(id, place) else Library.moveTo(ctx, id, place) }
         val imported = ImportQueue.imported(books)
+        val failedDownloads = ImportQueue.failedDownloads(books)
         LazyColumn(Modifier.padding(pad)) {
             // Shown only while a book is still being made; the queue empties and the section goes.
-            if (importing.isNotEmpty() || pending.isNotEmpty()) {
+            if (importing.isNotEmpty() || pending.isNotEmpty() || failedDownloads.isNotEmpty()) {
                 item(key = "header-importing") {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.weight(1f)) { SectionHeader("Importing", "section-importing") }
                         // The same pause as the notification's button: one flag, so the shelf, the notification and the rows always agree.
-                        TextButton(
+                        if (importing.isNotEmpty() || pending.isNotEmpty()) TextButton(
                             onClick = { if (paused) ImportQueue.resume() else ImportQueue.pause() },
                             Modifier.height(32.dp).testTag(if (paused) "import-resume" else "import-pause"),
                             shape = ControlShape,
@@ -268,14 +270,17 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
                 }
                 // A file that failed is not in the queue: it cannot be moved.
                 items(pending.filter { it.key !in rows.map { r -> r.id } }, key = { "pending-${it.key}" }) { p -> PendingRow(p, onDismiss = { Library.finish(p.key) }, drag = null) }
+                // A book whose download failed for good is not imported: it ends the section, with its reason and a Retry button.
+                items(failedDownloads, key = { it.id }) { b ->
+                    BookRow(b, b.label(), onOpen, onDelete = { toDelete = b }, drag = null, onRetry = { Library.retryDownload(ctx, b.id) })
+                }
             }
             if (imported.isNotEmpty()) {
                 item(key = "header-imported") { SectionHeader("Imported", "section-imported") }
                 items(imported, key = { it.id }) { b ->
                     // The chapter comes from files, so it is read off the main thread, again when the place or the chapters change.
                     val chapter by produceState<String?>(null, b.id, b.positionMs, b.finished, b.chapters) { value = withContext(Dispatchers.IO) { Library.currentChapter(ctx, b) } }
-                    BookRow(b, if (b.status == Status.READY) "" else b.label(), onOpen, onDelete = { toDelete = b }, drag = null, chapter = chapter,
-                        onRetry = if (b.status == Status.FAILED && b.awaitingDownload) ({ Library.retryDownload(ctx, b.id) }) else null)
+                    BookRow(b, if (b.status == Status.READY) "" else b.label(), onOpen, onDelete = { toDelete = b }, drag = null, chapter = chapter)
                 }
             }
         }
@@ -344,7 +349,7 @@ private fun BookRow(b: Book, label: String, onOpen: (String) -> Unit, onDelete: 
             trailingContent = {
                 Row {
                     // A failed download can be tried again: the book goes back to its place in the queue.
-                    if (onRetry != null) TextButton(onClick = onRetry, modifier = Modifier.testTag("retry-${b.title}")) { Text("Retry") }
+                    if (onRetry != null) IconButton(onClick = onRetry, modifier = Modifier.testTag("retry-${b.title}")) { Icon(Icons.Filled.Refresh, contentDescription = "Retry ${b.title}") }
                     IconButton(onClick = onDelete, modifier = Modifier.testTag("delete-${b.title}")) { Icon(Icons.Filled.Delete, contentDescription = "Delete ${b.title}") }
                 }
             },

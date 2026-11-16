@@ -30,6 +30,15 @@ class ImportQueueTest {
     }
 
     @Test
+    fun aDownloadThatFailedForGoodEndsTheImportingSectionInsteadOfBeingImported() {
+        val failed = Book("dl", "dl", Status.FAILED, 0f, "HTTP 503", 0, 0, awaitingDownload = true)
+        val books = listOf(book("done", Status.READY), failed, book("bad", Status.FAILED), book("a", Status.READING))
+        assertEquals(listOf("dl"), ids(ImportQueue.failedDownloads(books)))
+        assertEquals(listOf("done", "bad"), ids(ImportQueue.imported(books)))
+        assertEquals(listOf("a"), ids(ImportQueue.line(books)))
+    }
+
+    @Test
     fun anEmptyQueueHasNothingImportingSoTheShelfShowsNoImportingSection() {
         val books = listOf(book("done", Status.READY), book("bad", Status.FAILED))
         assertTrue(ImportQueue.line(books).isEmpty())

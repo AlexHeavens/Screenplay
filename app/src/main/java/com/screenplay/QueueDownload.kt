@@ -24,7 +24,7 @@ import java.util.Locale
  * How far one fetch has come: [received] bytes of [expected], which is 0 or less when the server did not announce a length.
  * The bar fills with [fraction] (an indeterminate bar when it is null) and the row says [label].
  */
-data class DownloadProgress(val received: Long, val expected: Long) {
+data class DownloadProgress(val received: Long, val expected: Long, val attempt: Int = 1) {
     /** Share received, 0..1; null when the length is unknown. */
     val fraction: Float? get() = if (expected > 0) (received.toFloat() / expected).coerceIn(0f, 1f) else null
 
@@ -32,6 +32,7 @@ data class DownloadProgress(val received: Long, val expected: Long) {
     val label: String get() = when {
         expected > 0 -> "Downloading ${percent}% · ${size(received, expected)} of ${size(expected, expected)} ${unit(expected)}"
         received > 0 -> "Downloading ${size(received, received)} ${unit(received)}"
+        attempt > 1 -> "Retrying download… (try $attempt of ${QueueDownload.ATTEMPTS})"
         else -> "Downloading…"
     }
 
@@ -39,6 +40,7 @@ data class DownloadProgress(val received: Long, val expected: Long) {
     val counts: String get() = when {
         expected > 0 -> "$percent% · ${size(received, expected)}/${size(expected, expected)} ${unit(expected)}"
         received > 0 -> "${size(received, received)} ${unit(received)}"
+        attempt > 1 -> "try $attempt of ${QueueDownload.ATTEMPTS}"
         else -> "0%"
     }
 
@@ -91,7 +93,10 @@ object QueueDownload {
      * [prefetch] is fetching the same book waits for that fetch). A transient failure ([CatalogueException.transient]) is tried again up to
      * [ATTEMPTS] times in all, each after the client's back-off; any other failure, or the last one, is thrown for the book to show.
      */
-    suspend fun ensure(ctx: Context, id: String) = retryTransient(ATTEMPTS) { fetchOnce(ctx, id) }
+    suspend fun ensure(ctx: Context, id: String) {
+        var attempt = 0
+        retryTransient(ATTEMPTS) { fetchOnce(ctx, id, ++attempt) }
+    }
 
     /** Runs [attempt] up to [attempts] times in all, again only after a [CatalogueException.transient] failure; any other failure, or the last, is thrown. */
     internal suspend fun retryTransient(attempts: Int, attempt: suspend () -> Unit) {
@@ -106,28 +111,29 @@ object QueueDownload {
     }
 
     /** One try: waits out a failure's back-off first, outside the lock. Throws when the fetch fails. */
-    private suspend fun fetchOnce(ctx: Context, id: String) {
+    private suspend fun fetchOnce(ctx: Context, id: String, attempt: Int) {
         if (!awaiting(id)) return
         val client = Gutenberg.client(ctx)
-        delay(client.backoffMs())
-        one.withLock {
-            val book = Library.books.value.firstOrNull { it.id == id }?.takeIf { it.awaitingDownload } ?: return
-            val throttle = DownloadProgress.Throttle()
-            DownloadProgress(0, -1).also { throttle.accept(it); activeProgress.update { all -> all + (id to it) } }
-            try {
+        // The row says so from the moment a try is made, also while it waits out the back-off or another fetch, so a retry never looks like nothing happening.
+        activeProgress.update { it + (id to DownloadProgress(0, -1, attempt)) }
+        try {
+            delay(client.backoffMs())
+            one.withLock {
+                val book = Library.books.value.firstOrNull { it.id == id }?.takeIf { it.awaitingDownload } ?: return
+                val throttle = DownloadProgress.Throttle().also { it.accept(DownloadProgress(0, -1)) }
                 client.download(book.downloadUrl, File(Library.dir(ctx, id), Files.EPUB)) { received, expected ->
-                    val progress = DownloadProgress(received, expected)
+                    val progress = DownloadProgress(received, expected, attempt)
                     if (throttle.accept(progress)) activeProgress.update { it + (id to progress) }
                 }
                 Library.update(ctx, id) { it.copy(error = null) }
-            } finally {
-                activeProgress.update { it - id }
             }
+        } finally {
+            activeProgress.update { it - id }
         }
     }
 
     /** Tries of one fetch for a transient failure, the first included; the client's back-off (2 s, then 4 s) spaces them. */
-    private const val ATTEMPTS = 3
+    const val ATTEMPTS = 3
 
     private fun awaiting(id: String) = Library.books.value.firstOrNull { it.id == id }?.awaitingDownload == true
 
