@@ -52,3 +52,14 @@ read exactly 8 columns and do.
 * **Publishing**: `scripts/publish-catalogue.sh` validates the file it built and uploads nothing when it fails.
 * **Unit tests**: every golden file is read by the current code and must equal its `.expected.json`.
 * **Last release** for `schema-diff.py` is the newest `v<digit>` tag, or `origin/main` while the app has no release tag. CI needs full history (`fetch-depth: 0`).
+
+## Saved options
+
+`schemas/options/v1.json` describes the `settings` SharedPreferences file as one object: a property per stored key, with type, allowed values and the
+`default` an absent key takes. Unknown keys are allowed (`additionalProperties`), because the app ignores them. `golden/options/v1/<name>.json` is a
+stored map from one era of the app and `<name>.expected.json` the settings the current code must read from it (`OptionsSpecTest`).
+
+* **A new option is a new key**, so add it to a new schema version; `OptionsSpecTest.everyKeyInTheSourcesIsInTheSchema` fails on a key in `app/src/main` with no schema entry.
+* **A removed or renamed key** needs a migration in `Options.load` and a golden map that still holds the old key. `natural` (the first build's Natural voice switch, read as voice `KOKORO`) is the example.
+* Values the schema forbids (an unknown voice name, a malformed `catalogue-languages`) are tolerated by the reader; they are tested inline, not as golden files.
+* The old Catalogue "English only" switch was never stored, so no migration exists; an absent `language` reads as All.

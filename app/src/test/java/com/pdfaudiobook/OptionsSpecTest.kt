@@ -72,12 +72,35 @@ class OptionsSpecTest {
         assertTrue("keys in the sources with no entry in schemas/options/v1.json (add a schema version): $unknown", unknown.isEmpty())
     }
 
+    /** The shared validator (scripts/validate-schema.py) on a map, as the file the app would store; returns its complaints, empty when valid. */
+    private fun problems(stored: Map<String, Any>): String {
+        val file = File.createTempFile("options", ".json").apply { deleteOnExit() }
+        file.writeText(json(stored).toString())
+        val run = ProcessBuilder("python3", "-I", File(root, "scripts/validate-schema.py").path, File(root, "schemas/options/v1.json").path, file.path)
+            .redirectErrorStream(true).start()
+        val out = run.inputStream.bufferedReader().readText()
+        return if (run.waitFor() == 0) "" else out
+    }
+
+    @Test fun whatTheAppWritesSatisfiesTheSchema() {
+        assertEquals("", problems(writtenByTheApp()))
+        assertEquals("", problems(emptyMap()))
+        assertTrue("a wrong type must fail the validator", problems(mapOf("voice" to "GONE")).isNotEmpty())
+    }
+
+    @Test fun everyGoldenSatisfiesTheSchema() {
+        for (file in goldenDir.listFiles { f -> !f.name.endsWith(".expected.json") }!!) {
+            val j = JSONObject(file.readText())
+            assertEquals(file.name, "", problems(j.keys().asSequence().associateWith { j.get(it) }))
+        }
+    }
+
     @Test fun everyGoldenGivesItsExpectedSettings() {
         val stored = goldenDir.listFiles { f -> !f.name.endsWith(".expected.json") }!!.sortedBy { it.name }
         assertTrue("goldens missing", stored.size >= 7)
         for (file in stored) {
             val expected = JSONObject(File(goldenDir, file.name.removeSuffix(".json") + ".expected.json").readText())
-            val actual = effective(JSONObject(file.readText()).let { j -> j.keys().asSequence().associateWith { k -> j.get(k).let { v -> if (v is Double) v.toFloat() else v } } })
+            val actual = effective(JSONObject(file.readText()).let { j -> j.keys().asSequence().associateWith { k -> j.get(k).let { v -> if (v is Double || v is java.math.BigDecimal) (v as Number).toFloat() else v } } })
             assertTrue("${file.name}: expected $expected but got $actual", expected.similar(actual))
         }
     }
