@@ -70,7 +70,7 @@ class FootnoteUiTest {
     fun restore() {
         Engines.recognisePage = null
         Engines.surveyPages = null
-        Options().save(ctx)
+        Options(spell = false).save(ctx)
         scenario?.close()
     }
 
@@ -137,7 +137,7 @@ class FootnoteUiTest {
 
     @Test
     fun theFootnoteOptionIsOnByDefaultAndSavedWithTheOthers() {
-        Options().save(ctx)
+        Options(spell = false).save(ctx)
         assertTrue(Options.load(ctx).footnotes)
         scenario = ActivityScenario.launch(Intent(ctx, MainActivity::class.java))
         compose.onNodeWithTag("settings").performClick()

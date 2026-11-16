@@ -49,7 +49,7 @@ class MediaNotificationTest {
     fun freshInstall() {
         File(ctx.filesDir, "books").deleteRecursively()
         Library.refresh(ctx)
-        Options().save(ctx)
+        Options(spell = false).save(ctx)
         // Slow words make the book longer than one 10 s skip, so the skips can be told from the clamps.
         Engines.synthesizer = { FakeSynthesizer(msPerWord = 2500) }
     }

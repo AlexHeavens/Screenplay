@@ -64,7 +64,7 @@ class ContentsUiTest {
     @After
     fun restore() {
         Engines.recognisePage = null
-        Options().save(ctx)
+        Options(spell = false).save(ctx)
         scenario?.close()
     }
 
@@ -113,7 +113,7 @@ class ContentsUiTest {
 
     @Test
     fun theContentsOptionIsOnByDefaultAndSavedWithTheOthers() {
-        Options().save(ctx)
+        Options(spell = false).save(ctx)
         assertTrue(Options.load(ctx).contents)
         scenario = ActivityScenario.launch(Intent(ctx, MainActivity::class.java))
         compose.onNodeWithTag("settings").performClick()

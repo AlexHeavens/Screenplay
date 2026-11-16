@@ -98,7 +98,7 @@ class FindBooksUiTest {
         storedList.delete()
         File(ctx.filesDir, Catalogue.FILE + ".new").delete()
         Library.refresh(ctx)
-        Options().save(ctx)
+        Options(spell = false).save(ctx)
         CatalogueLanguage.choose(ctx, "en") // most tests search the English books; the language tests say otherwise
         Engines.synthesizer = { FakeSynthesizer() }
         Gutenberg.client = null

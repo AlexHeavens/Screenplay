@@ -1,6 +1,6 @@
 {
   "options": {
-    "spell": false,
+    "spell": true,
     "trimFront": true,
     "mergeFragments": true,
     "cleanText": true,

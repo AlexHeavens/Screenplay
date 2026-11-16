@@ -44,7 +44,7 @@ class ImportProgressTest {
     fun freshInstall() {
         File(ctx.filesDir, "books").deleteRecursively()
         Library.refresh(ctx)
-        Options().save(ctx)
+        Options(spell = false).save(ctx)
         Engines.synthesizer = { FakeSynthesizer() }
     }
 

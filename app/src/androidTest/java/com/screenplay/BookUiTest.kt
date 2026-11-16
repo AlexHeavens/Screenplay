@@ -48,6 +48,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -193,12 +194,12 @@ class BookUiTest {
         getInstrumentationPrefsReset()
         scenario = ActivityScenario.launch(Intent(ctx, MainActivity::class.java))
         compose.onNodeWithTag("settings").performClick()
+        compose.onNodeWithTag("opt-spell").assertIsOn()
+        compose.onNodeWithTag("opt-spell").performClick()
         compose.onNodeWithTag("opt-spell").assertIsOff()
+        assertFalse(Options.load(ctx).spell)
         compose.onNodeWithTag("opt-spell").performClick()
         compose.onNodeWithTag("opt-spell").assertIsOn()
-        assertTrue(Options.load(ctx).spell)
-        compose.onNodeWithTag("opt-spell").performClick()
-        compose.onNodeWithTag("opt-spell").assertIsOff()
     }
 
     /** A fake that records which engine spoke, so a test can tell the neural lane from the phone's own. */
@@ -226,13 +227,13 @@ class BookUiTest {
 
     @Test
     fun importUsesThePhonesVoiceByDefault() {
-        Options().save(ctx)
+        Options(spell = false).save(ctx)
         assertEquals(setOf("android"), importAndCollectEngines())
     }
 
     @Test
     fun voiceDropDownDefaultsToThePhonesVoiceAndListsAllThree() {
-        Options().save(ctx)
+        Options(spell = false).save(ctx)
         scenario = ActivityScenario.launch(Intent(ctx, MainActivity::class.java))
         compose.onNodeWithTag("settings").performClick()
         compose.onNodeWithTag("opt-voice").assertTextContains(Voice.PHONE.label)
@@ -247,7 +248,7 @@ class BookUiTest {
     fun pickingPiperMakesAnImportUseThePiperSynthesizer() = pickingAVoiceMakesAnImportUseIt(Voice.PIPER)
 
     private fun pickingAVoiceMakesAnImportUseIt(voice: Voice) {
-        Options().save(ctx)
+        Options(spell = false).save(ctx)
         Engines.prepareNeural = { _, _, progress -> progress(1f) }
         pickVoice(voice)
         waitFor(what = "voice ready", matcher = hasText("Voice ready"))
@@ -258,7 +259,7 @@ class BookUiTest {
 
     @Test
     fun aFailedVoiceDownloadFallsBackToThePreviousVoiceAndSaysWhy() {
-        Options().save(ctx)
+        Options(spell = false).save(ctx)
         Engines.prepareNeural = { _, _, _ -> throw java.io.IOException("no network") }
         pickVoice(Voice.PIPER)
         waitFor(what = "failure", matcher = hasText("Voice download failed: no network"))

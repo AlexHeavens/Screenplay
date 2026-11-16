@@ -111,6 +111,16 @@ class OptionsSpecTest {
         assertEquals(properties.getJSONObject("language").getString("default"), CatalogueLanguage.ALL)
     }
 
+    @Test fun spellCheckIsOnForAFreshInstallAndAStoredChoiceIsKept() {
+        assertTrue(Options.load(FakePreferences()).spell)
+        assertFalse(Options.load(FakePreferences(mapOf("spell" to false))).spell)
+        assertTrue(Options.load(FakePreferences(mapOf("spell" to true))).spell)
+        val prefs = FakePreferences(mapOf("spell" to false))
+        Options.load(prefs).save(prefs)
+        assertEquals(false, prefs.snapshot()["spell"])
+        assertTrue("a fresh load must not write", FakePreferences().also { Options.load(it) }.snapshot().isEmpty())
+    }
+
     /** Values outside the schema's enums are not valid data, so they are not golden files; the reader still copes with them. */
     @Test fun valuesOutsideTheSchemaFallBack() {
         val unknown = effective(mapOf("voice" to "GONE", "theme" to "SEPIA")).getJSONObject("options")

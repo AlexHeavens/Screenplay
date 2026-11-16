@@ -40,7 +40,7 @@ class SleepTimerUiTest {
     fun freshInstall() {
         File(ctx.filesDir, "books").deleteRecursively()
         Library.refresh(ctx)
-        Options().save(ctx)
+        Options(spell = false).save(ctx)
         Engines.synthesizer = { FakeSynthesizer(msPerWord = 2500) }
         MediaControl.sleep.minuteMs = 1000
     }

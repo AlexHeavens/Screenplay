@@ -63,6 +63,7 @@ stored map from one era of the app and `<name>.expected.json` the settings the c
 * **A new option is a new key**, so add it to a new schema version; `OptionsSpecTest.everyKeyInTheSourcesIsInTheSchema` fails on a key in `app/src/main` with no schema entry.
 * **A removed or renamed key** needs a migration in `Options.load` and a golden map that still holds the old key. `natural` (the first build's Natural voice switch, read as voice `KOKORO`) is the example.
 * Values the schema forbids (an unknown voice name, a malformed `catalogue-languages`) are tolerated by the reader; they are tested inline, not as golden files.
+* **Spell check defaults to on** (`spell` default `true`). This changed the default of an absent key in v1 before the first release, which had no users; stored values are unaffected, and the five goldens whose maps lack `spell` now expect `true`.
 * The old Catalogue "English only" switch was never stored, so no migration exists; an absent `language` reads as All.
 
 ## Per-book files

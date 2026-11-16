@@ -44,7 +44,7 @@ class IsbnImportTest {
     fun freshInstall() {
         File(ctx.filesDir, "books").deleteRecursively()
         Library.refresh(ctx)
-        Options().save(ctx)
+        Options(spell = false).save(ctx)
         Engines.synthesizer = { FakeSynthesizer() }
         Engines.recognisePage = { page }
         Engines.surveyPages = { emptyList() }

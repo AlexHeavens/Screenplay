@@ -9,7 +9,7 @@ import android.content.SharedPreferences
 
 /** What to do to the text of a new book. Chosen on the shelf, kept across launches, read when a book starts to be made. */
 data class Options(
-    val spell: Boolean = false,
+    val spell: Boolean = true,
     val trimFront: Boolean = true,
     val mergeFragments: Boolean = true,
     /** Drop back matter, tables, lists and page numbers. */

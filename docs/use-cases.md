@@ -2377,11 +2377,12 @@ Goal: set the import options once.
 Tests:
 - `BookUiTest.cogOpensSettingsAndSwitchShowsItsState`
 
-#### UC-41a Spell check starts off, the other three start on
+#### UC-41a All four import options start on
 
 Goal: get good text without setting anything.
 
-- "Spell check" is off by default. "Skip front matter", "Merge split sentences" and "Skip tables, lists & notes" are on by default.
+- "Spell check", "Skip front matter", "Merge split sentences" and "Skip tables, lists & notes" are all on by default.
+- With no spell checker enabled on the phone, an import still runs and its text is unchanged.
 
 Tests:
 - `BookUiTest.cogOpensSettingsAndSwitchShowsItsState`

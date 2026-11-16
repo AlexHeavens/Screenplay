@@ -8,7 +8,7 @@
     "spell": {
       "description": "Options.spell: fix OCR typos with a spell checker in a new book.",
       "type": "boolean",
-      "default": false
+      "default": true
     },
     "trim": {
       "description": "Options.trimFront: drop the front matter of a new book.",
