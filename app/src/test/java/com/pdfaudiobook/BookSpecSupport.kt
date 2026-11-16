@@ -20,17 +20,8 @@ internal object BookSpec {
 
     fun goldenDir(name: String, version: String) = File(root, "golden/$name/$version")
 
-    /** Schema problems of [json] against `schemas/<name>/v1.json`, as found by the shared scripts/validate-schema.py; empty when it is valid. */
-    fun problems(name: String, json: String): List<String> {
-        val data = File.createTempFile("spec-", ".json").apply { writeText(json) }
-        try {
-            val run = ProcessBuilder("python3", "-I", File(root, "scripts/validate-schema.py").path, schema(name).path, data.path).redirectErrorStream(true).start()
-            val out = run.inputStream.bufferedReader().readText()
-            return if (run.waitFor() == 0) emptyList() else out.lines().filter { it.isNotBlank() }
-        } finally {
-            data.delete()
-        }
-    }
+    /** Schema problems of [json] against `schemas/<name>/v1.json`, as found by the shared [SpecValidator]; empty when it is valid. */
+    fun problems(name: String, json: String): List<String> = SpecValidator.validate(schema(name), json)
 
     val unicodeTitle = "Ünïcödé — 書名 «Ελληνικά» עברית 🎧📖 \"quoted\" back\\slash\ttab"
     val longTitle = "The Longest Plausible Title ".repeat(40).trim() // 1,119 characters
