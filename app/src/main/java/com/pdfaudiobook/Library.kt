@@ -82,6 +82,13 @@ object Library {
         return key
     }
 
+    /** Lists one book of a backup as waiting to be restored, at the top of the queue, and returns its key for [step], [fail] and [finish]. */
+    fun beginPart(title: String): String {
+        val key = UUID.randomUUID().toString()
+        pendingState.update { it + PendingImport(key, title, PendingStep.WAITING) }
+        return key
+    }
+
     private fun changePending(key: String, change: (PendingImport) -> PendingImport) = pendingState.update { l -> l.map { if (it.key == key) change(it) else it } }
 
     /** Moves the pending file to [step], under [title] when the real one is known. */

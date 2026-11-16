@@ -114,26 +114,45 @@ object Backup {
         return found
     }
 
+    /** One book of a backup, to be restored by [restorePart]: [title] is its name, [shown] stands in for the title of a backup without details, [file] is its copy in the cache (null: the picked file itself). */
+    class Part(val title: String, val uri: Uri, val shown: String, val file: File?)
+
     /**
-     * Restores the zip at [uri] as new books, never touching an existing one, and returns their titles. The zip is one
-     * book's backup, or a library backup ([zipLibrary]) holding one backup per book.
+     * The books of the zip at [uri]: one for a book's backup, one per entry of a library backup ([zipLibrary]). A library's entries are copied
+     * out first, because a zip can only be read in order and the reader may restore them in another.
      */
-    fun restore(ctx: Context, uri: Uri): List<String> {
+    fun parts(ctx: Context, uri: Uri): List<Part> {
         val shown = displayName(ctx, uri) ?: "Untitled"
         val isLibrary = ctx.contentResolver.openInputStream(uri)?.use { ZipInputStream(it).nextEntry?.name?.endsWith(".zip") == true } ?: throw BackupException("Could not read the file.")
-        if (!isLibrary) return listOf(ctx.contentResolver.openInputStream(uri)?.use { restoreBook(ctx, it, shown) } ?: throw BackupException("Could not read the file."))
-        val titles = mutableListOf<String>()
+        if (!isLibrary) return listOf(Part(shown.removeSuffix(".zip"), uri, shown, null))
+        val dir = File(ctx.cacheDir, "restore-parts-${UUID.randomUUID()}").apply { mkdirs() }
+        val parts = mutableListOf<Part>()
         ctx.contentResolver.openInputStream(uri)?.use { input ->
             ZipInputStream(input).use { library ->
                 while (true) {
                     val entry = library.nextEntry ?: break
-                    // extract closes the stream it reads, which would end the library zip with it.
-                    titles += restoreBook(ctx, object : java.io.FilterInputStream(library) { override fun close() {} }, entry.name)
+                    if (entry.isDirectory) continue
+                    val file = File(dir, "${parts.size}.zip")
+                    file.outputStream().use { library.copyTo(it) }
+                    parts += Part(entry.name.removeSuffix(".zip"), uri, entry.name, file)
                 }
             }
         }
-        return titles
+        return parts
     }
+
+    /** Restores [part] as a new book, never touching an existing one, and returns its title. */
+    fun restorePart(ctx: Context, part: Part): String {
+        try {
+            val input = part.file?.inputStream() ?: ctx.contentResolver.openInputStream(part.uri) ?: throw BackupException("Could not read the file.")
+            return input.use { restoreBook(ctx, it, part.shown) }
+        } finally {
+            part.file?.delete()
+        }
+    }
+
+    /** Restores every book of the zip at [uri] in order and returns their titles. */
+    fun restore(ctx: Context, uri: Uri): List<String> = parts(ctx, uri).map { restorePart(ctx, it) }
 
     private fun restoreBook(ctx: Context, input: InputStream, shown: String): String {
         val tmp = File(ctx.cacheDir, "restore-${UUID.randomUUID()}").apply { mkdirs() }

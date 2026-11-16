@@ -27,6 +27,11 @@ class PendingImportTest {
     }
 
     @Test
+    fun aBackupBookWaitingToBeRestoredShowsOnlyTheFetchAsNext() {
+        assertEquals(listOf(Triple(StageKind.DOWNLOAD, StageState.NEXT, "")), shown(PendingImport("k", "t", PendingStep.WAITING)))
+    }
+
+    @Test
     fun aFailedFileHasNoStagesAndSaysWhy() {
         val failed = PendingImport("k", "t", null, "Not an audiobook backup")
         assertTrue(failed.stages().isEmpty())
@@ -36,7 +41,7 @@ class PendingImportTest {
 
     @Test
     fun theStepsAreWorded() {
-        assertEquals(listOf("Checking file", "Saving file", "Restoring backup"), PendingStep.values().map { it.text })
+        assertEquals(listOf("Checking file", "Saving file", "Restoring backup", "Waiting to restore"), PendingStep.values().map { it.text })
     }
 
     private fun book(id: String, order: Long, status: Status = Status.QUEUED) = Book(id, id, status, 0f, null, 0, order, queueOrder = order)
@@ -55,9 +60,15 @@ class PendingImportTest {
     }
 
     @Test
-    fun aFailedFileOrARestoreIsNotInTheQueue() {
-        val others = listOf(PendingImport("f", "f", null, "no"), PendingImport("r", "r", PendingStep.RESTORING))
-        assertEquals(listOf("a", "b", "c"), ids(ImportQueue.rows(books, others)))
+    fun aFailedFileIsNotInTheQueue() {
+        assertEquals(listOf("a", "b", "c"), ids(ImportQueue.rows(books, listOf(PendingImport("f", "f", null, "no")))))
+    }
+
+    @Test
+    fun theBooksOfABackupQueueAtTheTopInTheirOrderUnlessDropped() {
+        val backup = listOf(PendingImport("r1", "r1", PendingStep.WAITING), PendingImport("r2", "r2", PendingStep.WAITING), PendingImport("p", "p", PendingStep.SAVING))
+        assertEquals(listOf("~r1", "~r2", "a", "b", "c", "~p"), ids(ImportQueue.rows(books, backup)))
+        assertEquals(listOf("~r1", "a", "~r2", "b", "c", "~p"), ids(ImportQueue.rows(books, backup.map { if (it.key == "r2") it.copy(place = 1) else it })))
     }
 
     @Test

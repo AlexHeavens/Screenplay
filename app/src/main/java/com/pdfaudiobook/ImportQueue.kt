@@ -75,12 +75,13 @@ object ImportQueue {
 
     /**
      * The rows of the section in order: [line], with each picked file still being copied at its [PendingImport.place] (the number of books above it)
-     * or after the last book when it has none. Files with the same place keep the order they were picked in.
+     * or after the last book when it has none. A book of a backup is compute, not network, so with no place it stands at the top. Rows with the same place keep the order they were added in.
      */
     fun rows(books: List<Book>, pending: List<PendingImport>): List<QueueRow> {
         val out = line(books).mapTo(ArrayList()) { QueueRow(it.id, false) }
-        for (p in pending.filter { it.step != null && it.step != PendingStep.RESTORING }.sortedBy { it.place ?: Int.MAX_VALUE }) {
-            val at = p.place?.let { place -> out.withIndex().filter { !it.value.pending }.getOrNull(place)?.index } ?: out.size
+        fun placeOf(p: PendingImport) = p.place ?: if (p.isRestore) 0 else null
+        for (p in pending.filter { it.step != null }.sortedBy { placeOf(it) ?: Int.MAX_VALUE }) {
+            val at = placeOf(p)?.let { place -> out.withIndex().filter { !it.value.pending }.getOrNull(place)?.index } ?: out.size
             out.add(at, QueueRow(p.key, true))
         }
         return out

@@ -83,6 +83,8 @@ import androidx.compose.ui.text.style.BaselineShift
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -150,19 +152,35 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
             // The file is listed under "Importing" from here on, while it is checked, then copied or restored.
             val key = Library.begin(ctx, uri)
             scope.launch {
-                var failed = true
-                val message = try {
+                val parts = try {
                     if (!withContext(Dispatchers.IO) { Backup.isBackup(ctx, uri) }) { Library.import(ctx, uri, pendingKey = key); return@launch }
-                    Library.step(key, PendingStep.RESTORING)
-                    "Imported ${withContext(Dispatchers.IO) { Backup.restore(ctx, uri) }.joinToString { "“$it”" }}".also { failed = false }
-                } catch (e: BackupException) {
-                    e.message ?: "Could not import the backup."
+                    withContext(Dispatchers.IO) { Backup.parts(ctx, uri) }
                 } catch (e: Exception) {
-                    "Could not import the backup: ${e.message}"
+                    val message = if (e is BackupException) e.message ?: "Could not import the backup." else "Could not import the backup: ${e.message}"
+                    Library.fail(key, message)
+                    snackbar.showSnackbar(message)
+                    return@launch
                 }
-                Library.refresh(ctx)
-                if (failed) Library.fail(key, message) else Library.finish(key)
-                snackbar.showSnackbar(message)
+                // Each book of a backup is a row of its own at the top of the queue (restoring is compute, not network), restored one at a time in the order the rows stand in.
+                Library.finish(key)
+                for (part in parts) {
+                    val partKey = Library.beginPart(part.title)
+                    launch {
+                        combine(Library.books, Library.pending) { b, p -> ImportQueue.rows(b, p) }.first { it.firstOrNull()?.id == partKey }
+                        Library.step(partKey, PendingStep.RESTORING)
+                        var failed = true
+                        val message = try {
+                            "Imported “${withContext(Dispatchers.IO) { Backup.restorePart(ctx, part) }}”".also { failed = false }
+                        } catch (e: BackupException) {
+                            e.message ?: "Could not import the backup."
+                        } catch (e: Exception) {
+                            "Could not import the backup: ${e.message}"
+                        }
+                        Library.refresh(ctx)
+                        if (failed) Library.fail(partKey, message) else Library.finish(partKey)
+                        snackbar.showSnackbar(message)
+                    }
+                }
             }
         }
     }
@@ -247,7 +265,7 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
                         BookRow(b, ImportQueue.label(books, b, downloading, paused), onOpen, onDelete = { toDelete = b }, drag = drag, download = downloading[b.id])
                     }
                 }
-                // A file that failed, or a backup being restored, is not in the queue: it cannot be moved.
+                // A file that failed is not in the queue: it cannot be moved.
                 items(pending.filter { it.key !in rows.map { r -> r.id } }, key = { "pending-${it.key}" }) { p -> PendingRow(p, onDismiss = { Library.finish(p.key) }, drag = null) }
             }
             if (imported.isNotEmpty()) {

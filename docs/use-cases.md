@@ -134,18 +134,21 @@ Tests:
 
 Goal: see that my file was taken and what is happening to it.
 
-- A file picked with "Import" is a row under "Importing" at once, after the books already in line, before it is a book. Its stage shows as for a queued book: the fetch (here, the copy) is running, with the status "Checking file" or "Saving file", and reading is next. A zip shows "Restoring backup".
+- A file picked with "Import" is a row under "Importing" at once, after the books already in line, before it is a book. Its stage shows as for a queued book: the fetch (here, the copy) is running, with the status "Checking file" or "Saving file", and reading is next.
 - When the file is saved the row becomes the book's (UC-01a); a local file's fetch then counts as done and shows no text.
 - While its row shows "Checking file" or "Saving file", I can drag it by its handle among the books in line, as I can a queued book. It takes that place once it is a book.
+- A backup zip is one row per book in it (a library backup has several), each at the top of the queue, because restoring is compute, not network. The row shows no text while it waits its turn and "Restoring backup" while it restores; the books are restored one at a time, top row first, and each row has a handle like a queued book's. A restored book goes to Imported.
 - A zip that cannot be restored stays as a row with "Failed: " and the reason, and a button to remove it. The Catalogue's downloads are unchanged (UC-13).
 
 Tests:
 - `PendingImportTest.aFileBeingCheckedOrSavedShowsItsStepAsTheFetchAndReadingAsNext`
 - `PendingImportTest.aBackupBeingRestoredHasNoReadingStage`
+- `PendingImportTest.aBackupBookWaitingToBeRestoredShowsOnlyTheFetchAsNext`
+- `PendingImportTest.theBooksOfABackupQueueAtTheTopInTheirOrderUnlessDropped`
 - `PendingImportTest.aFailedFileHasNoStagesAndSaysWhy`
 - `PendingImportTest.theStepsAreWorded`
 - `PendingImportTest.aPickedFileJoinsBehindTheLineUnlessItWasDropped`
-- `PendingImportTest.aFailedFileOrARestoreIsNotInTheQueue`
+- `PendingImportTest.aFailedFileIsNotInTheQueue`
 - `PendingImportTest.theDropPlaceOfAFileIsTheNumberOfBooksAboveIt`
 - `PendingImportUiTest.aFileBeingSavedCanBeDraggedUpTheQueueAndTakesThatPlaceWhenItIsABook`
 - `PendingImportUiTest.aPickedPdfIsARowFromTheMomentItIsPickedAndItsStageChangesUntilItIsReady`
