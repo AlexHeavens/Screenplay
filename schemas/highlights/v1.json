@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://screenplay.invalid/schemas/highlights/v1.json",
+  "title": "Paragraph highlights (highlights.json), version 1",
+  "description": "A missing file means none. An unknown colour reads as YELLOW. No version field: the root is an array.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "index",
+      "hash",
+      "color"
+    ],
+    "additionalProperties": true,
+    "properties": {
+      "index": {
+        "type": "integer"
+      },
+      "hash": {
+        "type": "integer",
+        "description": "String.hashCode() of the paragraph text, 32-bit signed."
+      },
+      "color": {
+        "type": "string",
+        "description": "One of YELLOW, ORANGE, GREEN, BLUE, PURPLE, PINK; any other value reads as YELLOW."
+      }
+    }
+  }
+}

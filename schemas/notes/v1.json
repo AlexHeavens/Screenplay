@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://screenplay.invalid/schemas/notes/v1.json",
+  "title": "Notes (notes.json), version 1",
+  "description": "Listening notes, sorted by at. The file is required and starts as []. No version field: the root is an array.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "id",
+      "at",
+      "text"
+    ],
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "at": {
+        "type": "integer",
+        "description": "ms"
+      },
+      "text": {
+        "type": "string"
+      }
+    }
+  }
+}

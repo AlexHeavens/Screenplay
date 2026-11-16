@@ -64,3 +64,27 @@ stored map from one era of the app and `<name>.expected.json` the settings the c
 * **A removed or renamed key** needs a migration in `Options.load` and a golden map that still holds the old key. `natural` (the first build's Natural voice switch, read as voice `KOKORO`) is the example.
 * Values the schema forbids (an unknown voice name, a malformed `catalogue-languages`) are tolerated by the reader; they are tested inline, not as golden files.
 * The old Catalogue "English only" switch was never stored, so no migration exists; an absent `language` reads as All.
+
+## Per-book files
+
+Six files per book folder (`books/<id>/`), each with its schema and golden folder: `meta.json` (`book`), `transcript.json` (`segments`), `notes.json`
+(`notes`), `paragraph-notes.json`, `highlights.json` and `footnotes.json` (the same names). `BookDataSpecTest` writes them with the app's own writers
+for every status, for Unicode and for the longest values, checks them against the schemas, reads every golden file with the current reader and
+compares with `<name>.expected.json`.
+
+* **Only `meta.json` has a `version`** (written as 1; a file without it is version 1). The others are JSON arrays, where a version field would break
+  every older app, so their version is the schema file's.
+* **Required to read:** `title` and `status` in `meta.json`; each list entry's own fields except a segment's `at`, a footnote's `contents` and a highlight's
+  colour (an unknown colour reads as yellow). **Everything else is optional and its schema `description` gives the default an absent field reads as.**
+  That default is part of the contract: `BookDataSpecTest.aMetaFileMissingAnyOptionalFieldLoadsWithItsDefault` leaves out each field in turn.
+* **Unknown fields are ignored** at every level, so an older app survives data written by a newer one. The schemas keep `additionalProperties` open.
+* **A field the writer leaves out when it has its default** (`finished`, `order`, `source`, `download`, `error`, `position`, `chapters`, a segment's `at`) is
+  never written as that default: absent and default read the same, so the schema allows both.
+* **`legacy-*` golden files** are the first release's shapes (no `version`, `download` or segment `at`; a backup made before details were kept has
+  only a title and a duration). They were reconstructed from the first release's writer, not captured from a phone, and follow `schemas/<name>/v1.json`.
+* **Import state** is not a separate file: the queue place (`order`), stage (`status`, `progress`, the word and page counts) and a catalogue book's
+  `download` URL are fields of `meta.json`. `queue.txt` and `jump.txt` are plain text files, not JSON, and are out of this spec.
+* **The writer entry points** are `Library.metaJson`, `Library.importMeta`, `Library.downloadMeta` and the `Library.writeSegments`/`writeNotes`/`writeFootnotes`,
+  `ParagraphNotes.write` and `Highlights.write` functions; `Library.update` and the `save*` functions call them, so a test of them is a test of what
+  the app writes. Readers are `Library.bookFromMeta`, `readSegments`, `readNotes`, `readFootnotes`, `ParagraphNotes.read` and `Highlights.read`.
+* **Capture new golden files** with the "Per-book files" step of `golden.yml`, which runs `BookDataSpecTest.generateGoldenFiles` (`GOLDEN_OUT_DIR=<dir>`).

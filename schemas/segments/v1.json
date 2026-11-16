@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://screenplay.invalid/schemas/segments/v1.json",
+  "title": "Transcript (transcript.json), version 1",
+  "description": "One entry per paragraph, in order. A missing file is an empty transcript; an unreadable one makes the reader return null. No version field: the root is an array.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "start",
+      "end",
+      "text"
+    ],
+    "additionalProperties": true,
+    "properties": {
+      "start": {
+        "type": "integer",
+        "description": "ms"
+      },
+      "end": {
+        "type": "integer",
+        "description": "ms"
+      },
+      "text": {
+        "type": "string"
+      },
+      "at": {
+        "type": "integer",
+        "description": "Position of the paragraph in the book's text. Written only when not negative. Default -1 (unknown)."
+      }
+    }
+  }
+}

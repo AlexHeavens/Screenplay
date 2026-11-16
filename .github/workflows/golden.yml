@@ -45,6 +45,17 @@ jobs:
       - name: Record what the app reads from them
         if: steps.catalogue.outputs.skip != 'true'
         run: GOLDEN_RECORD_DIR="$PWD/out/golden/catalogue" ./gradlew --stacktrace testDebugUnitTest --tests '*GoldenCatalogueTest.recordsTheExpectedResultForNewGoldenFiles'
+      # The per-book files (meta.json, transcript, notes, paragraph notes, highlights, footnotes) are written by the app's own writers in a unit test.
+      - name: Per-book files
+        if: steps.catalogue.outputs.skip != 'true'
+        run: |
+          version=$(sed --quiet 's/^    const val META_VERSION = \([0-9]*\)$/\1/p' app/src/main/java/com/pdfaudiobook/Library.kt)
+          if [ -d "golden/book/v$version" ]; then
+            echo "golden/book/v$version already exists: golden files are never replaced"
+            [ "$GITHUB_EVENT_NAME" = push ] && exit 0
+            exit 1
+          fi
+          GOLDEN_OUT_DIR="$PWD/out/golden" ./gradlew --stacktrace testDebugUnitTest --tests '*BookDataSpecTest.generateGoldenFiles'
       - uses: actions/upload-artifact@v4
         if: steps.catalogue.outputs.skip != 'true'
         with:

@@ -75,8 +75,9 @@ enum class HighlightColor(val label: String, private val light: Color, private v
 data class ParagraphHighlight(val index: Int, val hash: Int, val color: HighlightColor)
 
 object Highlights {
-    fun load(ctx: Context, id: String): List<ParagraphHighlight> {
-        val f = File(Library.dir(ctx, id), Files.HIGHLIGHTS)
+    fun load(ctx: Context, id: String): List<ParagraphHighlight> = read(File(Library.dir(ctx, id), Files.HIGHLIGHTS))
+
+    internal fun read(f: File): List<ParagraphHighlight> {
         if (!f.exists()) return emptyList()
         val a = JSONArray(f.readText())
         return List(a.length()) {
@@ -85,10 +86,12 @@ object Highlights {
         }
     }
 
-    fun save(ctx: Context, id: String, highlights: List<ParagraphHighlight>) {
+    fun save(ctx: Context, id: String, highlights: List<ParagraphHighlight>) = write(File(Library.dir(ctx, id), Files.HIGHLIGHTS), highlights)
+
+    internal fun write(f: File, highlights: List<ParagraphHighlight>) {
         val a = JSONArray()
         highlights.forEach { a.put(JSONObject().put("index", it.index).put("hash", it.hash).put("color", it.color.name)) }
-        Library.writeAtomically(File(Library.dir(ctx, id), Files.HIGHLIGHTS), a.toString())
+        Library.writeAtomically(f, a.toString())
     }
 
     fun place(highlights: List<ParagraphHighlight>, segments: List<Segment>): Map<Int, ParagraphHighlight> =

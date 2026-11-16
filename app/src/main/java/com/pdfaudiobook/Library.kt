@@ -105,12 +105,19 @@ object Library {
         }
     }
 
-    private fun readBook(dir: File): Book? {
+    /** The version `meta.json` is written with (schemas/book/v1.json). A file without it is version 1; a reader ignores fields it does not know. */
+    const val META_VERSION = 1
+
+    internal fun readBook(dir: File): Book? {
         val f = File(dir, Files.META)
         if (!f.exists()) return null
-        val j = JSONObject(f.readText())
+        return bookFromMeta(dir.name, JSONObject(f.readText()), File(dir, Files.EPUB).exists())
+    }
+
+    /** The book [j] describes. A field it lacks gets the default here: that default is part of the stored format (docs/data-specs.md). */
+    internal fun bookFromMeta(id: String, j: JSONObject, hasEpub: Boolean): Book {
         return Book(
-            id = dir.name,
+            id = id,
             title = j.getString("title"),
             author = j.optString("author"),
             status = Status.valueOf(j.getString("status")),
@@ -132,7 +139,7 @@ object Library {
             queueOrder = j.optLong("order"),
             source = j.optString("source"),
             downloadUrl = j.optString("download"),
-            awaitingDownload = j.optString("download").isNotEmpty() && !File(dir, Files.EPUB).exists(),
+            awaitingDownload = j.optString("download").isNotEmpty() && !hasEpub,
         )
     }
 
@@ -148,7 +155,15 @@ object Library {
         val dir = dir(ctx, id)
         val book = readBook(dir) ?: return
         val b = change(book)
-        val j = JSONObject().put("title", b.title).put("author", b.author).put("status", b.status.name)
+        writeMeta(dir, b)
+        refresh(ctx)
+    }
+
+    /** Writes [b] as the book's `meta.json` in [dir]. */
+    internal fun writeMeta(dir: File, b: Book) = writeAtomically(File(dir, Files.META), metaJson(b).toString())
+
+    internal fun metaJson(b: Book): JSONObject {
+        val j = JSONObject().put("version", META_VERSION).put("title", b.title).put("author", b.author).put("status", b.status.name)
             .put("progress", b.progress.toDouble()).put("duration", b.durationMs).put("created", b.created)
             .put("words", b.words).put("wordsTotal", b.wordsTotal).put("pages", b.pages).put("pagesTotal", b.pagesTotal).put("wordsQueued", b.wordsQueued).put("rate", b.rate)
             .put("contents", JSONArray(b.contents))
@@ -163,9 +178,17 @@ object Library {
         if (b.queueOrder != 0L) j.put("order", b.queueOrder)
         if (b.source.isNotEmpty()) j.put("source", b.source)
         if (b.downloadUrl.isNotEmpty()) j.put("download", b.downloadUrl)
-        writeAtomically(File(dir, Files.META), j.toString())
-        refresh(ctx)
+        return j
     }
+
+    /** What a book's `meta.json` holds from the moment its file is picked, before it is read; [status] and any `error` follow. */
+    internal fun importMeta(title: String, now: Long, source: String): JSONObject =
+        JSONObject().put("version", META_VERSION).put("title", title).put("created", now).put("order", now).also { if (source.isNotEmpty()) it.put("source", source) }
+
+    /** The same for a catalogue book added to the queue without its file. */
+    internal fun downloadMeta(title: String, now: Long, source: String, url: String): JSONObject =
+        JSONObject().put("version", META_VERSION).put("title", title).put("created", now).put("order", now)
+            .put("source", source).put("download", url).put("status", Status.QUEUED.name)
 
     /** Written beside and renamed over, so a kill mid-write leaves the old file, never half of the new one. */
     fun writeAtomically(file: File, text: String) {
@@ -217,11 +240,9 @@ object Library {
             val name = displayName(ctx, uri)
             val epub = name?.endsWith(".epub", ignoreCase = true) == true || ctx.contentResolver.getType(uri) == "application/epub+zip"
             val sourceFile = if (epub) Files.EPUB else Files.PDF
-            val meta = JSONObject().put("title", title ?: titleOf(name))
-                .put("created", System.currentTimeMillis()).put("order", System.currentTimeMillis())
+            val meta = importMeta(title ?: titleOf(name), System.currentTimeMillis(), source)
             key?.let { step(it, PendingStep.SAVING, meta.getString("title")) }
             Engines.beforeCopy()
-            if (source.isNotEmpty()) meta.put("source", source)
             File(dir, Files.NOTES).writeText("[]")
             try {
                 ctx.contentResolver.openInputStream(uri)!!.use { i -> File(dir, sourceFile).outputStream().use { i.copyTo(it) } }
@@ -253,8 +274,7 @@ object Library {
             val id = UUID.randomUUID().toString().take(8)
             val dir = dir(ctx, id).apply { mkdirs() }
             File(dir, Files.NOTES).writeText("[]")
-            val meta = JSONObject().put("title", title).put("created", System.currentTimeMillis()).put("order", System.currentTimeMillis())
-                .put("source", source).put("download", url).put("status", Status.QUEUED.name)
+            val meta = downloadMeta(title, System.currentTimeMillis(), source, url)
             writeAtomically(File(dir, Files.META), meta.toString())
             refresh(ctx)
             ImportQueue.start(ctx)
@@ -346,14 +366,18 @@ object Library {
         File(dir(ctx, id), Files.QUEUE).appendText(sentences.joinToString("") { it.replace('\n', ' ') + "\n" })
     }
 
-    fun saveSegments(ctx: Context, id: String, segments: List<Segment>) {
+    fun saveSegments(ctx: Context, id: String, segments: List<Segment>) = writeSegments(File(dir(ctx, id), Files.TRANSCRIPT), segments)
+
+    internal fun writeSegments(f: File, segments: List<Segment>) {
         val a = JSONArray()
         segments.forEach { a.put(JSONObject().put("start", it.start).put("end", it.end).put("text", it.text).also { o -> if (it.at >= 0) o.put("at", it.at) }) }
-        writeAtomically(File(dir(ctx, id), Files.TRANSCRIPT), a.toString())
+        writeAtomically(f, a.toString())
     }
 
-    fun notes(ctx: Context, id: String): List<Note> {
-        val a = JSONArray(File(dir(ctx, id), Files.NOTES).readText())
+    fun notes(ctx: Context, id: String): List<Note> = readNotes(File(dir(ctx, id), Files.NOTES))
+
+    internal fun readNotes(f: File): List<Note> {
+        val a = JSONArray(f.readText())
         return List(a.length()) { val o = a.getJSONObject(it); Note(o.getString("id"), o.getLong("at"), o.getString("text")) }
     }
 
@@ -376,8 +400,9 @@ object Library {
     }
 
     /** The book's footnotes; none for a book made without them, or when the file cannot be read. */
-    fun footnotes(ctx: Context, id: String): List<Footnote> {
-        val f = File(dir(ctx, id), Files.FOOTNOTES)
+    fun footnotes(ctx: Context, id: String): List<Footnote> = readFootnotes(File(dir(ctx, id), Files.FOOTNOTES))
+
+    internal fun readFootnotes(f: File): List<Footnote> {
         if (!f.exists()) return emptyList()
         return try {
             val a = JSONArray(f.readText())
@@ -389,15 +414,19 @@ object Library {
         }
     }
 
-    fun saveFootnotes(ctx: Context, id: String, footnotes: List<Footnote>) {
+    fun saveFootnotes(ctx: Context, id: String, footnotes: List<Footnote>) = writeFootnotes(File(dir(ctx, id), Files.FOOTNOTES), footnotes)
+
+    internal fun writeFootnotes(f: File, footnotes: List<Footnote>) {
         val a = JSONArray()
         footnotes.forEach { a.put(JSONObject().put("anchor", it.anchor).put("text", it.text).apply { if (it.contents) put("contents", true) }) }
-        writeAtomically(File(dir(ctx, id), Files.FOOTNOTES), a.toString())
+        writeAtomically(f, a.toString())
     }
 
-    fun saveNotes(ctx: Context, id: String, notes: List<Note>) {
+    fun saveNotes(ctx: Context, id: String, notes: List<Note>) = writeNotes(File(dir(ctx, id), Files.NOTES), notes)
+
+    internal fun writeNotes(f: File, notes: List<Note>) {
         val a = JSONArray()
         notes.sortedBy { it.at }.forEach { a.put(JSONObject().put("id", it.id).put("at", it.at).put("text", it.text)) }
-        writeAtomically(File(dir(ctx, id), Files.NOTES), a.toString())
+        writeAtomically(f, a.toString())
     }
 }

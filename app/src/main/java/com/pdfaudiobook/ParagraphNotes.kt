@@ -59,17 +59,20 @@ data class ParagraphNote(val index: Int, val hash: Int, val text: String)
 object ParagraphNotes {
     fun hash(paragraph: String) = paragraph.hashCode()
 
-    fun load(ctx: Context, id: String): List<ParagraphNote> {
-        val f = File(Library.dir(ctx, id), Files.PARAGRAPH_NOTES)
+    fun load(ctx: Context, id: String): List<ParagraphNote> = read(File(Library.dir(ctx, id), Files.PARAGRAPH_NOTES))
+
+    internal fun read(f: File): List<ParagraphNote> {
         if (!f.exists()) return emptyList()
         val a = JSONArray(f.readText())
         return List(a.length()) { val o = a.getJSONObject(it); ParagraphNote(o.getInt("index"), o.getInt("hash"), o.getString("text")) }
     }
 
-    fun save(ctx: Context, id: String, notes: List<ParagraphNote>) {
+    fun save(ctx: Context, id: String, notes: List<ParagraphNote>) = write(File(Library.dir(ctx, id), Files.PARAGRAPH_NOTES), notes)
+
+    internal fun write(f: File, notes: List<ParagraphNote>) {
         val a = JSONArray()
         notes.forEach { a.put(JSONObject().put("index", it.index).put("hash", it.hash).put("text", it.text)) }
-        Library.writeAtomically(File(Library.dir(ctx, id), Files.PARAGRAPH_NOTES), a.toString())
+        Library.writeAtomically(f, a.toString())
     }
 
     /** Each note's paragraph: the one with the same text hash nearest to the note's old position. A note whose text is gone is not shown. */

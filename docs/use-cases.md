@@ -15,7 +15,7 @@ A test is named `ClassName.methodName`. Unit tests live in `app/src/test` and de
 - [Listening](#listening): UC-14 to UC-20
 - [Reading along](#reading-along): UC-21 to UC-26, UC-53
 - [Notes and highlights](#notes-and-highlights): UC-27 to UC-33
-- [Library](#library): UC-34 to UC-40
+- [Library](#library): UC-34 to UC-40, UC-54
 - [Settings and looks](#settings-and-looks): UC-41 to UC-47
 - [Maintainers](#maintainers): UC-50
 - [Unsupported or known limits](#unsupported-or-known-limits)
@@ -2313,6 +2313,37 @@ Tests:
 - `EpubTest.theWrittenFileIsAnEpub3Container`
 
 Unchecked: opening the file in a real e-reader.
+
+### UC-54 Keep my books readable after an update
+
+Goal: a book made, noted or highlighted with an older app still opens, plays and reads the same after the app updates, and a newer app's extra data does not stop an older one.
+
+- Each book's files (details, transcript, notes, paragraph notes, highlights, footnotes) follow a frozen schema in `schemas/` (docs/data-specs.md). The app's own writer is checked against it for every status, for Unicode and for the longest values.
+- The current reader reads every golden file captured from a released writer, and gives the recorded result.
+- A details file without any optional field loads with that field's default. Fields the app does not know, and a newer `version`, are ignored.
+
+Tests:
+- `BookDataSpecTest.metaWrittenForEveryStateSatisfiesTheSchema`
+- `BookDataSpecTest.everyStoredListSatisfiesItsSchema`
+- `BookDataSpecTest.metaIsWrittenWithItsVersion`
+- `BookDataSpecTest.theWriterEmitsExactlyTheFieldsTheSchemaNames`
+- `BookDataSpecTest.metaWrittenByUpdateAlwaysHasEveryFieldThatIsNotConditional`
+- `BookDataSpecTest.theWriterOutputReadsBackAsTheBookThatWasWritten`
+- `BookDataSpecTest.aBookWithNoEpubYetIsAwaitingItsDownload`
+- `BookDataSpecTest.everyGoldenFileIsValidAndReadsAsItsExpectedFile`
+- `BookDataSpecTest.everyReleasedGoldenFolderHasAFrozenSchema`
+- `BookDataSpecTest.goldenFilesCoverEveryStatusAndEveryFixtureName`
+- `BookDataSpecTest.everyOptionalMetaFieldHasATestedDefault`
+- `BookDataSpecTest.aMetaFileMissingAnyOptionalFieldLoadsWithItsDefault`
+- `BookDataSpecTest.aMetaFileWithOnlyTheRequiredFieldsLoadsWithEveryDefault`
+- `BookDataSpecTest.anEstimateMissingItsOptionalFieldsLoadsWithTheirDefaults`
+- `BookDataSpecTest.theRequiredMetaFieldsAreRequiredByTheSchemaAndTheReader`
+- `BookDataSpecTest.aStatusNoReaderKnowsIsRejectedByTheSchemaAndTheReader`
+- `BookDataSpecTest.theOptionalFieldsOfListEntriesHaveTheirDefaults`
+- `BookDataSpecTest.aMissingOptionalFileReadsAsEmpty`
+- `BookDataSpecTest.unknownFieldsAndANewerVersionAreIgnored`
+- `BookDataSpecTest.unknownFieldsInListEntriesAreIgnored`
+- `BookDataSpecTest.anUnreadableTranscriptIsNullNotACrash`
 
 ## Settings and looks
 

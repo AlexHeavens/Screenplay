@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://screenplay.invalid/schemas/paragraph-notes/v1.json",
+  "title": "Paragraph notes (paragraph-notes.json), version 1",
+  "description": "A missing file means no notes. No version field: the root is an array.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "index",
+      "hash",
+      "text"
+    ],
+    "additionalProperties": true,
+    "properties": {
+      "index": {
+        "type": "integer"
+      },
+      "hash": {
+        "type": "integer",
+        "description": "String.hashCode() of the paragraph text, 32-bit signed."
+      },
+      "text": {
+        "type": "string"
+      }
+    }
+  }
+}

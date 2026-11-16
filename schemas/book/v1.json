@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://screenplay.invalid/schemas/book/v1.json",
+  "title": "Screenplay book metadata (meta.json), version 1",
+  "description": "Per-book details in books/<id>/meta.json. Readers need only title and status; every other field is optional and a missing one reads as the default named in its description. Unknown fields are ignored. A file without version is version 1.",
+  "type": "object",
+  "required": [
+    "title",
+    "status"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "version": {
+      "const": 1,
+      "description": "Format version. Missing means 1."
+    },
+    "title": {
+      "type": "string"
+    },
+    "author": {
+      "type": "string",
+      "description": "Default \"\"."
+    },
+    "status": {
+      "enum": [
+        "QUEUED",
+        "READING",
+        "SPELLING",
+        "SPEAKING",
+        "ENCODING",
+        "READY",
+        "FAILED"
+      ]
+    },
+    "progress": {
+      "type": "number",
+      "description": "Default 0."
+    },
+    "error": {
+      "type": "string",
+      "description": "Default: no error. Written only for a failed book."
+    },
+    "duration": {
+      "type": "integer",
+      "description": "Audio length in ms. Default 0."
+    },
+    "created": {
+      "type": "integer",
+      "description": "Epoch ms. Default 0."
+    },
+    "words": {
+      "type": "integer",
+      "description": "Default 0."
+    },
+    "wordsTotal": {
+      "type": "integer",
+      "description": "Default 0."
+    },
+    "pages": {
+      "type": "integer",
+      "description": "Default 0."
+    },
+    "pagesTotal": {
+      "type": "integer",
+      "description": "Default 0."
+    },
+    "wordsQueued": {
+      "type": "integer",
+      "description": "Default 0."
+    },
+    "rate": {
+      "type": "integer",
+      "description": "Audio sample rate. Default 0."
+    },
+    "contents": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Default []."
+    },
+    "estimates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/estimate"
+      },
+      "description": "Default []."
+    },
+    "chapters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/chapterMark"
+      },
+      "description": "Default: none stored yet (null); the reader detects them on first use. An empty array means detected, none found."
+    },
+    "position": {
+      "type": "integer",
+      "description": "Listening position in ms. Default: never played (null)."
+    },
+    "finished": {
+      "type": "boolean",
+      "description": "Written only when true. Default false."
+    },
+    "order": {
+      "type": "integer",
+      "description": "Import queue place; the smaller goes first. Written only when not 0. Default 0."
+    },
+    "source": {
+      "type": "string",
+      "description": "Where the book came from, e.g. gutenberg:98. Written only when not empty. Default \"\"."
+    },
+    "download": {
+      "type": "string",
+      "description": "EPUB download URL for a catalogue book. Written only when not empty. Default \"\" (no download)."
+    }
+  },
+  "$defs": {
+    "estimate": {
+      "type": "object",
+      "required": [
+        "title"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "printed": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Default null."
+        },
+        "page": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Default null."
+        },
+        "anchors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Default []."
+        }
+      }
+    },
+    "chapterMark": {
+      "type": "object",
+      "required": [
+        "index",
+        "title"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "index": {
+          "type": "integer"
+        },
+        "title": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
