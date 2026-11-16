@@ -6,6 +6,8 @@ package com.pdfaudiobook
 
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Assert.fail
 import java.io.ByteArrayOutputStream
@@ -49,5 +51,16 @@ class CatalogueErrorTest {
     fun aCatalogueThatCannotBeReachedSaysToCheckTheConnection() {
         val closedPort = ServerSocket(0).use { it.localPort }
         assertEquals("Could not reach the book catalogue. Check the connection and try again.", failureAt("http://127.0.0.1:$closedPort/books/").message)
+    }
+
+    @Test
+    fun aMissingFileIsPermanentAndNamesItsStatusWhileBusyAndUnreachableAreTransient() {
+        val missing = failureFor(404)
+        assertEquals("The book catalogue has no such file (error 404).", missing.message)
+        assertFalse(missing.transient)
+        assertTrue(failureFor(503).transient)
+        assertTrue(failureFor(429).transient)
+        val closedPort = ServerSocket(0).use { it.localPort }
+        assertTrue(failureAt("http://127.0.0.1:$closedPort/books/").transient)
     }
 }

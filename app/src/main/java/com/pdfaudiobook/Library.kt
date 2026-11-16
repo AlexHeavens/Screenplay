@@ -327,6 +327,17 @@ object Library {
         update(ctx, id) { it.copy(status = Status.QUEUED) }
     }
 
+    /**
+     * Puts a book whose download failed back in the queue to fetch its file again, in the place its [Book.queueOrder] gives it, and starts the worker
+     * in case it has ended. Only a failed book still without its file qualifies; any other is left as it is (false).
+     */
+    fun retryDownload(ctx: Context, id: String): Boolean {
+        if (books.value.firstOrNull { it.id == id }?.let { it.status == Status.FAILED && it.awaitingDownload } != true) return false
+        update(ctx, id) { it.copy(status = Status.QUEUED, error = null) }
+        ImportQueue.start(ctx)
+        return true
+    }
+
     fun delete(ctx: Context, id: String) {
         ImportQueue.cancel(id)
         dir(ctx, id).deleteRecursively()

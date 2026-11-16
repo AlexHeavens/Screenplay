@@ -12,8 +12,12 @@ import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** A request to the catalogue failed; [message] is written for the reader, [retryAfterMs] is the server's own "come back later", when it gave one. */
-class CatalogueException(message: String, val retryAfterMs: Long? = null) : Exception(message)
+/**
+ * A request to the catalogue failed; [message] is written for the reader, [retryAfterMs] is the server's own "come back later", when it gave one.
+ * [transient] is true when the same request may well work a moment later (no connection, too many requests, a server error), false when asking again
+ * cannot help (the book is not there): [QueueDownload] retries the first kind by itself and fails the book at once on the second.
+ */
+class CatalogueException(message: String, val retryAfterMs: Long? = null, val transient: Boolean = false) : Exception(message)
 
 /**
  * Project Gutenberg as the app meets it: the one place its addresses are written, the user agent every request carries, and the download
@@ -42,10 +46,15 @@ object Gutenberg {
             val code = connection.responseCode
             if (code != HttpURLConnection.HTTP_OK) {
                 val retryAfter = connection.getHeaderField("Retry-After")?.toLongOrNull()?.times(1000)
+                val transient = code == 408 || code == 429 || code >= 500
                 throw CatalogueException(
-                    if (code == 429) "The book catalogue says there have been too many requests. Wait a little, then try again."
-                    else "The book catalogue answered with an error ($code). Try again later.",
+                    when {
+                        code == 429 -> "The book catalogue says there have been too many requests. Wait a little, then try again."
+                        transient -> "The book catalogue answered with an error ($code). Try again later."
+                        else -> "The book catalogue has no such file (error $code)."
+                    },
                     retryAfter,
+                    transient,
                 )
             }
             val expected = connection.contentLengthLong
@@ -61,7 +70,7 @@ object Gutenberg {
                 }
             }
         } catch (e: IOException) {
-            throw CatalogueException("Could not reach the book catalogue. Check the connection and try again.")
+            throw CatalogueException("Could not reach the book catalogue. Check the connection and try again.", transient = true)
         } finally {
             connection.disconnect()
         }
@@ -117,7 +126,7 @@ class CatalogueClient(private val userAgent: String, private val now: () -> Long
 
     private suspend fun request(url: String, out: OutputStream, onProgress: (received: Long, expected: Long) -> Unit = { _, _ -> }) {
         val wait = backoff.waitMs(now())
-        if (wait > 0) throw CatalogueException("Please wait ${(wait + 999) / 1000} seconds before trying again.")
+        if (wait > 0) throw CatalogueException("Please wait ${(wait + 999) / 1000} seconds before trying again.", transient = true)
         try {
             Engines.httpGet(url, userAgent, out, onProgress)
             backoff.succeeded()

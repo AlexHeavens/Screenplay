@@ -88,9 +88,25 @@ object QueueDownload {
 
     /**
      * Makes sure [id]'s EPUB is on disk. Does nothing when it is (so a book is never fetched twice, and a turn that comes while
-     * [prefetch] is fetching the same book waits for that fetch). Waits out a failure's back-off first, outside the lock. Throws when the fetch fails.
+     * [prefetch] is fetching the same book waits for that fetch). A transient failure ([CatalogueException.transient]) is tried again up to
+     * [ATTEMPTS] times in all, each after the client's back-off; any other failure, or the last one, is thrown for the book to show.
      */
-    suspend fun ensure(ctx: Context, id: String) {
+    suspend fun ensure(ctx: Context, id: String) = retryTransient(ATTEMPTS) { fetchOnce(ctx, id) }
+
+    /** Runs [attempt] up to [attempts] times in all, again only after a [CatalogueException.transient] failure; any other failure, or the last, is thrown. */
+    internal suspend fun retryTransient(attempts: Int, attempt: suspend () -> Unit) {
+        var tried = 1
+        while (true) {
+            try {
+                return attempt()
+            } catch (e: CatalogueException) {
+                if (!e.transient || tried++ >= attempts) throw e
+            }
+        }
+    }
+
+    /** One try: waits out a failure's back-off first, outside the lock. Throws when the fetch fails. */
+    private suspend fun fetchOnce(ctx: Context, id: String) {
         if (!awaiting(id)) return
         val client = Gutenberg.client(ctx)
         delay(client.backoffMs())
@@ -109,6 +125,9 @@ object QueueDownload {
             }
         }
     }
+
+    /** Tries of one fetch for a transient failure, the first included; the client's back-off (2 s, then 4 s) spaces them. */
+    private const val ATTEMPTS = 3
 
     private fun awaiting(id: String) = Library.books.value.firstOrNull { it.id == id }?.awaitingDownload == true
 

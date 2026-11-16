@@ -459,6 +459,33 @@ class FindBooksUiTest {
         assertTrue("no partial file is left", Library.books.value.all { b -> File(Library.dir(ctx, b.id), "source.epub.part").exists().not() })
     }
 
+    @Smoke @Test
+    fun aDownloadThatFailedForGoodShowsItsReasonAndRetryFetchesTheSameBookAgain() {
+        val inner = Engines.httpGet
+        var missing = true
+        Engines.httpGet = { url, agent, out, onProgress ->
+            if (url == epubLink && missing) throw CatalogueException("The book catalogue has no such file (error 404).")
+            inner(url, agent, out, onProgress)
+        }
+
+        openFindBooks()
+        compose.onNodeWithTag("genre-SCIENCE_FICTION").performClick()
+        waitForTag("result-4242")
+        compose.onNodeWithTag("result-4242").performClick()
+        compose.waitUntil(60_000) { Library.books.value.singleOrNull()?.status == Status.FAILED }
+        val failed = Library.books.value.single()
+        compose.onNodeWithTag("find-back").performClick()
+        waitForTag("retry-Harbour Notes")
+        compose.onNodeWithTag("status-Harbour Notes", useUnmergedTree = true).assertTextContains("no such file (error 404)", substring = true)
+
+        missing = false
+        Gutenberg.client = null // the client would ask for a 2 s wait after the failure
+        compose.onNodeWithTag("retry-Harbour Notes").performClick()
+        compose.waitUntil(120_000) { Library.books.value.singleOrNull()?.status == Status.READY }
+        assertEquals("the same book, not a new row", failed.id, Library.books.value.single().id)
+        assertTrue("no retry control once it is made", !exists("retry-Harbour Notes"))
+    }
+
     /** Speech is held, so the first book stays "being made" until the returned gate is opened. */
     private fun holdSpeech(): CompletableDeferred<Unit> {
         val speechMayGo = CompletableDeferred<Unit>()

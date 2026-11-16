@@ -255,7 +255,8 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
                 items(imported, key = { it.id }) { b ->
                     // The chapter comes from files, so it is read off the main thread, again when the place or the chapters change.
                     val chapter by produceState<String?>(null, b.id, b.positionMs, b.finished, b.chapters) { value = withContext(Dispatchers.IO) { Library.currentChapter(ctx, b) } }
-                    BookRow(b, if (b.status == Status.READY) "" else b.label(), onOpen, onDelete = { toDelete = b }, drag = null, chapter = chapter)
+                    BookRow(b, if (b.status == Status.READY) "" else b.label(), onOpen, onDelete = { toDelete = b }, drag = null, chapter = chapter,
+                        onRetry = if (b.status == Status.FAILED && b.awaitingDownload) ({ Library.retryDownload(ctx, b.id) }) else null)
                 }
             }
         }
@@ -297,7 +298,7 @@ private fun PendingRow(p: PendingImport, onDismiss: () -> Unit, drag: QueueDrag?
 
 /** One book on the shelf. A book in the import queue can be dragged ([drag]); while one is dragged, a line shows the place it takes if released. Finished books have neither. */
 @Composable
-private fun BookRow(b: Book, label: String, onOpen: (String) -> Unit, onDelete: () -> Unit, drag: QueueDrag?, download: DownloadProgress? = null, chapter: String? = null) {
+private fun BookRow(b: Book, label: String, onOpen: (String) -> Unit, onDelete: () -> Unit, drag: QueueDrag?, download: DownloadProgress? = null, chapter: String? = null, onRetry: (() -> Unit)? = null) {
     val dragging = drag?.isDragging(b.id) == true
     val above = drag?.dropLineAbove(b.id)
     Box {
@@ -323,6 +324,8 @@ private fun BookRow(b: Book, label: String, onOpen: (String) -> Unit, onDelete: 
                 .clickable(enabled = b.openable) { onOpen(b.id) },
             trailingContent = {
                 Row {
+                    // A failed download can be tried again: the book goes back to its place in the queue.
+                    if (onRetry != null) TextButton(onClick = onRetry, modifier = Modifier.testTag("retry-${b.title}")) { Text("Retry") }
                     IconButton(onClick = onDelete, modifier = Modifier.testTag("delete-${b.title}")) { Icon(Icons.Filled.Delete, contentDescription = "Delete ${b.title}") }
                 }
             },
