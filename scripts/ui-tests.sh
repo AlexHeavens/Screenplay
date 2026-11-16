@@ -38,24 +38,24 @@ fi
 trap 'touch "$state/last-used"' EXIT
 $adb install -r -t app/build/outputs/apk/debug/app-debug.apk >/dev/null &&
 $adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk >/dev/null || exit 1
-instrument() { $adb shell am instrument -w --no-window-animation "$@" com.pdfaudiobook.test/com.pdfaudiobook.TestRunner; }
-out=$(instrument $( [ "$1" = smoke ] && echo "-e annotation com.pdfaudiobook.Smoke" || echo "${1:+-e class com.pdfaudiobook.$1}" ))
+instrument() { $adb shell am instrument -w --no-window-animation "$@" com.screenplay.test/com.screenplay.TestRunner; }
+out=$(instrument $( [ "$1" = smoke ] && echo "-e annotation com.screenplay.Smoke" || echo "${1:+-e class com.screenplay.$1}" ))
 echo "$out"
 # am instrument exits 0 even when tests fail, so judge by the runner's summary line.
 grep -q '^OK (' <<<"$out"; rc=$?
 # ForceStopTest needs the app killed between two runs, which no test can do to its own process: kill it from here once the first run says it is playing.
 if [ "$1" = smoke ] || [ "$1" = ForceStopTest ]; then
-    $adb shell run-as com.pdfaudiobook rm -f files/force-stop-ready
-    instrument -e class com.pdfaudiobook.ForceStopTest -e phase play > /tmp/force-stop-play.$$.log 2>&1 &
+    $adb shell run-as com.screenplay rm -f files/force-stop-ready
+    instrument -e class com.screenplay.ForceStopTest -e phase play > /tmp/force-stop-play.$$.log 2>&1 &
     play_pid=$!
     for _ in $(seq 1 240); do
-        $adb shell run-as com.pdfaudiobook ls files/force-stop-ready >/dev/null 2>&1 && break
+        $adb shell run-as com.screenplay ls files/force-stop-ready >/dev/null 2>&1 && break
         sleep 1
     done
-    $adb shell run-as com.pdfaudiobook ls files/force-stop-ready >/dev/null 2>&1 || { echo "ForceStopTest never reached the point to kill at:"; cat /tmp/force-stop-play.$$.log; rc=1; }
-    $adb shell am force-stop com.pdfaudiobook
+    $adb shell run-as com.screenplay ls files/force-stop-ready >/dev/null 2>&1 || { echo "ForceStopTest never reached the point to kill at:"; cat /tmp/force-stop-play.$$.log; rc=1; }
+    $adb shell am force-stop com.screenplay
     wait $play_pid
-    check=$(instrument -e class com.pdfaudiobook.ForceStopTest -e phase check)
+    check=$(instrument -e class com.screenplay.ForceStopTest -e phase check)
     echo "ForceStopTest after force-stop:"; echo "$check"
     grep -q '^OK (' <<<"$check" || rc=1
     rm -f /tmp/force-stop-play.$$.log

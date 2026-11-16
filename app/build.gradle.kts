@@ -10,11 +10,11 @@ plugins {
 }
 
 android {
-    namespace = "com.pdfaudiobook"
+    namespace = "com.screenplay"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.pdfaudiobook"
+        applicationId = "com.screenplay"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
@@ -22,7 +22,7 @@ android {
         // The speech runtime ships native code for these only: a phone, and the emulator.
         // `-Pabi=x86_64` keeps one, for a faster emulator build.
         ndk { abiFilters += providers.gradleProperty("abi").map { listOf(it) }.getOrElse(listOf("arm64-v8a", "x86_64")) }
-        testInstrumentationRunner = "com.pdfaudiobook.TestRunner"
+        testInstrumentationRunner = "com.screenplay.TestRunner"
     }
 
     compileOptions {

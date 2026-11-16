@@ -14,7 +14,7 @@ built=$(date +%s)
 work=$(mktemp -d); trap 'rm -rf "$work"' EXIT; mkdir "$work/claimed"
 
 # Smoke classes by their @Smoke annotation, with the longest known class first.
-classes=$(grep -l '@Smoke' app/src/androidTest/java/com/pdfaudiobook/*.kt | xargs -n1 basename | sed 's/\.kt$//' | grep -vx 'Smoke' | sort)
+classes=$(grep -l '@Smoke' app/src/androidTest/java/com/screenplay/*.kt | xargs -n1 basename | sed 's/\.kt$//' | grep -vx 'Smoke' | sort)
 # Classes named as arguments also run whole (every test, not only @Smoke) as extra entries "Class+full".
 # Longest first: whole BookUiTest, then the other whole classes, then the smoke classes.
 { for c in BookUiTest "$@"; do [[ $c == BookUiTest && " $* " != *" BookUiTest "* ]] || echo "$c+full"; done | awk '!seen[$0]++'
@@ -28,22 +28,22 @@ done
 wait
 installed=$(date +%s)
 
-instrument() { local s=$1; shift; $adb -s "$s" shell am instrument -w --no-window-animation "$@" com.pdfaudiobook.test/com.pdfaudiobook.TestRunner; }
+instrument() { local s=$1; shift; $adb -s "$s" shell am instrument -w --no-window-animation "$@" com.screenplay.test/com.screenplay.TestRunner; }
 
 # ForceStopTest kills the app between two runs, which no test can do to its own process: kill it from here.
 force_stop() {
   local s=$1 log=$work/force-stop-play.$s rc=0
-  $adb -s "$s" shell run-as com.pdfaudiobook rm -f files/force-stop-ready
-  instrument "$s" -e class com.pdfaudiobook.ForceStopTest -e phase play > "$log" 2>&1 &
+  $adb -s "$s" shell run-as com.screenplay rm -f files/force-stop-ready
+  instrument "$s" -e class com.screenplay.ForceStopTest -e phase play > "$log" 2>&1 &
   local play_pid=$!
   for _ in $(seq 1 240); do
-    $adb -s "$s" shell run-as com.pdfaudiobook ls files/force-stop-ready >/dev/null 2>&1 && break
+    $adb -s "$s" shell run-as com.screenplay ls files/force-stop-ready >/dev/null 2>&1 && break
     sleep 1
   done
-  $adb -s "$s" shell run-as com.pdfaudiobook ls files/force-stop-ready >/dev/null 2>&1 || { cat "$log"; rc=1; }
-  $adb -s "$s" shell am force-stop com.pdfaudiobook
+  $adb -s "$s" shell run-as com.screenplay ls files/force-stop-ready >/dev/null 2>&1 || { cat "$log"; rc=1; }
+  $adb -s "$s" shell am force-stop com.screenplay
   wait $play_pid
-  instrument "$s" -e class com.pdfaudiobook.ForceStopTest -e phase check | grep -q '^OK (' || rc=1
+  instrument "$s" -e class com.screenplay.ForceStopTest -e phase check | grep -q '^OK (' || rc=1
   return $rc
 }
 
@@ -54,12 +54,12 @@ worker() {
     [ -n "$c" ] || return 0
     t0=$(date +%s)
     if [[ $c == *+full ]]; then
-      out=$(instrument "$s" -e class "com.pdfaudiobook.${c%+full}"); grep -q '^OK (' <<<"$out"; rc=$?
+      out=$(instrument "$s" -e class "com.screenplay.${c%+full}"); grep -q '^OK (' <<<"$out"; rc=$?
     elif [ "$c" = ForceStopTest ]; then
       force_stop "$s"; rc=$?
       out="forcestop"
     else
-      out=$(instrument "$s" -e annotation com.pdfaudiobook.Smoke -e class "com.pdfaudiobook.$c"); grep -q '^OK (' <<<"$out"; rc=$?
+      out=$(instrument "$s" -e annotation com.screenplay.Smoke -e class "com.screenplay.$c"); grep -q '^OK (' <<<"$out"; rc=$?
     fi
     printf '%s\t%s\t%s\t%ss\trc=%s\n' "$c" "$s" "$(grep -o '^OK ([0-9]* tests\?)\|Tests run: [0-9]*,  Failures: [0-9]*' <<<"$out" | head -1)" "$(( $(date +%s) - t0 ))" "$rc" >> "$work/results.tsv"
     [ $rc -eq 0 ] || printf '%s\n' "$out" > "$work/fail.$c.log"
@@ -70,6 +70,6 @@ for s in $serials; do worker "$s" & done
 wait
 sort "$work/results.tsv"
 fails=$(grep -vc 'rc=0$' "$work/results.tsv")
-for f in "$work"/fail.*.log; do [ -e "$f" ] && { echo "--- $(basename "$f")"; grep -E 'FAILURES|Failures|Time:|^[0-9]+\) |Exception|Error|^\s+at com\.pdfaudiobook' "$f" | head -16; }; done
+for f in "$work"/fail.*.log; do [ -e "$f" ] && { echo "--- $(basename "$f")"; grep -E 'FAILURES|Failures|Time:|^[0-9]+\) |Exception|Error|^\s+at com\.screenplay' "$f" | head -16; }; done
 echo "EXIT=$([ "$fails" -eq 0 ] && echo 0 || echo 1) devices=$(wc -w <<<"$serials") classes=$(wc -l < "$work/results.tsv") failed=$fails BUILD=$(( built - start ))s INSTALL=$(( installed - built ))s RUN=$(( $(date +%s) - installed ))s WALL=$(( $(date +%s) - start ))s"
 [ "$fails" -eq 0 ]

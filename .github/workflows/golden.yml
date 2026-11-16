@@ -49,7 +49,7 @@ jobs:
       - name: Per-book files
         if: steps.catalogue.outputs.skip != 'true'
         run: |
-          version=$(sed --quiet 's/^    const val META_VERSION = \([0-9]*\)$/\1/p' app/src/main/java/com/pdfaudiobook/Library.kt)
+          version=$(sed --quiet 's/^    const val META_VERSION = \([0-9]*\)$/\1/p' app/src/main/java/com/screenplay/Library.kt)
           if [ -d "golden/book/v$version" ]; then
             echo "golden/book/v$version already exists: golden files are never replaced"
             [ "$GITHUB_EVENT_NAME" = push ] && exit 0

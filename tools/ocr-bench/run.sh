@@ -39,12 +39,12 @@ emulator)
   trap 'touch "$state/last-used"' EXIT
   $adb install -r -t "$repo/app/build/outputs/apk/debug/app-debug.apk" >/dev/null
   $adb install -r -t "$repo/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk" >/dev/null
-  dev=/sdcard/Android/data/com.pdfaudiobook/files
+  dev=/sdcard/Android/data/com.screenplay/files
   $adb shell "rm -rf $dev/ocr-bench $dev/ocr-bench-out; mkdir -p $dev/ocr-bench"
   mapfile -t pdfs < <($py "$here/corpus.py")
   $adb push "${pdfs[@]}" $dev/ocr-bench/ >/dev/null
   $adb shell am instrument -w -e ocrBench true -e widths "$widths" -e modes "$modes" \
-    -e class com.pdfaudiobook.OcrBenchmarkTest com.pdfaudiobook.test/com.pdfaudiobook.TestRunner
+    -e class com.screenplay.OcrBenchmarkTest com.screenplay.test/com.screenplay.TestRunner
   out=$(mktemp -d)
   $adb pull $dev/ocr-bench-out "$out" >/dev/null
   cores=$($adb shell nproc | tr -d '\r')

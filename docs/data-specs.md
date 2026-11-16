@@ -12,7 +12,7 @@ Each has a machine-checked spec, so a change that would strand old data fails be
 | `golden/<name>/vN/` | Real files written by that version's writer. **Never edited.** Each data file may have `<file>.expected.json`, the recorded result of reading it. |
 | `scripts/validate-schema.py SCHEMA DATAFILE` | Checks a data file against a schema (`.json`, `.jsonl`, `.tsv[.xz]`). |
 | `scripts/schema-diff.py` | Fails when a schema changed incompatibly since the last release. |
-| `app/src/test/java/com/pdfaudiobook/SpecValidator.kt` | `SpecValidator.validate(SpecValidator.schemaFile("name", N), jsonText)` returns the errors (empty when valid), same keyword subset as the Python tools, no dependency. |
+| `app/src/test/java/com/screenplay/SpecValidator.kt` | `SpecValidator.validate(SpecValidator.schemaFile("name", N), jsonText)` returns the errors (empty when valid), same keyword subset as the Python tools, no dependency. |
 | `scripts/check-data-specs.sh` | Runs both tools' tests, the schema diff and every golden file against its schema. This is what CI runs. |
 | `.github/workflows/golden.yml` | Generates the golden files for a new version with the real writers (never overwrites a folder). |
 
