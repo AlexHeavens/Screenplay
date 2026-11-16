@@ -177,9 +177,10 @@ def main():
     parser.add_argument("output")
     parser.add_argument("--build-date", required=True, help="the date the feed was built, YYYY-MM-DD")
     parser.add_argument("--ratings", help="ol-ratings.tsv.xz from build-ratings.py; without it no book has a rating")
+    parser.add_argument("--min-books", type=int, default=10_000, help="fewer books than this means the feed changed shape and nothing is written; a test fixture lowers it")
     args = parser.parse_args()
     rows = read(args.archive)
-    if len(rows) < 10_000:
+    if len(rows) < args.min_books:
         sys.exit("only %d books survived: the feed has changed shape, so the old catalogue stays" % len(rows))
     ratings = read_ratings(args.ratings, rows) if args.ratings else {}
     write(rows, args.output, args.build_date, ratings)

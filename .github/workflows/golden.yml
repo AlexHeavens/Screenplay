@@ -1,0 +1,53 @@
+name: Golden files
+
+# Writes the golden files (docs/data-specs.md) for the data formats' CURRENT version with the real writers, and uploads them as the artifact
+# `golden`. Nothing is committed: download it, check the files, and commit golden/<name>/vN/ by hand (an artifact is simpler than a PR bot and needs no write permission).
+# It refuses to write a version whose golden/<name>/vN/ already exists: those files are never replaced. A release tag whose version is already
+# there is skipped; a manual run for such a version fails, so nobody believes it ran.
+# Each data format adds one step below that writes into out/golden/<name>/vN/ and keeps the check "folder exists" first.
+on:
+  push:
+    tags: ['v[0-9]*']
+  workflow_dispatch:
+
+jobs:
+  golden:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Catalogue
+        id: catalogue
+        run: |
+          version=$(sed --quiet 's/^FORMAT_VERSION = \([0-9]*\)$/\1/p' scripts/build-catalogue.py)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ -d "golden/catalogue/v$version" ]; then
+            echo "golden/catalogue/v$version already exists: golden files are never replaced"
+            [ "$GITHUB_EVENT_NAME" = push ] && { echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
+            exit 1
+          fi
+          out="out/golden/catalogue/v$version"
+          mkdir --parents "$out" out/fixture
+          python3 -I scripts/fixtures/catalogue/make-fixture.py out/fixture
+          python3 -I scripts/build-catalogue.py out/fixture/rdf-sample.tar.bz2 "$out/fixture-$(date --utc +%F).tsv.xz" \
+            --build-date "$(date --utc +%F)" --ratings out/fixture/ol-ratings-sample.tsv.xz --min-books 5
+          python3 -I scripts/validate-schema.py "schemas/catalogue/v$version.json" "$out"/*.tsv.xz
+
+      # The app's own writers (per-book files, options) add their steps here, each running a unit-test entry point that writes under out/golden/.
+      - uses: actions/setup-java@v4
+        if: steps.catalogue.outputs.skip != 'true'
+        with: { distribution: temurin, java-version: 21 }
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.catalogue.outputs.skip != 'true'
+        with: { cache-read-only: true }
+      # Reads every data file under out/golden with the current parser and writes the .expected.json files beside them (never replacing one).
+      - name: Record what the app reads from them
+        if: steps.catalogue.outputs.skip != 'true'
+        run: GOLDEN_RECORD_DIR="$PWD/out/golden/catalogue" ./gradlew --stacktrace testDebugUnitTest --tests '*GoldenCatalogueTest.recordsTheExpectedResultForNewGoldenFiles'
+      - uses: actions/upload-artifact@v4
+        if: steps.catalogue.outputs.skip != 'true'
+        with:
+          name: golden
+          path: out/golden
+          if-no-files-found: error

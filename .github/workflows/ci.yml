@@ -27,6 +27,23 @@ jobs:
         with: { cache-read-only: "${{ github.ref != 'refs/heads/main' }}" }
       - run: ./gradlew --stacktrace testDebugUnitTest assembleDebug
 
+  # The data specs (docs/data-specs.md): the tools' tests, schema changes since the last release, every golden file against its schema, and the
+  # catalogue published now against its schema. The golden files are also read by the unit job's tests.
+  data-specs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - run: scripts/check-data-specs.sh
+      - name: Published catalogue follows its schema
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download catalogue --repo "$GITHUB_REPOSITORY" --pattern catalogue.tsv.xz --dir published
+          format=$(xz --decompress --stdout published/catalogue.tsv.xz | head --lines 1 | awk '{ print $2 }')
+          python3 -I scripts/validate-schema.py "schemas/catalogue/v$format.json" published/catalogue.tsv.xz
+
   # The device tests, including the OCR fixtures: real scans read by the real OCR, on a Gradle-managed emulator.
   device:
     needs: unit

@@ -147,7 +147,8 @@ class CatalogueData private constructor(val version: String, private val rows: L
                 val line = lines.readLine() ?: break
                 val f = line.split('\t')
                 val format = head[1].toInt()
-                if (f.size != if (format == 1) 6 else 8) throw unreadable
+                // Columns a later version appends to the format are skipped (docs/data-specs.md: additive only within a version).
+                if (f.size < if (format == 1) 6 else 8) throw unreadable
                 val id = f[0].toIntOrNull() ?: throw unreadable
                 val languages = f[3]
                 val genres = if (f[5].isEmpty()) 0 else f[5].split(',').fold(0) { mask, n -> mask or (genreOfTag.getOrNull(n.toIntOrNull() ?: -1) ?: throw unreadable) }

@@ -1,0 +1,671 @@
+{
+ "entriesByTitle": [
+  {
+   "rating10": 0,
+   "languages": ["pt"],
+   "downloads": 47118,
+   "author": "Unknown author",
+   "id": 62383,
+   "title": "A Biblia Sagrada, Contendo o Velho e o Novo Testamento",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 52959,
+   "author": "E. M. (Edward Morgan) Forster",
+   "id": 2641,
+   "title": "A Room with a View",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 50704,
+   "author": "Charles Dickens",
+   "id": 98,
+   "title": "A Tale of Two Cities",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 121623,
+   "author": "Lewis Carroll",
+   "id": 11,
+   "title": "Alice's Adventures in Wonderland",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 94005,
+   "author": "Unknown author",
+   "id": 37683,
+   "title": "Chambers's Twentieth Century Dictionary (part 1 of 4: A-D)",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 969,
+   "author": "Library of Congress. Copyright Office & United States",
+   "id": 252,
+   "title": "Copyright Law of the United States of America",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 62172,
+   "author": "Fyodor Dostoyevsky",
+   "id": 2554,
+   "title": "Crime and Punishment",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": [
+    "de",
+    "la"
+   ],
+   "downloads": 602,
+   "author": "Philipp Melanchthon",
+   "id": 607,
+   "title": "Die Augsburger Confession",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 9284,
+   "author": "René Descartes",
+   "id": 59,
+   "title": "Discourse on the Method of Rightly Conducting One's Reason and of Seeking Truth\u2026",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": [
+    "de",
+    "en"
+   ],
+   "downloads": 680,
+   "author": "Martin Luther",
+   "id": 417,
+   "title": "Dr. Martin Luther's Deutsche Geistliche Lieder",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 78131,
+   "author": "Bram Stoker",
+   "id": 345,
+   "title": "Dracula",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 182729,
+   "author": "Mary Wollstonecraft Shelley",
+   "id": 84,
+   "title": "Frankenstein; or, The modern Prometheus",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 57519,
+   "author": "Charlotte Brontë",
+   "id": 1260,
+   "title": "Jane Eyre: An Autobiography",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 19245,
+   "author": "Victor Hugo",
+   "id": 135,
+   "title": "Les Misérables",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 51164,
+   "author": "Louisa May Alcott",
+   "id": 37106,
+   "title": "Little Women; Or, Meg, Jo, Beth, and Amy",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 53383,
+   "author": "Emperor of Rome Marcus Aurelius",
+   "id": 2680,
+   "title": "Meditations",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 70535,
+   "author": "George Eliot",
+   "id": 145,
+   "title": "Middlemarch",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 172569,
+   "author": "Herman Melville",
+   "id": 2701,
+   "title": "Moby Dick; Or, The Whale",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["fi"],
+   "downloads": 0,
+   "author": "August Strindberg",
+   "id": 76962,
+   "title": "Narrien yhteiskunnasta : $b Muutamia kertomuksia",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": [
+    "en",
+    "zh"
+   ],
+   "downloads": 943,
+   "author": "Qian Tao",
+   "id": 2090,
+   "title": "Peach Blossom Shangri-la: Tao Hua Yuan Ji",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 208430,
+   "author": "Jane Austen",
+   "id": 1342,
+   "title": "Pride and Prejudice",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 81893,
+   "author": "William Shakespeare",
+   "id": 1513,
+   "title": "Romeo and Juliet",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 96353,
+   "author": "Arthur Conan Doyle",
+   "id": 1661,
+   "title": "The Adventures of Sherlock Holmes",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 16042,
+   "author": "Kate Chopin",
+   "id": 160,
+   "title": "The Awakening, and Selected Short Stories",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 62659,
+   "author": "L. M. (Lucy Maud) Montgomery",
+   "id": 67979,
+   "title": "The Blue Castle: a novel",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 3475,
+   "author": "Smith, Joseph, Jr. & Church of Jesus Christ of Latter-day Saints",
+   "id": 17,
+   "title": "The Book of Mormon : $b an account written by the hand of Mormon, upon plates t\u2026",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": [
+    "en",
+    "zh"
+   ],
+   "downloads": 1908,
+   "author": "James Legge",
+   "id": 3100,
+   "title": "The Chinese Classics: with a translation, critical and exegetical notes, proleg\u2026",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 76146,
+   "author": "William Shakespeare",
+   "id": 100,
+   "title": "The Complete Works of William Shakespeare",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 53145,
+   "author": "Alexandre Dumas & Auguste Maquet",
+   "id": 1184,
+   "title": "The Count of Monte Cristo",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 3892,
+   "author": "Alexander Hamilton & John Jay & James Madison",
+   "id": 18,
+   "title": "The Federalist Papers",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 50662,
+   "author": "F. Scott (Francis Scott) Fitzgerald",
+   "id": 64317,
+   "title": "The Great Gatsby",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 3035,
+   "author": "Lewis Carroll",
+   "id": 13,
+   "title": "The Hunting of the Snark: An Agony in Eight Fits",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 24756,
+   "author": "Unknown author",
+   "id": 10,
+   "title": "The King James Version of the Bible",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 52851,
+   "author": "Oscar Wilde",
+   "id": 174,
+   "title": "The Picture of Dorian Gray",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 1694,
+   "author": "Arthur Conan Doyle",
+   "id": 126,
+   "title": "The Poison Belt",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 50307,
+   "author": "Agatha Christie",
+   "id": 65238,
+   "title": "The Secret of Chimneys",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 71859,
+   "author": "Robert Louis Stevenson",
+   "id": 43,
+   "title": "The strange case of Dr. Jekyll and Mr. Hyde",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 2745,
+   "author": "United States",
+   "id": 2,
+   "title": "The United States Bill of Rights",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 0,
+   "author": "Ann S. (Ann Sophia) Stephens",
+   "id": 79478,
+   "title": "The wife's secret",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 67762,
+   "author": "William Shakespeare",
+   "id": 49297,
+   "title": "The Works of William Shakespeare [Cambridge Edition] [Vol. 5 of 9]",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 12703,
+   "author": "Aesop",
+   "id": 21,
+   "title": "Three hundred Aesop\u2019s fables",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 15769,
+   "author": "Lewis Carroll",
+   "id": 12,
+   "title": "Through the Looking-Glass",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 1875,
+   "author": "Mark Twain",
+   "id": 91,
+   "title": "Tom Sawyer Abroad",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 48773,
+   "author": "Tolstoy, Leo, graf",
+   "id": 2600,
+   "title": "War and Peace",
+   "ratingCount": 0
+  },
+  {
+   "rating10": 0,
+   "languages": ["en"],
+   "downloads": 2869,
+   "author": "Mark Twain",
+   "id": 70,
+   "title": "What Is Man? and Other Essays",
+   "ratingCount": 0
+  }
+ ],
+ "size": 45,
+ "languages": [
+  {
+   "code": "en",
+   "count": 42
+  },
+  {
+   "code": "de",
+   "count": 2
+  },
+  {
+   "code": "zh",
+   "count": 2
+  },
+  {
+   "code": "fi",
+   "count": 1
+  },
+  {
+   "code": "la",
+   "count": 1
+  },
+  {
+   "code": "pt",
+   "count": 1
+  }
+ ],
+ "idsByRating": [
+  1342,
+  84,
+  2701,
+  11,
+  1661,
+  37683,
+  1513,
+  345,
+  100,
+  43,
+  145,
+  49297,
+  67979,
+  2554,
+  1260,
+  2680,
+  1184,
+  2641,
+  174,
+  37106,
+  98,
+  64317,
+  65238,
+  2600,
+  62383,
+  10,
+  135,
+  160,
+  12,
+  21,
+  59,
+  18,
+  17,
+  13,
+  70,
+  2,
+  3100,
+  91,
+  126,
+  252,
+  2090,
+  417,
+  607,
+  76962,
+  79478
+ ],
+ "idsByGenre": {
+  "ESSAYS": [
+   18,
+   70
+  ],
+  "BIOGRAPHY": [
+   37106,
+   2680
+  ],
+  "HUMOUR": [
+   13,
+   91
+  ],
+  "DRAMA": [
+   1513,
+   100,
+   49297
+  ],
+  "TRAVEL": [],
+  "MYTHOLOGY": [
+   2090,
+   17,
+   21
+  ],
+  "MYSTERY": [
+   2554,
+   345,
+   1661,
+   65238,
+   43
+  ],
+  "POETRY": [
+   417,
+   100,
+   13
+  ],
+  "FICTION": [
+   2641,
+   98,
+   11,
+   2554,
+   345,
+   84,
+   1260,
+   135,
+   37106,
+   145,
+   2701,
+   2090,
+   1342,
+   1661,
+   160,
+   67979,
+   1184,
+   64317,
+   174,
+   126,
+   65238,
+   43,
+   12,
+   91,
+   2600
+  ],
+  "ADVENTURE": [
+   2701,
+   1184,
+   65238,
+   91
+  ],
+  "SCIENCE_FICTION": [
+   84,
+   126,
+   43
+  ],
+  "CHILDREN": [
+   11,
+   37106,
+   13,
+   12
+  ],
+  "NATURE": [],
+  "RELIGION": [
+   62383,
+   607,
+   417,
+   17,
+   3100,
+   10
+  ],
+  "HOW_TO": [],
+  "PHILOSOPHY": [
+   59,
+   2680,
+   3100,
+   174,
+   70
+  ],
+  "ROMANCE": [
+   2641,
+   1260,
+   1342,
+   1513,
+   67979,
+   65238
+  ],
+  "SHORT_STORIES": [1661],
+  "WARFARE": [],
+  "HISTORICAL_NOVELS": [
+   98,
+   135,
+   49297,
+   2600
+  ],
+  "HISTORY": [
+   98,
+   252,
+   607,
+   59,
+   417,
+   67979,
+   3100,
+   1184,
+   18,
+   174,
+   2,
+   2600
+  ]
+ },
+ "idsByDownloads": [
+  1342,
+  84,
+  2701,
+  11,
+  1661,
+  37683,
+  1513,
+  345,
+  100,
+  43,
+  145,
+  49297,
+  67979,
+  2554,
+  1260,
+  2680,
+  1184,
+  2641,
+  174,
+  37106,
+  98,
+  64317,
+  65238,
+  2600,
+  62383,
+  10,
+  135,
+  160,
+  12,
+  21,
+  59,
+  18,
+  17,
+  13,
+  70,
+  2,
+  3100,
+  91,
+  126,
+  252,
+  2090,
+  417,
+  607,
+  76962,
+  79478
+ ],
+ "version": "2026-11-15"
+}
