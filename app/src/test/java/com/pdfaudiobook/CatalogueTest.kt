@@ -71,11 +71,51 @@ class CatalogueTest {
     }
 
     @Test
-    fun everyGenreIsOneOfTheNineOffered() {
+    fun everyGenreIsOneOfTheTwentyOneOffered() {
         assertEquals(
-            listOf("Fiction", "Science fiction", "Mystery", "Adventure", "Poetry", "Drama", "History", "Philosophy", "Children's"),
+            listOf(
+                "Fiction", "Science fiction", "Mystery", "Adventure", "Poetry", "Drama", "History", "Philosophy", "Children's",
+                "Biography", "Essays and speeches", "Historical novels", "Humour", "Short stories", "Religion and spirituality", "Travel",
+                "Mythology and folklore", "Warfare", "Romance", "How-to", "Nature",
+            ),
             Genre.values().map { it.label },
         )
+        assertTrue("one bit each in an Int", Genre.values().size <= Int.SIZE_BITS - 1)
+    }
+
+    /** Tags as the published catalogue spells them: each new genre is found by its category tag and by the subject tags next to it. */
+    @Test
+    fun eachNewGenreKeepsTheBooksOfItsCategoryAndItsSubjectsAndNoUnrelatedOnes() {
+        val tags = listOf(
+            "Category: Crime, Thrillers and Mystery", "Category: Biographies", "Biography", "Category: Essays, Letters & Speeches", "Category: Historical Novels",
+            "Category: Humour", "Category: Short Stories", "Short stories", "Category: Religion/Spirituality", "Category: Travel Writing", "Description and travel",
+            "Category: Mythology, Legends & Folklore", "Category: History - Warfare", "Category: Romance", "Category: How To ...", "Category: Nature/Gardening/Animals",
+            "Category: Novels",
+        )
+        val books = listOf(
+            "10\tA Crime\tA, A\ten\t1\t0", "11\tA Life\tA, A\ten\t1\t1", "12\tAnother Life\tA, A\ten\t1\t2", "13\tOn Things\tA, A\ten\t1\t3",
+            "14\tOld Days\tA, A\ten\t1\t4", "15\tJokes\tA, A\ten\t1\t5", "16\tTales\tA, A\ten\t1\t6", "17\tMore Tales\tA, A\ten\t1\t7",
+            "18\tFaith\tA, A\ten\t1\t8", "19\tAbroad\tA, A\ten\t1\t9", "20\tElsewhere\tA, A\ten\t1\t10", "21\tGods\tA, A\ten\t1\t11",
+            "22\tBattles\tA, A\ten\t1\t12", "23\tLove\tA, A\ten\t1\t13", "24\tDo It\tA, A\ten\t1\t14", "25\tBirds\tA, A\ten\t1\t15",
+            "26\tJust a Novel\tA, A\ten\t1\t16",
+        )
+        val file = (listOf("catalogue-format 1 build 2026-11-14", "tags\t" + tags.joinToString("\t")) + books).joinToString("\n", postfix = "\n")
+        val catalogue = CatalogueData.parse(ByteArrayInputStream(xz(file)))
+        fun of(genre: Genre) = catalogue.search(CatalogueQuery(genre = genre), 50).entries.map { it.id }.sorted()
+        assertEquals("the Crime category is Mystery", listOf(10), of(Genre.MYSTERY))
+        assertEquals(listOf(11, 12), of(Genre.BIOGRAPHY))
+        assertEquals(listOf(13), of(Genre.ESSAYS))
+        assertEquals(listOf(14), of(Genre.HISTORICAL_NOVELS))
+        assertEquals(listOf(15), of(Genre.HUMOUR))
+        assertEquals(listOf(16, 17), of(Genre.SHORT_STORIES))
+        assertEquals(listOf(18), of(Genre.RELIGION))
+        assertEquals(listOf(19, 20), of(Genre.TRAVEL))
+        assertEquals(listOf(21), of(Genre.MYTHOLOGY))
+        assertEquals(listOf(22), of(Genre.WARFARE))
+        assertEquals(listOf(23), of(Genre.ROMANCE))
+        assertEquals(listOf(24), of(Genre.HOW_TO))
+        assertEquals(listOf(25), of(Genre.NATURE))
+        assertEquals("a book of no genre in the list is in none", emptyList<Int>(), Genre.values().filter { 26 in of(it) })
     }
 
     @Test

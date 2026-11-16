@@ -16,7 +16,11 @@ import java.io.InputStream
 import java.text.Normalizer
 import org.tukaani.xz.XZInputStream
 
-/** A genre the reader can pick: [topic] is matched against each book's bookshelves and subjects, ignoring case. */
+/**
+ * A genre the reader can pick: [topic] is matched against each book's bookshelves and subjects, ignoring case. A book's genres are
+ * one bit each (`1 shl ordinal`) in an Int that is built when the file is read, never stored, so there is room for 32 genres: new ones
+ * go at the end.
+ */
 enum class Genre(val label: String, val topic: String) {
     FICTION("Fiction", "fiction"),
     SCIENCE_FICTION("Science fiction", "science fiction"),
@@ -27,6 +31,18 @@ enum class Genre(val label: String, val topic: String) {
     HISTORY("History", "history"),
     PHILOSOPHY("Philosophy", "philosophy"),
     CHILDREN("Children's", "children"),
+    BIOGRAPHY("Biography", "biograph"),
+    ESSAYS("Essays and speeches", "essays"),
+    HISTORICAL_NOVELS("Historical novels", "historical novels"),
+    HUMOUR("Humour", "humour"),
+    SHORT_STORIES("Short stories", "short stories"),
+    RELIGION("Religion and spirituality", "religion"),
+    TRAVEL("Travel", "travel"),
+    MYTHOLOGY("Mythology and folklore", "folklore"),
+    WARFARE("Warfare", "warfare"),
+    ROMANCE("Romance", "romance"),
+    HOW_TO("How-to", "how to"),
+    NATURE("Nature", "nature"),
 }
 
 /**

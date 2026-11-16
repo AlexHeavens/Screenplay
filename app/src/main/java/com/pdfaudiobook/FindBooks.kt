@@ -120,7 +120,7 @@ fun FindBooks(onBack: () -> Unit) {
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             )
             Text("Genre", Modifier.padding(start = 16.dp, top = 8.dp), style = MaterialTheme.typography.labelLarge)
-            LazyRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(Modifier.padding(horizontal = 16.dp).testTag("find-genres"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(Genre.values().toList()) { g ->
                     FilterChip(genre == g, { genre = if (genre == g) null else g }, { Text(g.label) }, Modifier.testTag("genre-${g.name}"), shape = ControlShape, colors = themeChipColors())
                 }

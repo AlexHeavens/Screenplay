@@ -938,16 +938,18 @@ Tests:
 - `CatalogueTest.aRowShowsTheTitleTheAuthorsInReadingOrderTheLanguagesAndTheDownloads`
 - `FindBooksUiTest.searchesByTitleGenreAndSortThenAddsTheTappedBookToTheImportQueue`
 
-#### UC-13b Choose one of nine genres
+#### UC-13b Choose one of twenty-one genres
 
 Goal: browse by kind of book.
 
-- The "Genre" chips offer nine genres. A genre keeps the books with a bookshelf or subject that contains the genre's word, ignoring case. Picking the chosen genre again clears it.
+- The "Genre" chips offer twenty-one genres in a row that scrolls sideways: Fiction, Science fiction, Mystery, Adventure, Poetry, Drama, History, Philosophy, Children's, Biography, Essays and speeches, Historical novels, Humour, Short stories, Religion and spirituality, Travel, Mythology and folklore, Warfare, Romance, How-to and Nature. A genre keeps the books with a bookshelf or subject that contains the genre's word, ignoring case. Picking the chosen genre again clears it.
 
 Tests:
-- `CatalogueTest.everyGenreIsOneOfTheNineOffered`
+- `CatalogueTest.everyGenreIsOneOfTheTwentyOneOffered`
 - `CatalogueTest.aGenreMatchesTheBooksBookshelvesAndSubjects`
+- `CatalogueTest.eachNewGenreKeepsTheBooksOfItsCategoryAndItsSubjectsAndNoUnrelatedOnes`
 - `FindBooksUiTest.searchesByTitleGenreAndSortThenAddsTheTappedBookToTheImportQueue`
+- `FindBooksUiTest.genresBeyondTheFirstScreenOfChipsAreReachedByScrollingAndNarrowTheList`
 
 #### UC-13c Sort by title, downloads or rating
 

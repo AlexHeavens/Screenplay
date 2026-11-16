@@ -22,6 +22,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
@@ -375,6 +376,33 @@ class FindBooksUiTest {
         waitForTag("result-9")
         assertEquals(4, listRequests)
         assertTrue("the replacement is stored for the next day", System.currentTimeMillis() - storedList.lastModified() < Catalogue.MAX_AGE_MS)
+    }
+
+    @Test
+    fun genresBeyondTheFirstScreenOfChipsAreReachedByScrollingAndNarrowTheList() {
+        val text = listOf(
+            "catalogue-format 2 build 2026-11-14",
+            "tags\tCategory: Travel Writing\tCategory: Humour",
+            "301\tAcross the Strait\tRover, Rae\ten\t900\t0\t\t",
+            "302\tA Merry Muddle\tJester, Jo\ten\t800\t1\t\t",
+            "303\tA Funny Voyage\tRover, Rae\ten\t700\t0,1\t\t",
+            "304\tPlain Facts\tOwl, Ola\ten\t600\t\t\t",
+        ).joinToString("\n", postfix = "\n")
+        val bytes = ByteArrayOutputStream().also { out -> org.tukaani.xz.XZOutputStream(out, org.tukaani.xz.LZMA2Options()).use { it.write(text.toByteArray()) } }.toByteArray()
+        listAnswer = { it.write(bytes) }
+        openFindBooks()
+        waitForTag("result-304")
+        fun pick(genre: String) {
+            compose.onNodeWithTag("find-genres").performScrollToNode(hasTestTag("genre-$genre"))
+            compose.onNodeWithTag("genre-$genre").performClick()
+        }
+        pick("TRAVEL")
+        compose.waitUntil(10_000) { !exists("result-304") }
+        assertTrue("travel keeps the two travel books", exists("result-301") && exists("result-303") && !exists("result-302"))
+        pick("TRAVEL")
+        pick("HUMOUR")
+        compose.waitUntil(10_000) { !exists("result-301") }
+        assertTrue("humour keeps the two humorous books", exists("result-302") && exists("result-303") && !exists("result-304"))
     }
 
     @Test
