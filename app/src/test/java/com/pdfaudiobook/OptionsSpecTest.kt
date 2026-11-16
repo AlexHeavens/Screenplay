@@ -72,15 +72,8 @@ class OptionsSpecTest {
         assertTrue("keys in the sources with no entry in schemas/options/v1.json (add a schema version): $unknown", unknown.isEmpty())
     }
 
-    /** The shared validator (scripts/validate-schema.py) on a map, as the file the app would store; returns its complaints, empty when valid. */
-    private fun problems(stored: Map<String, Any>): String {
-        val file = File.createTempFile("options", ".json").apply { deleteOnExit() }
-        file.writeText(json(stored).toString())
-        val run = ProcessBuilder("python3", "-I", File(root, "scripts/validate-schema.py").path, File(root, "schemas/options/v1.json").path, file.path)
-            .redirectErrorStream(true).start()
-        val out = run.inputStream.bufferedReader().readText()
-        return if (run.waitFor() == 0) "" else out
-    }
+    /** The shared validator on a map, as the file the app would store; returns its complaints, empty when valid. */
+    private fun problems(stored: Map<String, Any>) = SpecValidator.validate(SpecValidator.schemaFile("options", 1), json(stored).toString()).joinToString("\n")
 
     @Test fun whatTheAppWritesSatisfiesTheSchema() {
         assertEquals("", problems(writtenByTheApp()))
