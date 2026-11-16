@@ -336,10 +336,11 @@ object Library {
 
     /**
      * Puts a book whose download failed back in the queue to fetch its file again, in the place its [Book.queueOrder] gives it, and starts the worker
-     * in case it has ended. Only a failed book still without its file qualifies; any other is left as it is (false).
+     * in case it has ended. The book is either failed, or still waiting with the error of its background fetch; clearing the error lets
+     * [QueueDownload.prefetch] try it again. Only a book still without its file qualifies; any other is left as it is (false).
      */
     fun retryDownload(ctx: Context, id: String): Boolean {
-        if (books.value.firstOrNull { it.id == id }?.let { it.status == Status.FAILED && it.awaitingDownload } != true) return false
+        if (books.value.firstOrNull { it.id == id }?.let { it.awaitingDownload && (it.status == Status.FAILED || (it.status == Status.QUEUED && it.error != null)) } != true) return false
         update(ctx, id) { it.copy(status = Status.QUEUED, error = null) }
         ImportQueue.start(ctx)
         return true

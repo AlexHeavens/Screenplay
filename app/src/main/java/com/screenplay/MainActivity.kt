@@ -262,7 +262,8 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
                 items(rows, key = { if (it.pending) "pending-${it.id}" else it.id }) { r ->
                     if (r.pending) pending.firstOrNull { it.key == r.id }?.let { p -> PendingRow(p, onDismiss = { Library.finish(p.key) }, drag = drag) }
                     else books.firstOrNull { it.id == r.id }?.let { b ->
-                        BookRow(b, ImportQueue.label(books, b, downloading, paused), onOpen, onDelete = { toDelete = b }, drag = drag, download = downloading[b.id])
+                        BookRow(b, ImportQueue.label(books, b, downloading, paused), onOpen, onDelete = { toDelete = b }, drag = drag, download = downloading[b.id],
+                            onRetry = if (b.status == Status.QUEUED && b.error != null && b.awaitingDownload && b.id !in downloading) ({ Library.retryDownload(ctx, b.id) }) else null)
                     }
                 }
                 // A file that failed is not in the queue: it cannot be moved.

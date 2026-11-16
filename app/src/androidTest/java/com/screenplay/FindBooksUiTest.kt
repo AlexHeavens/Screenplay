@@ -486,6 +486,36 @@ class FindBooksUiTest {
         assertTrue("no retry control once it is made", !exists("retry-Harbour Notes"))
     }
 
+    @Test
+    fun aBookWaitingBehindAnotherShowsItsFailedFetchWithRetryAndRetryFetchesItWhileTheFirstIsStillMade() {
+        val inner = Engines.httpGet
+        var missing = true
+        val secondLink = "https://www.gutenberg.org/ebooks/77.epub3.images"
+        Engines.httpGet = { url, agent, out, onProgress ->
+            if (url == secondLink && missing) throw CatalogueException("The book catalogue has no such file (error 404).")
+            inner(url, agent, out, onProgress)
+        }
+        val speechMayGo = holdSpeech()
+
+        openFindBooks()
+        compose.onNodeWithTag("genre-SCIENCE_FICTION").performClick()
+        waitForTag("result-77")
+        compose.onNodeWithTag("result-4242").performClick()
+        compose.onNodeWithTag("result-77").performClick()
+        compose.onNodeWithTag("find-back").performClick()
+        waitForTag("retry-Quiet Shore")
+        assertEquals("still waiting, not failed", Status.QUEUED, Library.books.value.single { it.source == "gutenberg:77" }.status)
+
+        missing = false
+        Gutenberg.client = null
+        compose.onNodeWithTag("retry-Quiet Shore").performClick()
+        compose.waitUntil(60_000) { !Library.books.value.single { it.source == "gutenberg:77" }.awaitingDownload }
+        assertTrue("the first book is still being made", Library.books.value.single { it.source == "gutenberg:4242" }.status != Status.READY)
+
+        speechMayGo.complete(Unit)
+        compose.waitUntil(120_000) { Library.books.value.all { it.status == Status.READY } }
+    }
+
     /** Speech is held, so the first book stays "being made" until the returned gate is opened. */
     private fun holdSpeech(): CompletableDeferred<Unit> {
         val speechMayGo = CompletableDeferred<Unit>()

@@ -134,12 +134,13 @@ object QueueDownload {
     /**
      * Runs until cancelled. Each time it fetches the book [ImportQueue.nextDownload] names, then asks again, so a reorder, an addition, a
      * removal or a finished book is taken into account at the next fetch. A fetch in progress is stopped if its book is deleted. A book
-     * whose fetch fails shows the error on its row, is not tried again here, and is left for its own turn, which retries it; the next book is fetched.
+     * whose fetch fails shows the error on its row, is not tried again here (until the reader taps Retry), and is left for its own turn, which retries it; the next book is fetched.
      */
     suspend fun prefetch(ctx: Context) {
         val failed = HashSet<String>()
         while (true) {
-            val id = Library.books.map { ImportQueue.nextDownload(it, failed)?.id }.filterNotNull().first()
+            // A book whose error was cleared (the reader tapped Retry) is no longer skipped.
+            val id = Library.books.map { books -> failed.removeAll { f -> books.firstOrNull { it.id == f }?.error == null }; ImportQueue.nextDownload(books, failed)?.id }.filterNotNull().first()
             try {
                 fetchUnlessDeleted(ctx, id)
             } catch (e: CancellationException) {

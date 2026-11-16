@@ -1045,6 +1045,7 @@ Goal: get a book again after a dropped connection, without deleting its row and 
 
 - A temporary failure (no connection, "too many requests", a server error) is tried again by itself, up to 3 tries in all, each after the catalogue client's back-off (2 s, then 4 s).
 - A permanent failure (for example error 404: the file is not there) is not tried again. The book stays under "Imported" as "Failed: " with the reason.
+- A book still waiting in the queue whose background fetch failed ("Download failed: …") has the same "Retry" button, which fetches it again at once.
 - A failed book whose file was not fetched has a "Retry" button. It puts the same book back in the queue at the start of its download stage, in the place its saved queue order gives it, and starts the worker. The stored book details do not change.
 
 Tests:
@@ -1053,6 +1054,7 @@ Tests:
 - `RetryTransientTest.aPermanentFailureIsThrownAtOnceWithoutAnotherTry`
 - `CatalogueErrorTest.aMissingFileIsPermanentAndNamesItsStatusWhileBusyAndUnreachableAreTransient`
 - `FindBooksUiTest.aDownloadThatFailedForGoodShowsItsReasonAndRetryFetchesTheSameBookAgain`
+- `FindBooksUiTest.aBookWaitingBehindAnotherShowsItsFailedFetchWithRetryAndRetryFetchesItWhileTheFirstIsStillMade`
 
 #### UC-13i The book list cannot be downloaded
 
