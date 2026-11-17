@@ -2478,15 +2478,15 @@ Unchecked: the Android spell checker running on a real book.
 
 ### UC-45 Choose the voice
 
-Goal: pick between the phone's voice and a more natural one.
+Goal: pick between a natural voice and the phone's own.
 
-- The voice menu offers the phone's own voice, Kokoro and Piper. The phone's voice is the default.
+- The voice menu offers the phone's own voice, Kokoro and Piper. Piper is the default.
 - Choosing Kokoro or Piper downloads the voice and shows its progress. A failed download returns to the previous voice and says why.
 - An import uses the chosen synthesizer. A stalled sentence becomes a second of silence and the book continues.
 
 Tests:
-- `BookUiTest.voiceDropDownDefaultsToThePhonesVoiceAndListsAllThree`
-- `BookUiTest.importUsesThePhonesVoiceByDefault`
+- `BookUiTest.voiceDropDownDefaultsToPiperAndListsAllThree`
+- `BookUiTest.importUsesPiperByDefault`
 - `BookUiTest.pickingKokoroMakesAnImportUseTheKokoroSynthesizer`
 - `BookUiTest.pickingPiperMakesAnImportUseThePiperSynthesizer`
 - `BookUiTest.aFailedVoiceDownloadFallsBackToThePreviousVoiceAndSaysWhy`
@@ -2498,15 +2498,18 @@ Tests:
 
 Unchecked: how the voices sound. The two tests that use a real engine skip themselves where none exists.
 
-#### UC-45a The phone's voice is the default
+#### UC-45a Piper is the default voice
 
-Goal: need no download to start.
+Goal: get a natural voice without setting anything.
 
-- A new install uses the phone's own text-to-speech engine.
+- A new install uses Piper. The first import downloads it (about 23 MB).
+- If that download fails, for example with no network, the book is read by the phone's own text-to-speech engine instead of failing.
+- A stored choice is kept, including the phone's voice.
 
 Tests:
-- `BookUiTest.voiceDropDownDefaultsToThePhonesVoiceAndListsAllThree`
-- `BookUiTest.importUsesThePhonesVoiceByDefault`
+- `BookUiTest.voiceDropDownDefaultsToPiperAndListsAllThree`
+- `BookUiTest.importUsesPiperByDefault`
+- `BookUiTest.importWithoutANetworkFallsBackToThePhonesVoice`
 
 #### UC-45b Kokoro: a larger, more natural voice
 

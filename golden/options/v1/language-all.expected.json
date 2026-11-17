@@ -6,7 +6,7 @@
     "cleanText": true,
     "footnotes": true,
     "contents": true,
-    "voice": "PHONE",
+    "voice": "PIPER",
     "theme": "SYSTEM"
   },
   "speed": 1.0,

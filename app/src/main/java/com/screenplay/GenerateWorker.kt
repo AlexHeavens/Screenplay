@@ -6,6 +6,7 @@ package com.screenplay
 
 import android.content.Context
 import android.content.pm.ServiceInfo
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
@@ -214,9 +215,16 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             order.finish()
         }
 
-        // The shelf's settings sheet downloads the voice when the switch is turned on; this covers a model removed since.
-        if (options.voice.neural) Engines.prepareNeural(ctx, options.voice) {}
-        val synths = List(options.voice.lanes) { if (options.voice.neural) Engines.neural(ctx, options.voice) else Engines.synthesizer(ctx) }
+        // The shelf's settings sheet downloads a voice when it is picked; this covers a model removed since, and the
+        // default voice, which nobody picked. Without a network the book is read by the phone's voice rather than failing.
+        val voice = if (!options.voice.neural) options.voice else try {
+            Engines.prepareNeural(ctx, options.voice) {}
+            options.voice
+        } catch (e: java.io.IOException) {
+            Log.w("GenerateWorker", "The ${options.voice.name.lowercase()} voice could not be downloaded; the phone's voice reads this book", e)
+            Voice.PHONE
+        }
+        val synths = List(voice.lanes) { if (voice.neural) Engines.neural(ctx, voice) else Engines.synthesizer(ctx) }
         val (segments, rate) = try {
             Speech.render(
                 synths, order::take, File(dir, "sentence.wav"), pcm,

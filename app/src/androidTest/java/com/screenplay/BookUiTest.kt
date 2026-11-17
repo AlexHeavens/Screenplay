@@ -208,11 +208,11 @@ class BookUiTest {
         override fun close() = Unit
     }
 
-    private fun importAndCollectEngines(): Set<String> {
+    private fun importAndCollectEngines(prepare: suspend (android.content.Context, Voice, (Float) -> Unit) -> Unit = { _, _, progress -> progress(1f) }): Set<String> {
         val used = java.util.Collections.synchronizedSet(mutableSetOf<String>())
         Engines.synthesizer = { Named("android", used) }
         Engines.neural = { _, voice -> Named(voice.name, used) }
-        Engines.prepareNeural = { _, _, progress -> progress(1f) }
+        Engines.prepareNeural = prepare
         launchWithPdf()
         waitFor(what = "ready", matcher = hasContentDescription("Listened"))
         return used.toSet()
@@ -226,17 +226,23 @@ class BookUiTest {
     }
 
     @Test
-    fun importUsesThePhonesVoiceByDefault() {
+    fun importUsesPiperByDefault() {
         Options(spell = false).save(ctx)
-        assertEquals(setOf("android"), importAndCollectEngines())
+        assertEquals(setOf(Voice.PIPER.name), importAndCollectEngines())
     }
 
     @Test
-    fun voiceDropDownDefaultsToThePhonesVoiceAndListsAllThree() {
+    fun importWithoutANetworkFallsBackToThePhonesVoice() {
+        Options(spell = false).save(ctx)
+        assertEquals(setOf("android"), importAndCollectEngines { _, _, _ -> throw java.io.IOException("no network") })
+    }
+
+    @Test
+    fun voiceDropDownDefaultsToPiperAndListsAllThree() {
         Options(spell = false).save(ctx)
         scenario = ActivityScenario.launch(Intent(ctx, MainActivity::class.java))
         compose.onNodeWithTag("settings").performClick()
-        compose.onNodeWithTag("opt-voice").assertTextContains(Voice.PHONE.label)
+        compose.onNodeWithTag("opt-voice").assertTextContains(Voice.PIPER.label)
         compose.onNodeWithTag("opt-voice").performClick()
         for (v in Voice.values()) compose.onNodeWithTag("voice-${v.name}").assertExists()
     }
@@ -248,7 +254,7 @@ class BookUiTest {
     fun pickingPiperMakesAnImportUseThePiperSynthesizer() = pickingAVoiceMakesAnImportUseIt(Voice.PIPER)
 
     private fun pickingAVoiceMakesAnImportUseIt(voice: Voice) {
-        Options(spell = false).save(ctx)
+        Options(spell = false, voice = Voice.PHONE).save(ctx)
         Engines.prepareNeural = { _, _, progress -> progress(1f) }
         pickVoice(voice)
         waitFor(what = "voice ready", matcher = hasText("Voice ready"))
@@ -259,7 +265,7 @@ class BookUiTest {
 
     @Test
     fun aFailedVoiceDownloadFallsBackToThePreviousVoiceAndSaysWhy() {
-        Options(spell = false).save(ctx)
+        Options(spell = false, voice = Voice.PHONE).save(ctx)
         Engines.prepareNeural = { _, _, _ -> throw java.io.IOException("no network") }
         pickVoice(Voice.PIPER)
         waitFor(what = "failure", matcher = hasText("Voice download failed: no network"))

@@ -56,7 +56,7 @@ class ForceStopTest {
         File(ctx.filesDir, "books").deleteRecursively()
         expectedFile.delete(); readyFile.delete()
         Library.refresh(ctx)
-        Options(spell = false).save(ctx)
+        Options(spell = false, voice = Voice.PHONE).save(ctx)
         ActivityScenario.launch<MainActivity>(
             Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW).setDataAndType(Fixtures.pdf(ctx), "application/pdf"),
         )

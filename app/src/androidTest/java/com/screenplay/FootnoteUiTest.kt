@@ -70,7 +70,7 @@ class FootnoteUiTest {
     fun restore() {
         Engines.recognisePage = null
         Engines.surveyPages = null
-        Options(spell = false).save(ctx)
+        Options(spell = false, voice = Voice.PHONE).save(ctx)
         scenario?.close()
     }
 
@@ -94,7 +94,7 @@ class FootnoteUiTest {
 
     @Test
     fun aFootnoteIsAnAnnotationUnderItsParagraphAndIsNeverSpoken() {
-        import(Options(footnotes = true))
+        import(Options(footnotes = true, voice = Voice.PHONE))
         val id = bookId()
         val texts = Library.segments(ctx, id).map { it.text }
         assertTrue("the footnote must not be in the transcript: $texts", texts.none { "Louis XII" in it })
@@ -117,7 +117,7 @@ class FootnoteUiTest {
 
     @Test
     fun aBackupCarriesTheFootnotesAndRestoresThemWithTheBook() {
-        import(Options(footnotes = true))
+        import(Options(footnotes = true, voice = Voice.PHONE))
         val id = bookId()
         Backup.restore(ctx, Backup.zip(ctx, id, Fixtures.TITLE))
         val restored = Library.books.value.single { it.id != id }
@@ -127,7 +127,7 @@ class FootnoteUiTest {
 
     @Test
     fun withTheOptionOffTheFootnoteIsSpokenAsBefore() {
-        import(Options(footnotes = false))
+        import(Options(footnotes = false, voice = Voice.PHONE))
         val id = bookId()
         assertTrue("the footnote is read aloud as before: $spoken", spoken.any { "Louis XII" in it })
         assertTrue(Library.footnotes(ctx, id).isEmpty())
@@ -137,7 +137,7 @@ class FootnoteUiTest {
 
     @Test
     fun theFootnoteOptionIsOnByDefaultAndSavedWithTheOthers() {
-        Options(spell = false).save(ctx)
+        Options(spell = false, voice = Voice.PHONE).save(ctx)
         assertTrue(Options.load(ctx).footnotes)
         scenario = ActivityScenario.launch(Intent(ctx, MainActivity::class.java))
         compose.onNodeWithTag("settings").performClick()
@@ -174,7 +174,7 @@ class FootnoteUiTest {
 
     @Test
     fun anEpubFootnoteIsAnAnnotationUnderItsParagraphAndIsNeverSpoken() {
-        importEpub(Options(footnotes = true))
+        importEpub(Options(footnotes = true, voice = Voice.PHONE))
         val id = bookId()
         val texts = Library.segments(ctx, id).map { it.text }
         assertTrue("the footnote must not be in the transcript: $texts", texts.none { "Louis XII" in it || "[3]" in it })
@@ -188,7 +188,7 @@ class FootnoteUiTest {
 
     @Test
     fun anEpubWithTheOptionOffSpeaksItsFootnoteAsBefore() {
-        importEpub(Options(footnotes = false))
+        importEpub(Options(footnotes = false, voice = Voice.PHONE))
         assertTrue("the footnote is read aloud as before: $spoken", spoken.any { "Louis XII" in it })
         assertTrue(Library.footnotes(ctx, bookId()).isEmpty())
     }

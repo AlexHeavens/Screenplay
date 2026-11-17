@@ -124,7 +124,7 @@ class OptionsSpecTest {
     /** Values outside the schema's enums are not valid data, so they are not golden files; the reader still copes with them. */
     @Test fun valuesOutsideTheSchemaFallBack() {
         val unknown = effective(mapOf("voice" to "GONE", "theme" to "SEPIA")).getJSONObject("options")
-        assertEquals("PHONE", unknown.getString("voice"))
+        assertEquals("PIPER", unknown.getString("voice"))
         assertEquals("SYSTEM", unknown.getString("theme"))
         assertEquals("KOKORO", effective(mapOf("voice" to "GONE", "natural" to true)).getJSONObject("options").getString("voice"))
         val languages = effective(mapOf("catalogue-languages" to "en:60000,bad,fr:x,de:3:4,es:7")).getJSONArray("catalogueLanguages")

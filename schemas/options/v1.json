@@ -36,10 +36,10 @@
       "default": true
     },
     "voice": {
-      "description": "Options.voice, a Voice enum constant name. An unknown name falls back to PHONE, or to KOKORO when the legacy \"natural\" key is true.",
+      "description": "Options.voice, a Voice enum constant name. An unknown or absent name falls back to the legacy \"natural\" key (true: KOKORO, false: PHONE), or to PIPER when that is absent too.",
       "type": "string",
       "enum": ["PHONE", "KOKORO", "PIPER"],
-      "default": "PHONE"
+      "default": "PIPER"
     },
     "theme": {
       "description": "Options.theme, a ThemeMode enum constant name. An unknown name falls back to SYSTEM.",
@@ -48,7 +48,7 @@
       "default": "SYSTEM"
     },
     "natural": {
-      "description": "Legacy, read only, never written now. The first build had a Natural voice switch; true means voice KOKORO when \"voice\" is absent or unknown. Nothing removes it, so it may stay beside \"voice\".",
+      "description": "Legacy, read only, never written now. The first build had a Natural voice switch; true means voice KOKORO and false the phone's voice, when \"voice\" is absent or unknown. Nothing removes it, so it may stay beside \"voice\".",
       "type": "boolean",
       "default": false,
       "deprecated": true

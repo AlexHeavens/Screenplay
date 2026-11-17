@@ -40,7 +40,7 @@ class ChaptersWithoutAudioTest {
     fun freshInstall() {
         File(ctx.filesDir, "books").deleteRecursively()
         Library.refresh(ctx)
-        Options(spell = false).save(ctx)
+        Options(spell = false, voice = Voice.PHONE).save(ctx)
     }
 
     @After

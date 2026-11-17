@@ -64,7 +64,7 @@ class ContentsUiTest {
     @After
     fun restore() {
         Engines.recognisePage = null
-        Options(spell = false).save(ctx)
+        Options(spell = false, voice = Voice.PHONE).save(ctx)
         scenario?.close()
     }
 
@@ -83,7 +83,7 @@ class ContentsUiTest {
 
     @Test
     fun aContentsPageIsShownInTheReaderButNeverSpokenOrInTheTranscript() {
-        import(Options(contents = true))
+        import(Options(contents = true, voice = Voice.PHONE))
         val id = Library.books.value.single().id
         val texts = Library.segments(ctx, id).map { it.text }
         assertTrue("the book itself is spoken: $texts", texts.any { "Venetians" in it } && texts.any { "King Louis" in it })
@@ -104,7 +104,7 @@ class ContentsUiTest {
 
     @Test
     fun withTheOptionOffTheContentsPageIsSpokenAsBefore() {
-        import(Options(contents = false))
+        import(Options(contents = false, voice = Voice.PHONE))
         val id = Library.books.value.single().id
         assertTrue("the contents is read aloud as before: $spoken", spoken.any { "Duties of a Prince" in it })
         assertTrue(Library.footnotes(ctx, id).isEmpty())
@@ -113,7 +113,7 @@ class ContentsUiTest {
 
     @Test
     fun theContentsOptionIsOnByDefaultAndSavedWithTheOthers() {
-        Options(spell = false).save(ctx)
+        Options(spell = false, voice = Voice.PHONE).save(ctx)
         assertTrue(Options.load(ctx).contents)
         scenario = ActivityScenario.launch(Intent(ctx, MainActivity::class.java))
         compose.onNodeWithTag("settings").performClick()

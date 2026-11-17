@@ -38,7 +38,7 @@ class OptionsLayoutUiTest {
 
     private fun assertGaps(fontScale: String) {
         shell("settings put system font_scale $fontScale")
-        Options(spell = false).save(ctx)
+        Options(spell = false, voice = Voice.PHONE).save(ctx)
         scenario = ActivityScenario.launch(Intent(ctx, MainActivity::class.java))
         compose.onNodeWithTag("settings").performClick()
         val gap = with(androidx.compose.ui.unit.Density(ctx.resources.displayMetrics.density)) { OptionGap.toPx() }
