@@ -112,6 +112,10 @@
     "download": {
       "type": "string",
       "description": "EPUB download URL for a catalogue book. Written only when not empty. Default \"\" (no download)."
+    },
+    "commit": {
+      "type": "string",
+      "description": "Git commit of the app build that finished generating the book's audio (40 hex digits, then -dirty when that build had local changes; unknown when git was unavailable). Written only when not empty. Default \"\" (made before it was kept)."
     }
   },
   "$defs": {

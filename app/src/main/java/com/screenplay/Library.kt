@@ -147,6 +147,7 @@ object Library {
             source = j.optString("source"),
             downloadUrl = j.optString("download"),
             awaitingDownload = j.optString("download").isNotEmpty() && !hasEpub,
+            commit = j.optString("commit"),
         )
     }
 
@@ -185,6 +186,7 @@ object Library {
         if (b.queueOrder != 0L) j.put("order", b.queueOrder)
         if (b.source.isNotEmpty()) j.put("source", b.source)
         if (b.downloadUrl.isNotEmpty()) j.put("download", b.downloadUrl)
+        if (b.commit.isNotEmpty()) j.put("commit", b.commit)
         return j
     }
 

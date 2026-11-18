@@ -29,6 +29,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import org.json.JSONObject
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -181,6 +182,9 @@ class EpubUiTest {
         compose.waitUntil(120_000) { Library.books.value.let { b -> b.size == 2 && b.all { it.status == Status.READY } } }
 
         val copy = Library.books.value.single { it.id != original.id }
+        // A book the app just generated records the commit of the build that made it, in memory and in its meta.json.
+        assertEquals(BuildConfig.COMMIT, copy.commit)
+        assertEquals(BuildConfig.COMMIT, JSONObject(File(Library.dir(ctx, copy.id), Files.META).readText()).getString("commit"))
         assertEquals(original.title, copy.title)
         assertEquals(original.author, copy.author)
         assertEquals(Chapters.find(Library.segments(ctx, original.id), original.contents).map { it.title }, Chapters.find(Library.segments(ctx, copy.id), copy.contents).map { it.title })

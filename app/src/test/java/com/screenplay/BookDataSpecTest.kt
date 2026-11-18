@@ -137,7 +137,7 @@ class BookDataSpecTest {
 
     // ---- a missing optional field reads as its documented default ----
 
-    private fun fullMeta() = JSONObject(Library.metaJson(BookSpec.books.getValue("ready-full").copy(error = "Could not read the PDF")).toString())
+    private fun fullMeta() = JSONObject(Library.metaJson(BookSpec.books.getValue("ready-built").copy(error = "Could not read the PDF")).toString())
     private fun load(j: JSONObject) = Library.bookFromMeta("golden", j, hasEpub = false)
 
     /** Field name in `meta.json` -> what the book is when only that field is left out of an otherwise full file. */
@@ -148,7 +148,7 @@ class BookDataSpecTest {
         "wordsQueued" to { it.copy(wordsQueued = 0) }, "rate" to { it.copy(rate = 0) }, "contents" to { it.copy(contents = emptyList()) },
         "estimates" to { it.copy(estimates = emptyList()) }, "chapters" to { it.copy(chapters = null) }, "position" to { it.copy(positionMs = null) },
         "finished" to { it.copy(finished = false) }, "order" to { it.copy(queueOrder = 0) }, "source" to { it.copy(source = "") },
-        "download" to { it.copy(downloadUrl = "", awaitingDownload = false) }, "version" to { it },
+        "download" to { it.copy(downloadUrl = "", awaitingDownload = false) }, "commit" to { it.copy(commit = "") }, "version" to { it },
     )
 
     @Test

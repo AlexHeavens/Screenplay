@@ -51,6 +51,8 @@ data class Book(
     val downloadUrl: String = "",
     /** True while [downloadUrl] is set and the EPUB is not on disk yet. Read from the book's folder, never stored: a half-written file does not count. */
     val awaitingDownload: Boolean = false,
+    /** The git commit of the app build that finished generating the audio (`-dirty` when it had local changes); empty for a book made before this was kept. */
+    val commit: String = "",
 ) {
     /** Share of the book heard, as the library shows it; null for a book never played. */
     val playedPercent: Int? get() = Played.percent(positionMs, finished, durationMs, status == Status.READY, speechProgress)

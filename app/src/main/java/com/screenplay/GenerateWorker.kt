@@ -258,7 +258,7 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         File(dir, Files.QUEUE).delete()
         File(dir, Files.JUMP).delete()
         Library.saveSegments(ctx, id, ordered)
-        Library.update(ctx, id) { it.copy(status = Status.READY, progress = 1f, durationMs = ordered.last().end, positionMs = it.positionMs?.let { p -> Speech.moved(p, segments, ordered) }) }
+        Library.update(ctx, id) { it.copy(status = Status.READY, commit = BuildConfig.COMMIT, progress = 1f, durationMs = ordered.last().end, positionMs = it.positionMs?.let { p -> Speech.moved(p, segments, ordered) }) }
     }
 
     /**

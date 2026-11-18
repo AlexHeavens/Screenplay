@@ -9,6 +9,17 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+fun git(vararg args: String): String? = try {
+    providers.exec { commandLine("git", *args); isIgnoreExitValue = true }.standardOutput.asText.get().trim().takeIf { it.isNotEmpty() }
+} catch (e: Exception) {
+    null
+}
+
+fun gitCommit(): String {
+    val head = git("rev-parse", "HEAD")?.takeIf { it.matches(Regex("[0-9a-f]{40}")) } ?: return "unknown"
+    return if (git("status", "--porcelain", "--untracked-files=no") != null) "$head-dirty" else head
+}
+
 android {
     namespace = "com.screenplay"
     compileSdk = 34
@@ -23,6 +34,8 @@ android {
         // `-Pabi=x86_64` keeps one, for a faster emulator build.
         ndk { abiFilters += providers.gradleProperty("abi").map { listOf(it) }.getOrElse(listOf("arm64-v8a", "x86_64")) }
         testInstrumentationRunner = "com.screenplay.TestRunner"
+        // The commit this build was made from, stored with each book it generates. "unknown" without git; "-dirty" when tracked files differ from it.
+        buildConfigField("String", "COMMIT", "\"${gitCommit()}\"")
     }
 
     compileOptions {
@@ -34,6 +47,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"

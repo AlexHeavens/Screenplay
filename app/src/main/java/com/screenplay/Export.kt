@@ -61,6 +61,9 @@ object Export {
         return starts.mapIndexed { i, c -> Span(c.title, c.start, starts.getOrNull(i + 1)?.start ?: total) }
     }
 
+    /** The comment tag: which app build made the audio; empty for a book that does not record it. */
+    private fun built(meta: JSONObject) = meta.optString("commit").let { if (it.isEmpty()) "" else "Made by Screenplay, commit $it" }
+
     /** One M4B: all the audio, with chapter marks, title and author, then the `metadata.json` that goes with it. */
     fun m4b(ctx: Context, id: String): List<File> {
         val meta = meta(ctx, id)
@@ -69,7 +72,7 @@ object Export {
         val out = File(dir, "${fileName(title)}.m4b")
         val chapters = spans(Library.segments(ctx, id), Library.chapters(ctx, id), title)
         copy(audio(ctx, id), out, 0, Long.MAX_VALUE)
-        Mp4Tags.add(out, title, meta.optString("author"), chapters)
+        Mp4Tags.add(out, title, meta.optString("author"), chapters, comment = built(meta))
         return listOf(out, writeMetadata(dir, meta, title, chapters))
     }
 
@@ -82,7 +85,7 @@ object Export {
         return chapters.mapIndexed { i, s ->
             File(dir, "%02d %s.m4a".format(i + 1, fileName(s.title))).also {
                 copy(audio(ctx, id), it, s.start, s.end)
-                Mp4Tags.add(it, s.title, meta.optString("author"), emptyList(), album = title)
+                Mp4Tags.add(it, s.title, meta.optString("author"), emptyList(), album = title, comment = built(meta))
             }
         } + writeMetadata(dir, meta, title, chapters)
     }
@@ -157,8 +160,8 @@ object Export {
  * Audiobookshelf, VLC, ffmpeg and most Android players read.
  */
 object Mp4Tags {
-    fun add(file: File, title: String, author: String, chapters: List<Span>, album: String = title) {
-        val udta = box("udta", (if (chapters.isNotEmpty()) chpl(chapters) else ByteArray(0)) + meta(title, author, album))
+    fun add(file: File, title: String, author: String, chapters: List<Span>, album: String = title, comment: String = "") {
+        val udta = box("udta", (if (chapters.isNotEmpty()) chpl(chapters) else ByteArray(0)) + meta(title, author, album, comment))
         val tmp = File(file.path + ".tmp")
         RandomAccessFile(file, "r").use { src ->
             val (moovAt, moovSize, mdatAfter) = findMoov(src)
@@ -239,9 +242,10 @@ object Mp4Tags {
         }
     }.toByteArray().let { box("chpl", it) }
 
-    private fun meta(title: String, author: String, album: String): ByteArray {
+    private fun meta(title: String, author: String, album: String, comment: String): ByteArray {
         fun text(type: String, s: String) = box(type, box("data", ByteBuffer.allocate(8).putInt(1).putInt(0).array() + s.toByteArray()))
         val items = text("©nam", title) + text("©alb", album) + (if (author.isNotEmpty()) text("©ART", author) else ByteArray(0)) +
+            (if (comment.isNotEmpty()) text("©cmt", comment) else ByteArray(0)) +
             // stik 2 marks the file as an audiobook; its data is a one-byte integer (type 21).
             box("stik", box("data", ByteBuffer.allocate(9).putInt(21).putInt(0).put(2).array()))
         val hdlr = box("hdlr", ByteBuffer.allocate(25).putInt(0).putInt(0).put("mdir".toByteArray()).put(ByteArray(13)).array())

@@ -42,7 +42,7 @@ internal object BookSpec {
 
     private fun status(s: Status, more: Book.() -> Book = { this }) = rich.copy(
         title = "State ${s.name}", status = s, progress = 0.35f, durationMs = 0, words = 120, wordsTotal = 0, pages = 7, pagesTotal = 0, wordsQueued = 400, rate = 0,
-        contents = emptyList(), author = "", estimates = emptyList(), chapters = null, positionMs = null, finished = false, queueOrder = 0, source = "", downloadUrl = "",
+        contents = emptyList(), author = "", estimates = emptyList(), chapters = null, positionMs = null, finished = false, queueOrder = 0, source = "", downloadUrl = "", commit = "",
     ).more()
 
     /** Books written by [Library.writeMeta], the writer behind every update. */
@@ -54,6 +54,7 @@ internal object BookSpec {
         "encoding" to status(Status.ENCODING) { copy(wordsTotal = 40_000, pagesTotal = 188, pages = 188, rate = 24_000, durationMs = 28_000_000, progress = 0.99f) },
         "ready-minimal" to status(Status.READY) { copy(progress = 1f, durationMs = 1_000, created = 1_763_000_000_000) },
         "ready-full" to rich,
+        "ready-built" to rich.copy(commit = "0123456789abcdef0123456789abcdef01234567-dirty"),
         "ready-played" to rich.copy(finished = false, positionMs = 0, chapters = emptyList(), downloadUrl = "", source = ""),
         "failed" to status(Status.FAILED) { copy(error = "Could not read the PDF: Unable to open \"source.pdf\"\nline two") },
         "unicode-title" to status(Status.READY) { copy(title = unicodeTitle, author = "Žižek — Ôé 山田太郎", contents = listOf("第一章 🎧", "Глава 2"), progress = 1f) },
@@ -151,4 +152,6 @@ internal object BookSpec {
         .put("chapters", b.chapters?.let { c -> JSONArray(c.map { JSONObject().put("index", it.index).put("title", it.title) }) } ?: JSONObject.NULL)
         .put("positionMs", b.positionMs ?: JSONObject.NULL).put("finished", b.finished).put("queueOrder", b.queueOrder).put("source", b.source)
         .put("downloadUrl", b.downloadUrl).put("awaitingDownload", b.awaitingDownload)
+        // Only when set, so the expected files recorded before the field existed still match.
+        .also { if (b.commit.isNotEmpty()) it.put("commit", b.commit) }
 }

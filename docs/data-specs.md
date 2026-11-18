@@ -84,6 +84,7 @@ compares with `<name>.expected.json`.
   never written as that default: absent and default read the same, so the schema allows both.
 * **`legacy-*` golden files** are the first release's shapes (no `version`, `download` or segment `at`; a backup made before details were kept has
   only a title and a duration). They were reconstructed from the first release's writer, not captured from a phone, and follow `schemas/<name>/v1.json`.
+* **`commit`** is the git commit of the app build that finished generating the audio (`BuildConfig.COMMIT`: 40 hex digits, `-dirty` for local changes, `unknown` without git). It is stamped when the book reaches READY and written only when not empty, so books made earlier read as empty. `ready-built` is the golden with it; every other golden is the no-commit case. The M4B and per-chapter export also carry it as a `©cmt` tag. Added to v1 in place: no release tag exists yet.
 * **Import state** is not a separate file: the queue place (`order`), stage (`status`, `progress`, the word and page counts) and a catalogue book's
   `download` URL are fields of `meta.json`. `queue.txt` and `jump.txt` are plain text files, not JSON, and are out of this spec.
 * **The writer entry points** are `Library.metaJson`, `Library.importMeta`, `Library.downloadMeta` and the `Library.writeSegments`/`writeNotes`/`writeFootnotes`,
