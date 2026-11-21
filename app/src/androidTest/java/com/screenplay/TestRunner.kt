@@ -11,9 +11,9 @@ import androidx.test.runner.AndroidJUnitRunner
 /** Grants the notification permission up front, so its system dialog never covers the app in a test. */
 class TestRunner : AndroidJUnitRunner() {
     override fun onCreate(arguments: Bundle?) {
-        // Adds the timing listener to any `-e listener` the caller passed.
+        // Adds the timing and cleanup listeners to any `-e listener` the caller passed.
         val args = arguments ?: Bundle()
-        args.putString("listener", listOfNotNull(args.getString("listener"), TestTimingListener::class.java.name).joinToString(","))
+        args.putString("listener", listOfNotNull(args.getString("listener"), TestTimingListener::class.java.name, PendingImportCleaner::class.java.name).joinToString(","))
         super.onCreate(args)
     }
 

@@ -74,10 +74,10 @@ jobs:
       - name: Start diagnostics
         run: |
           mkdir -p "$RUNNER_TEMP/diag"
-          # The loops expand their variables in the child shell, so the single quotes are deliberate.
-          # shellcheck disable=SC2016
           nohup bash -c 'while true; do date -u +%T; free -m | sed -n 2p; uptime; sleep 30; done' \
             > "$RUNNER_TEMP/diag/runner.log" 2>&1 &
+          # The loop expands its variables in the child shell, so the single quotes are deliberate.
+          # shellcheck disable=SC2016
           nohup bash -c 'while true; do "$ANDROID_HOME/platform-tools/adb" wait-for-device logcat -v threadtime \
             >> "$RUNNER_TEMP/diag/logcat.txt"; sleep 2; done' > /dev/null 2>&1 &
       # A step limit below the job limit makes a hung run fail this step, so the steps after it still run.
