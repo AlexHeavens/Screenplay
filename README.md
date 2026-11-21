@@ -9,17 +9,42 @@ Screenplay is an Android app that turns a PDF into an audiobook with a synchroni
 - **Catalogue**: search a stored copy of the Project Gutenberg catalogue, refreshed daily, with no network needed after the first download (by title, author, genre and popularity) and add a book to the import queue as an EPUB. Gutenberg texts are public domain in the US only, and the app is not endorsed by Project Gutenberg. See [docs/gutenberg.md](docs/gutenberg.md) for the rules the feature follows and what to check before publishing.
 - **Back up**: one zip of the PDF, audio, transcript and notes, sent with `ACTION_SEND`.
 
-Not built: background playback with lock-screen controls, restoring from a backup, CI.
+Not built: background playback with lock-screen controls, restoring from a backup.
 
-## Build and test
+## Contents
 
-JDK 21 and the Android SDK (`local.properties` holds `sdk.dir`).
+- `app/`: the Android app (Kotlin).
+- `scripts/`: the catalogue builder and publisher, the data-spec checks, the emulator and UI-test runners, and `install-gitleaks.sh`.
+- `tools/ocr-bench/`: a benchmark for the OCR step.
+- `schemas/` and `golden/`: the data formats' schemas and their golden files ([docs/data-specs.md](docs/data-specs.md)).
+- `docs/`: use cases, data specs, Gutenberg rules and measurements.
+- `pins/`: version pins for gitleaks and the linters; Dependabot proposes bumps.
+- `.github/workflows/`: CI, secret scan, lint, catalogue publishing and golden-file generation.
+
+## Setup
+
+Prerequisites: JDK 21, the Android SDK (`local.properties` holds `sdk.dir`) and Python 3.
 
 ```bash
-./gradlew testDebugUnitTest      # JVM tests
-scripts/ui-tests.sh              # e2e on a warm emulator that scripts/emulator.sh starts (quick boot) and stops after 30 idle minutes; set ANDROID_SERIAL to use another device
+scripts/install-gitleaks.sh      # the pre-commit hook needs gitleaks
+git config core.hooksPath .githooks
+```
+
+## Tests
+
+```bash
+./gradlew testDebugUnitTest      # JVM tests; the command CI runs
 scripts/ui-tests.sh              # e2e on a warm emulator that scripts/emulator.sh starts (quick boot) and stops after 30 idle minutes; set ANDROID_SERIAL to use another device
 ./gradlew pixel6Api34DebugAndroidTest   # same tests on a Gradle Managed Device
+```
+
+Lint, as CI runs it (`pins/lint/requirements.txt` pins the versions):
+
+```bash
+python3 -m venv /tmp/lint && /tmp/lint/bin/pip install --requirement pins/lint/requirements.txt
+git ls-files '*.sh' .githooks | xargs /tmp/lint/bin/shellcheck --severity=warning
+/tmp/lint/bin/actionlint
+/tmp/lint/bin/ruff check --isolated --select E9,F .
 ```
 
 The e2e tests use the real app, OCR, AAC encoder, player and share intent. Only speech is faked (`FakeSynthesizer`, a tone per word), because the `aosp_atd` emulator image has no speech engine. `RealSpeechTest` runs against the real engine and skips itself where none exists.

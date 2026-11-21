@@ -1,0 +1,37 @@
+name: Lint
+
+# ShellCheck for the shell scripts, actionlint for the workflows, ruff for the Python tools. Run the same commands locally (see README.md).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install the linters
+        run: python3 -m venv "$RUNNER_TEMP/lint" && "$RUNNER_TEMP/lint/bin/pip" install --requirement pins/lint/requirements.txt
+
+      - name: ShellCheck
+        run: git ls-files '*.sh' .githooks | xargs "$RUNNER_TEMP/lint/bin/shellcheck" --severity=warning
+
+      - name: actionlint
+        run: |
+          "$RUNNER_TEMP/lint/bin/actionlint"
+
+      - name: ruff
+        run: |
+          "$RUNNER_TEMP/lint/bin/ruff" check --isolated --select E9,F .

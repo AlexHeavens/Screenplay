@@ -7,7 +7,7 @@
 # and waits when all are busy. Each device has its own lock, so runs on different devices go in parallel; runs on one device queue.
 # Optional arg: `smoke` (the always-run tests), Class or Class#method.
 set -o pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 adb=${ANDROID_HOME:+$ANDROID_HOME/platform-tools/}adb
 start=$(date +%s)
 # Build only the target's CPU type (the warm emulator is x86_64); another ANDROID_SERIAL device is asked for its own.
@@ -39,6 +39,7 @@ trap 'touch "$state/last-used"' EXIT
 $adb install -r -t app/build/outputs/apk/debug/app-debug.apk >/dev/null &&
 $adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk >/dev/null || exit 1
 instrument() { $adb shell am instrument -w --no-window-animation "$@" com.screenplay.test/com.screenplay.TestRunner; }
+# shellcheck disable=SC2046  # the instrument arguments are split on purpose
 out=$(instrument $( [ "$1" = smoke ] && echo "-e annotation com.screenplay.Smoke" || echo "${1:+-e class com.screenplay.$1}" ))
 echo "$out"
 # am instrument exits 0 even when tests fail, so judge by the runner's summary line.

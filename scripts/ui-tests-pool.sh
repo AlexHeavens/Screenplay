@@ -5,7 +5,7 @@
 # Classes run longest first (BookUiTest). Does not take run.lock: the pool devices belong to this run alone.
 # Experimental; see docs/parallel-android-testing.md. Does not replace scripts/ui-tests.sh.
 set -o pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 adb=${ANDROID_HOME:+$ANDROID_HOME/platform-tools/}adb
 serials=${POOL_SERIALS:?set POOL_SERIALS to the booted devices, e.g. "emulator-5582 emulator-5584"}
 start=$(date +%s)
@@ -32,7 +32,8 @@ instrument() { local s=$1; shift; $adb -s "$s" shell am instrument -w --no-windo
 
 # ForceStopTest kills the app between two runs, which no test can do to its own process: kill it from here.
 force_stop() {
-  local s=$1 log=$work/force-stop-play.$s rc=0
+  local s=$1
+  local log=$work/force-stop-play.$s rc=0
   $adb -s "$s" shell run-as com.screenplay rm -f files/force-stop-ready
   instrument "$s" -e class com.screenplay.ForceStopTest -e phase play > "$log" 2>&1 &
   local play_pid=$!

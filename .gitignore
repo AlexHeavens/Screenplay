@@ -5,3 +5,5 @@ local.properties
 *.iml
 app/libs/
 __pycache__/
+.env
+.venv/

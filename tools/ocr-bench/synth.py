@@ -7,7 +7,6 @@ Scanned cases are vector pages rasterised, degraded and embedded as an image wit
 Usage: python -I synth.py <pg1342.txt> <pg17989.txt> <outdir>
 """
 import io
-import random
 import re
 import sys
 
