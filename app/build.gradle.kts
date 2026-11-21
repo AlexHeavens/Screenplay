@@ -104,9 +104,9 @@ tasks.matching { it.name == "testDebugUnitTest" }.configureEach { dependsOn(chec
 dependencies {
     implementation(files(sherpaAar))
     // Unpacks the natural voice's .tar.bz2 download.
-    implementation("org.apache.commons:commons-compress:1.26.2")
+    implementation("org.apache.commons:commons-compress:1.28.0")
     // Reads the book list ("Catalogue"), which is xz compressed: 1.7 MB smaller than gzip for the same rows.
-    implementation("org.tukaani:xz:1.10")
+    implementation("org.tukaani:xz:1.12")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.activity:activity-compose:1.9.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.2")
@@ -119,11 +119,11 @@ dependencies {
     implementation("com.google.mlkit:text-recognition:16.0.1")
 
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.json:json:20240303")
+    testImplementation("org.json:json:20260814")
 
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.09.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    androidTestImplementation("androidx.test:runner:1.6.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-intents:3.6.1")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
