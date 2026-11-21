@@ -69,10 +69,28 @@ jobs:
         with: { distribution: temurin, java-version: 21 }
       - uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
         with: { cache-read-only: "${{ github.ref != 'refs/heads/main' }}" }
+      # The nightly run times out or fails in tests that pass on a local emulator. Record the runner's load and the
+      # emulator's log while the tests run, so a slow or failed run can be read afterwards from the uploaded artifact.
+      - name: Start diagnostics
+        run: |
+          mkdir -p "$RUNNER_TEMP/diag"
+          nohup bash -c 'while true; do date -u +%T; free -m | sed -n 2p; uptime; sleep 30; done' \
+            > "$RUNNER_TEMP/diag/runner.log" 2>&1 &
+          nohup bash -c 'while true; do "$ANDROID_HOME/platform-tools/adb" wait-for-device logcat -v threadtime \
+            >> "$RUNNER_TEMP/diag/logcat.txt"; sleep 2; done' > /dev/null 2>&1 &
+      # A step limit below the job limit makes a hung run fail this step, so the steps after it still run.
       - name: Device tests
+        timeout-minutes: 30
         run: >
           ./gradlew --stacktrace pixel6Api34DebugAndroidTest
           -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+      - name: Device state
+        if: always()
+        run: |
+          adb=$ANDROID_HOME/platform-tools/adb
+          "$adb" devices -l > "$RUNNER_TEMP/diag/devices.txt" 2>&1 || true
+          { "$adb" shell dumpsys meminfo | head -40; "$adb" shell top -b -n 1 -m 15; } > "$RUNNER_TEMP/diag/device-state.txt" 2>&1 || true
+          df -h ~ > "$RUNNER_TEMP/diag/disk.txt" 2>&1 || true
       # Gradle hides the emulator's own output; on a setup failure, start it directly to print why it exited.
       - name: Emulator diagnostics
         if: failure()
@@ -90,4 +108,6 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: device-test-report
-          path: app/build/outputs/androidTest-results/
+          path: |
+            app/build/outputs/androidTest-results/
+            ${{ runner.temp }}/diag/
