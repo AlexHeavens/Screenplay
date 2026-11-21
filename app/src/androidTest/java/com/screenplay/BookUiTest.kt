@@ -7,6 +7,9 @@ package com.screenplay
 import android.app.Activity
 import android.app.Instrumentation
 import android.content.Intent
+import android.util.Log
+import androidx.compose.ui.test.ComposeTimeoutException
+import androidx.compose.ui.test.printToLog
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.captureToImage
@@ -94,8 +97,15 @@ class BookUiTest {
 
     /** [unmerged] reaches a note inside a clickable sentence, whose children Compose merges into one node. */
     private fun waitFor(timeout: Long = 120_000, what: String, unmerged: Boolean = false, matcher: SemanticsMatcher) {
-        compose.waitUntil(timeout) {
-            compose.onAllNodes(matcher, useUnmergedTree = unmerged).fetchSemanticsNodes().isNotEmpty()
+        try {
+            compose.waitUntil(timeout) {
+                compose.onAllNodes(matcher, useUnmergedTree = unmerged).fetchSemanticsNodes().isNotEmpty()
+            }
+        } catch (e: ComposeTimeoutException) {
+            // CI shows only the timeout; record what the screen and the library held, so logcat explains it.
+            Log.e("WaitTimeout", "no node for '$what'; books: ${Library.books.value.joinToString { "${it.title}:${it.status}" }}")
+            compose.onRoot(useUnmergedTree = true).printToLog("WaitTimeout")
+            throw e
         }
     }
 
