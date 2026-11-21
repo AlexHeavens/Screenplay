@@ -13,6 +13,7 @@ document=docs/use-cases.md
 [ -f "$document" ] || { echo "check-use-cases: $document not found" >&2; exit 2; }
 
 # Every Class.method the test sources declare. A file with several classes offers each of its methods under each class.
+# shellcheck disable=SC2046  # the file list is split on purpose; the names hold no spaces
 declared=$(awk '
     function flush(    declaredClass, declaredFunction) {
         for (declaredClass in classes) for (declaredFunction in functions) print declaredClass "." declaredFunction
@@ -29,6 +30,7 @@ declared=$(awk '
 ' $(find app/src/test app/src/androidTest -name '*.kt') | sort --unique)
 
 # Every Class.method that is a @Test, with its own class (the list above also pairs a method with the other classes of its file).
+# shellcheck disable=SC2046  # the file list is split on purpose; the names hold no spaces
 test_methods=$(awk '
     FNR == 1 { current = ""; pending = 0 }
     /^((private|internal|open|abstract|data) +)*class +[A-Za-z0-9_]+/ {

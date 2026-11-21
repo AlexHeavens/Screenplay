@@ -1,0 +1,4 @@
+# Version pins for the linters CI runs (.github/workflows/lint.yml). Dependabot (pip ecosystem) proposes bumps.
+shellcheck-py==0.11.0.1
+actionlint-py==1.7.12.25
+ruff==0.17.6
