@@ -312,6 +312,17 @@ class ImportQueueUiTest {
 
     private fun importNotification() = ctx.getSystemService(android.app.NotificationManager::class.java).activeNotifications.singleOrNull { it.id == 1 }?.notification
 
+    /** A wait on the import notification that, if it times out, says which wait it was and what the notification held. */
+    private fun waitForNotice(what: String, until: () -> Boolean) {
+        try {
+            compose.waitUntil(30_000, until)
+        } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
+            val n = importNotification()
+            throw AssertionError("no notice $what; notice is title=${n?.extras?.getString(android.app.Notification.EXTRA_TITLE)} text=${n?.extras?.getString(android.app.Notification.EXTRA_TEXT)} " +
+                "actions=${n?.actions?.map { it.title }} book=${Library.books.value.firstOrNull { it.title == "note-one" }?.status}", e)
+        }
+    }
+
     @Test
     fun theNotificationNamesTheBookAndItsStageAndPausesAndResumesItThroughTheRealWorker() {
         val names = listOf("note-one", "note-two")
@@ -331,7 +342,7 @@ class ImportQueueUiTest {
             release.complete(Unit)
             compose.waitUntil(120_000) { book("note-one").status == Status.SPEAKING && Library.segments(ctx, book("note-one").id).isNotEmpty() }
             // The notice is sampled every 250 ms, so the title can already be right while the text still says "Reading": wait for the stage.
-            compose.waitUntil(30_000) {
+            waitForNotice("titled note-one saying Speaking") {
                 importNotification()?.extras?.let { it.getString(android.app.Notification.EXTRA_TITLE) == "note-one" && it.getString(android.app.Notification.EXTRA_TEXT)?.startsWith("Speaking ") == true } == true
             }
             val running = importNotification()!!
@@ -340,7 +351,7 @@ class ImportQueueUiTest {
 
             // The Pause button is the notification's own PendingIntent, sent to the real receiver and worker.
             running.actions.single().actionIntent.send()
-            compose.waitUntil(30_000) { importNotification()?.actions?.singleOrNull()?.title == "Resume" }
+            waitForNotice("offering Resume after Pause") { importNotification()?.actions?.singleOrNull()?.title == "Resume" }
             val stopped = importNotification()!!
             assertTrue(stopped.extras.getString(android.app.Notification.EXTRA_TEXT)!!.startsWith("Paused · Speaking "))
             val wordsAtPause = book("note-one").words
