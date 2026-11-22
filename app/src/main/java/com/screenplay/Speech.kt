@@ -56,10 +56,10 @@ object Engines {
     var beforeCopy: () -> Unit = {}
 
     /** Where tests swap in the chapter summariser, so no call goes to the Claude API. */
-    var summariser: (Context) -> Summariser = { ClaudeSummariser(it) }
+    var summariser: (Context) -> Summariser = { LocalSummariser(it) }
 
-    /** Where tests swap in the check of an API key, so no call goes to Anthropic. */
-    var checkKey: suspend (String) -> KeyStatus = { ClaudeSummariser.check(it) }
+    /** Where tests swap in the download of the summary model, so no 1.6 GB file is fetched. Does nothing if the model is there. */
+    var prepareSummaryModel: suspend (Context, (Float) -> Unit) -> Unit = { c, progress -> LocalModel.ensure(c, progress) }
 
     /**
      * The speech lanes for the voice the user chose, its model downloaded first if it is missing (the settings sheet downloads it when it is picked;

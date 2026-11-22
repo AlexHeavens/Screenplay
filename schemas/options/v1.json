@@ -48,22 +48,12 @@
       "default": "SYSTEM"
     },
     "summaries": {
-      "description": "SummarySettings.enabled: send each chapter of a new book to the Claude API for an overview and key lessons. Not part of Options; read when a book is finished.",
+      "description": "SummarySettings.enabled: summarise each chapter of a new book with the small language model that runs on the device (LocalModel), for an overview and key lessons. Turning it on starts the download of the model.",
       "type": "boolean",
       "default": false
     },
     "summary-audio": {
       "description": "SummarySettings.audio: speak each chapter summary into its own clip, in the voice chosen in \"voice\". Only used while \"summaries\" is true.",
-      "type": "boolean",
-      "default": false
-    },
-    "anthropic-key": {
-      "description": "SummarySettings.apiKey: the user's own Anthropic API key, kept on the device only (backups are off). Empty or absent: no key.",
-      "type": "string",
-      "default": ""
-    },
-    "anthropic-key-checked": {
-      "description": "SummarySettings.keyChecked: the key in \"anthropic-key\" was checked with Anthropic and works. Set by the settings panel's check, cleared when the key is edited or found rejected. \"summaries\" can only be turned on while it is true; a book is only summarised while both are true.",
       "type": "boolean",
       "default": false
     },

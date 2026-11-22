@@ -8,101 +8,13 @@ import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
 
 /** What the summariser makes of one chapter: a short overview, and the lessons worth taking from it. */
-data class ChapterDigest(val overview: String, val lessons: List<String>)
-
-/** Turns the text of one chapter into a short overview and a few bullet points of its key lessons. */
-interface Summariser {
-    /** Throws [SummaryFailure] when the summary cannot be made, with a message safe to show. */
-    suspend fun summarise(chapterTitle: String, text: String): ChapterDigest
-}
-
-class SummaryFailure(message: String) : Exception(message)
-
-/** What asking Anthropic about a key found: [UNREACHABLE] (no network, or the service is down) says nothing about the key. */
-enum class KeyStatus { VALID, REJECTED, UNREACHABLE }
-
-/**
- * Calls the Claude API. Haiku rather than Sonnet: a short overview and a few bullet points over one chapter is an easy task, a book has
- * many chapters of thousands of words each, and the user pays for the key.
- */
-class ClaudeSummariser(private val ctx: Context) : Summariser {
-    override suspend fun summarise(chapterTitle: String, text: String): ChapterDigest = withContext(Dispatchers.IO) {
-        val key = SummarySettings.load(ctx).apiKey
-        if (key.isEmpty()) throw SummaryFailure("no API key")
-        val body = JSONObject().put("model", MODEL).put("max_tokens", 600).put(
-            "messages",
-            JSONArray().put(
-                JSONObject().put("role", "user").put(
-                    "content",
-                    "Here is the text of the chapter \"$chapterTitle\" from a book. Reply in this form and nothing else: " +
-                        "one line starting with \"SUMMARY: \" that sums up the chapter in 2 or 3 plain sentences for a listener, then " +
-                        "its 3 to 5 most important lessons as short bullet points, one per line, each starting with \"- \".\n\n${text.take(MAX_CHARS)}",
-                ),
-            ),
-        )
-        val conn = try {
-            (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                connectTimeout = 15_000
-                readTimeout = 90_000
-                doOutput = true
-                setRequestProperty("x-api-key", key)
-                setRequestProperty("anthropic-version", "2023-06-01")
-                setRequestProperty("content-type", "application/json")
-                outputStream.use { it.write(body.toString().toByteArray()) }
-            }
-        } catch (e: java.io.IOException) {
-            throw SummaryFailure("offline")
-        }
-        try {
-            val code = conn.responseCode
-            if (code == 401) SummarySettings.markChecked(ctx, false)
-            if (code != 200) throw SummaryFailure(if (code == 429) "rate limited" else if (code == 401) "API key rejected" else "API error $code")
-            val reply = JSONObject(conn.inputStream.bufferedReader().readText())
-            parse(reply.getJSONArray("content").getJSONObject(0).getString("text"))
-        } catch (e: java.io.IOException) {
-            throw SummaryFailure("offline")
-        } finally {
-            conn.disconnect()
-        }
-    }
-
+data class ChapterDigest(val overview: String, val lessons: List<String>) {
     companion object {
-        const val MODEL = "claude-haiku-5-5"
-        private const val MODELS = "https://api.anthropic.com/v1/models?limit=1"
-
-        /** Asks for the list of models, which costs nothing and needs only a working key. */
-        suspend fun check(key: String): KeyStatus = withContext(Dispatchers.IO) {
-            try {
-                val conn = URL(MODELS).openConnection() as HttpURLConnection
-                try {
-                    conn.connectTimeout = 15_000
-                    conn.readTimeout = 15_000
-                    conn.setRequestProperty("x-api-key", key.trim())
-                    conn.setRequestProperty("anthropic-version", "2023-06-01")
-                    when (conn.responseCode) {
-                        200 -> KeyStatus.VALID
-                        401, 403 -> KeyStatus.REJECTED
-                        else -> KeyStatus.UNREACHABLE
-                    }
-                } finally {
-                    conn.disconnect()
-                }
-            } catch (e: java.io.IOException) {
-                KeyStatus.UNREACHABLE
-            }
-        }
-
-        private const val ENDPOINT = "https://api.anthropic.com/v1/messages"
-        private const val MAX_CHARS = 200_000
-
         private val bullet = charArrayOf('-', '*', '•')
 
         /** The bullet lines, without their mark, are the lessons; any other non-empty lines are the overview. */
@@ -116,6 +28,17 @@ class ClaudeSummariser(private val ctx: Context) : Summariser {
         }
     }
 }
+
+/** Turns the text of one chapter into a short overview and a few bullet points of its key lessons. */
+interface Summariser {
+    /** Throws [SummaryFailure] when the summary cannot be made, with a message safe to show. */
+    suspend fun summarise(chapterTitle: String, text: String): ChapterDigest
+
+    /** Gives back what the summariser holds, once a book's summaries are done. */
+    fun close() {}
+}
+
+class SummaryFailure(message: String) : Exception(message)
 
 /**
  * A chapter's summary, anchored to the sentence where the chapter starts. [overview] is empty for a summary made before
@@ -245,6 +168,8 @@ object Summaries {
             throw e
         } catch (e: Exception) {
             save(ctx, id, state.copy(failure = (e as? SummaryFailure)?.message ?: "failed"))
+        } finally {
+            summariser.close()
         }
     }
 }

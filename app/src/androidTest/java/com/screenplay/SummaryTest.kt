@@ -8,11 +8,8 @@ import android.content.Intent
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import androidx.compose.ui.test.assert
-import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
-import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -73,8 +70,8 @@ class SummaryTest {
 
     @After
     fun restore() {
-        Engines.summariser = { ClaudeSummariser(it) }
-        Engines.checkKey = { ClaudeSummariser.check(it) }
+        Engines.summariser = { LocalSummariser(it) }
+        Engines.prepareSummaryModel = { c, progress -> LocalModel.ensure(c, progress) }
         Engines.neural = { c, v -> NeuralVoice.Lane(c, v) }
         Engines.prepareNeural = { c, v, progress -> NeuralVoice.ensure(c, v, progress) }
         Engines.synthesizer = { AndroidSynthesizer(it) }
@@ -160,7 +157,7 @@ class SummaryTest {
         val text = cannedOcr(assets, "varieties-preface", pages)
         Engines.recognisePage = { page -> (if (page == 0) listOf("Chapter One") else emptyList()) + text(page) }
         Engines.surveyPages = { emptyList() }
-        SummarySettings(enabled = true, audio = true, apiKey = "sk-test", keyChecked = true).save(ctx)
+        SummarySettings(enabled = true, audio = true).save(ctx)
         val held = CompletableDeferred<Unit>()
         Engines.beforeRecognise = { page, _ -> if (page == last) held.await() }
         try {
@@ -198,38 +195,31 @@ class SummaryTest {
     }
 
     @Test
-    fun theSummariesCanOnlyBeTurnedOnWithAKeyThatWorksAndAWarningShowsWhenItStopsWorking() {
-        var answer = KeyStatus.REJECTED
-        Engines.checkKey = { answer }
+    fun turningTheSummariesOnDownloadsTheModelAndShowsItsProgressAndAFailure() {
+        val release = CompletableDeferred<Unit>()
+        var fail = false
+        Engines.prepareSummaryModel = { _, progress ->
+            progress(0.4f)
+            release.await()
+            if (fail) throw java.io.IOException("no network")
+        }
         scenario = ActivityScenario.launch(MainActivity::class.java)
         compose.onNodeWithTag("settings").performClick()
         compose.onNodeWithTag("settings-panel").performTouchInput { swipeUp() }
-        compose.onNodeWithTag("opt-summaries").assertIsNotEnabled()
-        compose.onNodeWithTag("check-key").assertIsNotEnabled()
-        compose.onNodeWithTag("api-key").performTextInput("sk-test")
-        compose.onNodeWithTag("check-key").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("key-status").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("key-status").assert(hasText("Anthropic rejected this key."))
-        compose.onNodeWithTag("opt-summaries").assertIsNotEnabled()
-        assertFalse(SummarySettings.load(ctx).keyChecked)
+        compose.onNodeWithTag("opt-summaries").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("model-status").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("model-status").assert(hasText("Downloading the summary model: 40%"))
+        assertTrue(SummarySettings.load(ctx).enabled)
 
-        answer = KeyStatus.VALID
-        compose.onNodeWithTag("check-key").performClick()
-        compose.waitUntil(5_000) { SummarySettings.load(ctx).keyChecked }
-        compose.onNodeWithTag("opt-summaries").assertIsEnabled().performClick()
-        compose.waitUntil(5_000) { SummarySettings.load(ctx).enabled }
-        assertEquals(0, compose.onAllNodesWithTag("summary-key-warning").fetchSemanticsNodes().size)
+        // The download goes on without the panel, and a failure is there when it is opened again.
+        fail = true
+        release.complete(Unit)
+        compose.waitUntil(5_000) { LocalModel.progress.value == null && LocalModel.failure.value != null }
+        compose.onNodeWithTag("model-status").assert(hasText("Could not download the summary model: no network. Turn the summaries off and on to try again."))
 
-        // Anthropic stops accepting the key: the summaries stay on, so the app says they are not working.
-        answer = KeyStatus.REJECTED
-        compose.onNodeWithTag("check-key").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("summary-key-warning").fetchSemanticsNodes().isNotEmpty() }
-        assertTrue(SummarySettings.load(ctx).warn)
-
-        // Being offline says nothing about the key.
-        answer = KeyStatus.UNREACHABLE
-        compose.onNodeWithTag("check-key").performClick()
-        compose.waitUntil(5_000) { compose.onNodeWithTag("key-status").fetchSemanticsNode().config.toString().contains("Could not reach") }
-        assertTrue(SummarySettings.load(ctx).warn)
+        // Off clears nothing but the switch; on again tries again.
+        compose.onNodeWithTag("opt-summaries").performClick()
+        assertFalse(SummarySettings.load(ctx).enabled)
+        assertEquals(0, compose.onAllNodesWithTag("model-status").fetchSemanticsNodes().size)
     }
 }

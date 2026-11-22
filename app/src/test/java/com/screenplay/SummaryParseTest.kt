@@ -10,14 +10,14 @@ import org.junit.Test
 class SummaryParseTest {
     @Test
     fun theSummaryLineIsTheOverviewAndTheBulletsAreTheLessons() {
-        val digest = ClaudeSummariser.parse("SUMMARY: It argues for small steps. They compound.\n- Start small\n* Repeat daily\n• Review weekly\n")
+        val digest = ChapterDigest.parse("SUMMARY: It argues for small steps. They compound.\n- Start small\n* Repeat daily\n• Review weekly\n")
         assertEquals("It argues for small steps. They compound.", digest.overview)
         assertEquals(listOf("Start small", "Repeat daily", "Review weekly"), digest.lessons)
     }
 
     @Test
     fun aReplyWithoutBulletsHasNoLessons() {
-        val digest = ClaudeSummariser.parse("SUMMARY: Only an overview.")
+        val digest = ChapterDigest.parse("SUMMARY: Only an overview.")
         assertEquals("Only an overview.", digest.overview)
         assertEquals(emptyList<String>(), digest.lessons)
     }
