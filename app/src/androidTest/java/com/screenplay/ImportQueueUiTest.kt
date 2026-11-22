@@ -330,7 +330,10 @@ class ImportQueueUiTest {
         try {
             release.complete(Unit)
             compose.waitUntil(120_000) { book("note-one").status == Status.SPEAKING && Library.segments(ctx, book("note-one").id).isNotEmpty() }
-            compose.waitUntil(30_000) { importNotification()?.extras?.getString(android.app.Notification.EXTRA_TITLE) == "note-one" }
+            // The notice is sampled every 250 ms, so the title can already be right while the text still says "Reading": wait for the stage.
+            compose.waitUntil(30_000) {
+                importNotification()?.extras?.let { it.getString(android.app.Notification.EXTRA_TITLE) == "note-one" && it.getString(android.app.Notification.EXTRA_TEXT)?.startsWith("Speaking ") == true } == true
+            }
             val running = importNotification()!!
             assertTrue(running.extras.getString(android.app.Notification.EXTRA_TEXT)!!.startsWith("Speaking "))
             assertEquals(listOf("Pause"), running.actions.map { it.title.toString() })
