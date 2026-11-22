@@ -12,6 +12,9 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.intent.Intents
 import androidx.test.espresso.intent.matcher.IntentMatchers.hasAction
@@ -112,7 +115,9 @@ class BackupImportTest {
         val shared = try {
             Intents.intending(hasAction(Intent.ACTION_CHOOSER)).respondWith(Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null))
             compose.onNodeWithTag("settings").performClick()
-            compose.onNodeWithTag("export-backup").performClick()
+            // The panel is taller than the sheet's first height: the export button is at its foot.
+            compose.onNodeWithTag("settings-panel").performTouchInput { swipeUp() }
+            compose.onNodeWithTag("export-backup").performScrollTo().performClick()
             compose.waitUntil(30_000) { Intents.getIntents().any { it.action == Intent.ACTION_CHOOSER } }
             Intents.getIntents().first { it.action == Intent.ACTION_CHOOSER }
                 .getParcelableExtra<Intent>(Intent.EXTRA_INTENT)!!.getParcelableExtra<android.net.Uri>(Intent.EXTRA_STREAM)!!
