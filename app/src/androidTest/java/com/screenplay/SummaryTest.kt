@@ -4,15 +4,20 @@
 
 package com.screenplay
 
+import android.content.Intent
+import android.graphics.pdf.PdfRenderer
+import android.os.ParcelFileDescriptor
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.core.content.FileProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -135,5 +140,52 @@ class SummaryTest {
         assertEquals(null, second.failure)
         assertEquals(chapterStarts, second.summaries.map { it.index })
         assertTrue(clip(id, 3).exists())
+    }
+
+    @Test
+    fun theSummariesAreMadeWhileTheBookIsStillBeingSpoken() {
+        val assets = InstrumentationRegistry.getInstrumentation().context.assets
+        val pdf = File(ctx.cacheDir, "summary-book.pdf")
+        assets.open("ocr/varieties-preface.pdf").use { i -> pdf.outputStream().use { i.copyTo(it) } }
+        val pages = ParcelFileDescriptor.open(pdf, ParcelFileDescriptor.MODE_READ_ONLY).use { fd -> PdfRenderer(fd).use { it.pageCount } }
+        Engines.recognisePage = cannedOcr(assets, "varieties-preface", pages)
+        Engines.surveyPages = { emptyList() }
+        SummarySettings(enabled = true, audio = true, apiKey = "sk-test").save(ctx)
+        // Speech is held after its first sentence, so the book cannot be READY while the summaries are looked for.
+        val gate = CompletableDeferred<Unit>()
+        val calls = java.util.concurrent.atomic.AtomicInteger()
+        Engines.neural = { _, _ ->
+            val tone = FakeSynthesizer()
+            object : Synthesizer {
+                override suspend fun speak(text: String, wav: File) { if (calls.getAndIncrement() > 0) gate.await(); tone.speak(text, wav) }
+                override fun close() = Unit
+            }
+        }
+        try {
+            scenario = ActivityScenario.launch(
+                Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
+                    .setDataAndType(FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", pdf), "application/pdf"),
+            )
+            val end = System.currentTimeMillis() + 120_000
+            fun book() = Library.books.value.singleOrNull()
+            while (book()?.let { Summaries.load(ctx, it.id).summaries.isNotEmpty() } != true) {
+                assertTrue("no summary while the book is ${book()?.status}", System.currentTimeMillis() < end)
+                Thread.sleep(100)
+            }
+            val id = book()!!.id
+            assertEquals(Status.SPEAKING, book()!!.status)
+            assertTrue("no clip before the book is ready", Library.chapters(ctx, id).none { clip(id, it.index).exists() })
+        } finally {
+            gate.complete(Unit)
+            Engines.recognisePage = null
+            Engines.surveyPages = null
+        }
+        // Once the book is ready its clips are made too.
+        val ready = System.currentTimeMillis() + 120_000
+        val id = Library.books.value.single().id
+        while (Library.books.value.single().status != Status.READY || Library.chapters(ctx, id).any { !clip(id, it.index).exists() }) {
+            assertTrue("clips not made: ${Library.books.value.single().status}", System.currentTimeMillis() < ready)
+            Thread.sleep(100)
+        }
     }
 }

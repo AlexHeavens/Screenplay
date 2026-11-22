@@ -104,10 +104,9 @@ object Summaries {
     private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
     private val running = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
-    /** Tries again for the chapters still without a summary, from the reader's retry button. One run per book at a time. */
+    /** Tries again for the chapters still without a summary, from the reader's retry button. */
     fun retry(ctx: Context, id: String) {
-        if (!running.add(id)) return
-        scope.launch { try { run(ctx, id, SummarySettings.load(ctx).audio) } finally { running.remove(id) } }
+        scope.launch { run(ctx, id, SummarySettings.load(ctx).audio) }
     }
 
     fun load(ctx: Context, id: String): SummaryState {
@@ -173,9 +172,15 @@ object Summaries {
     /**
      * Summarises each chapter that has no summary yet, and with [audio] speaks each one that has no clip, saving after
      * each chapter so a failure part way keeps what exists.
+     * One run per book at a time: a second call while one is going does nothing.
      * Never throws: a failure is stored as the state's [SummaryState.failure] for the reader to show with a retry.
      */
     suspend fun run(ctx: Context, id: String, audio: Boolean) {
+        if (!running.add(id)) return
+        try { make(ctx, id, audio) } finally { running.remove(id) }
+    }
+
+    private suspend fun make(ctx: Context, id: String, audio: Boolean) {
         var state = load(ctx, id)
         val segments = Library.bookSegments(ctx, id)
         val chapters = Library.chapters(ctx, id, segments)
