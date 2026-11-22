@@ -13,7 +13,7 @@ A test is named `ClassName.methodName`. Unit tests live in `app/src/test` and de
 - [Importing](#importing): UC-01 to UC-13 (see also [Making a book](#making-a-book))
 - [Making a book](#making-a-book): UC-48, UC-49, UC-51
 - [Listening](#listening): UC-14 to UC-20
-- [Reading along](#reading-along): UC-21 to UC-26, UC-53
+- [Reading along](#reading-along): UC-21 to UC-26, UC-53, UC-55
 - [Notes and highlights](#notes-and-highlights): UC-27 to UC-33
 - [Library](#library): UC-34 to UC-40, UC-54
 - [Settings and looks](#settings-and-looks): UC-41 to UC-47
@@ -1835,6 +1835,22 @@ Goal: turn the phone without losing the search.
 
 Tests:
 - `BookUiTest.searchWithNoMatchEmptyQueryRotationAndBack`
+
+### UC-55 Hear a summary and the key lessons of each chapter
+
+Goal: get the gist of a chapter, spoken in my chosen voice.
+
+- With "Summarise chapters with Claude" on and an Anthropic API key set, each chapter gets an overview and a list of key lessons after the book is ready.
+- With "Speak each summary, in the voice above" on, each summary is also made into an audio clip in the voice chosen in the settings.
+- The summary shows above its chapter in the reader, with a Listen button that becomes Stop while the clip plays.
+- A failure part way (for example, no network) keeps the summaries already made, and a retry makes the rest.
+- The summaries and clips go into the backup of the book.
+
+Tests:
+- `SummaryTest.theChosenVoiceSpeaksEachSummaryAndTheClipPlaysFromItsBoxAndIsBackedUp`
+- `SummaryTest.noClipIsMadeUnlessSpeakingIsAskedFor`
+- `SummaryTest.aFailurePartWayKeepsTheSummariesMadeAndARetryMakesTheRest`
+- `SummaryParseTest.theSummaryLineIsTheOverviewAndTheBulletsAreTheLessons`
 
 ## Notes and highlights
 
