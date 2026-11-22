@@ -62,6 +62,11 @@
       "type": "string",
       "default": ""
     },
+    "anthropic-key-checked": {
+      "description": "SummarySettings.keyChecked: the key in \"anthropic-key\" was checked with Anthropic and works. Set by the settings panel's check, cleared when the key is edited or found rejected. \"summaries\" can only be turned on while it is true; a book is only summarised while both are true.",
+      "type": "boolean",
+      "default": false
+    },
     "natural": {
       "description": "Legacy, read only, never written now. The first build had a Natural voice switch; true means voice KOKORO and false the phone's voice, when \"voice\" is absent or unknown. Nothing removes it, so it may stay beside \"voice\".",
       "type": "boolean",

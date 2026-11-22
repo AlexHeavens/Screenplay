@@ -25,6 +25,9 @@ interface Summariser {
 
 class SummaryFailure(message: String) : Exception(message)
 
+/** What asking Anthropic about a key found: [UNREACHABLE] (no network, or the service is down) says nothing about the key. */
+enum class KeyStatus { VALID, REJECTED, UNREACHABLE }
+
 /**
  * Calls the Claude API. Haiku rather than Sonnet: a short overview and a few bullet points over one chapter is an easy task, a book has
  * many chapters of thousands of words each, and the user pays for the key.
@@ -60,6 +63,7 @@ class ClaudeSummariser(private val ctx: Context) : Summariser {
         }
         try {
             val code = conn.responseCode
+            if (code == 401) SummarySettings.markChecked(ctx, false)
             if (code != 200) throw SummaryFailure(if (code == 429) "rate limited" else if (code == 401) "API key rejected" else "API error $code")
             val reply = JSONObject(conn.inputStream.bufferedReader().readText())
             parse(reply.getJSONArray("content").getJSONObject(0).getString("text"))
@@ -72,6 +76,30 @@ class ClaudeSummariser(private val ctx: Context) : Summariser {
 
     companion object {
         const val MODEL = "claude-haiku-5-5"
+        private const val MODELS = "https://api.anthropic.com/v1/models?limit=1"
+
+        /** Asks for the list of models, which costs nothing and needs only a working key. */
+        suspend fun check(key: String): KeyStatus = withContext(Dispatchers.IO) {
+            try {
+                val conn = URL(MODELS).openConnection() as HttpURLConnection
+                try {
+                    conn.connectTimeout = 15_000
+                    conn.readTimeout = 15_000
+                    conn.setRequestProperty("x-api-key", key.trim())
+                    conn.setRequestProperty("anthropic-version", "2023-06-01")
+                    when (conn.responseCode) {
+                        200 -> KeyStatus.VALID
+                        401, 403 -> KeyStatus.REJECTED
+                        else -> KeyStatus.UNREACHABLE
+                    }
+                } finally {
+                    conn.disconnect()
+                }
+            } catch (e: java.io.IOException) {
+                KeyStatus.UNREACHABLE
+            }
+        }
+
         private const val ENDPOINT = "https://api.anthropic.com/v1/messages"
         private const val MAX_CHARS = 200_000
 

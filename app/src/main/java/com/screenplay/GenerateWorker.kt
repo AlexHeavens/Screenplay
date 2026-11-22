@@ -120,7 +120,7 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         // and spoken. They are a child of the worker, not of the reader, so they never hold up the encoding.
         val summarySettings = SummarySettings.load(ctx)
         val textWhole = CompletableDeferred<Unit>()
-        val summaries = if (!summarySettings.enabled) null else launch {
+        val summaries = if (!summarySettings.usable) null else launch {
             // After a failure it waits for the text to be whole, then tries again, rather than call the API every few seconds.
             while (!textWhole.isCompleted && Summaries.load(ctx, id).failure == null) {
                 Summaries.run(ctx, id, audio = false, textWhole = false)
@@ -268,7 +268,7 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         Library.saveSegments(ctx, id, ordered)
         Library.update(ctx, id) { it.copy(status = Status.READY, commit = BuildConfig.COMMIT, progress = 1f, durationMs = ordered.last().end, positionMs = it.positionMs?.let { p -> Speech.moved(p, segments, ordered) }) }
         // The clips come after READY, so speaking them never slows the book; the text summaries made meanwhile are kept, and a failed one is retried.
-        if (summarySettings.enabled) {
+        if (summarySettings.usable) {
             summaries?.join()
             Summaries.run(ctx, id, summarySettings.audio)
         }

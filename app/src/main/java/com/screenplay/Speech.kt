@@ -58,6 +58,9 @@ object Engines {
     /** Where tests swap in the chapter summariser, so no call goes to the Claude API. */
     var summariser: (Context) -> Summariser = { ClaudeSummariser(it) }
 
+    /** Where tests swap in the check of an API key, so no call goes to Anthropic. */
+    var checkKey: suspend (String) -> KeyStatus = { ClaudeSummariser.check(it) }
+
     /**
      * The speech lanes for the voice the user chose, its model downloaded first if it is missing (the settings sheet downloads it when it is picked;
      * this covers one removed since, and the default voice, which nobody picked). Without a network the phone's voice speaks rather than nothing.

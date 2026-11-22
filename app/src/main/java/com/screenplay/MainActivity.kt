@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -246,6 +247,7 @@ fun Shelf(onOpen: (String) -> Unit, onFind: () -> Unit) {
         val imported = ImportQueue.imported(books)
         val failedDownloads = ImportQueue.failedDownloads(books)
         LazyColumn(Modifier.padding(pad)) {
+            item(key = "summary-key-warning") { KeyWarning() }
             // Shown only while a book is still being made; the queue empties and the section goes.
             if (importing.isNotEmpty() || pending.isNotEmpty() || failedDownloads.isNotEmpty()) {
                 item(key = "header-importing") {
@@ -430,9 +432,9 @@ val OptionGap = 16.dp
 
 /** One labelled on/off switch, with an optional line saying more under it. The whole row toggles and carries the Switch role, so semantics expose the state. */
 @Composable
-fun SwitchRow(label: String, checked: Boolean, tag: String, hint: String? = null, onChange: (Boolean) -> Unit) {
+fun SwitchRow(label: String, checked: Boolean, tag: String, hint: String? = null, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().toggleable(checked, role = Role.Switch, onValueChange = onChange).padding(horizontal = 24.dp, vertical = 12.dp).testTag(tag),
+        Modifier.fillMaxWidth().toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onChange).padding(horizontal = 24.dp, vertical = 12.dp).testTag(tag),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f).padding(end = OptionGap)) {
@@ -441,7 +443,7 @@ fun SwitchRow(label: String, checked: Boolean, tag: String, hint: String? = null
         }
         val on = MaterialTheme.colorScheme.primary
         Switch(
-            checked, null, Modifier.testTag("$tag-switch"),
+            checked, null, Modifier.testTag("$tag-switch"), enabled = enabled,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = on, checkedTrackColor = on.copy(alpha = 0.4f), checkedBorderColor = on,
                 uncheckedThumbColor = Color.Gray, uncheckedTrackColor = Color.LightGray, uncheckedBorderColor = Color.Gray,
@@ -452,7 +454,7 @@ fun SwitchRow(label: String, checked: Boolean, tag: String, hint: String? = null
 
 @Composable
 fun SettingsPanel(options: Options, onExportBackup: () -> Unit, set: (Options) -> Unit) {
-    Column(Modifier.padding(bottom = 24.dp)) {
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
         Text("Import options", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         SwitchRow("Spell check", options.spell, "opt-spell") { set(options.copy(spell = it)) }
         SwitchRow("Skip front matter", options.trimFront, "opt-trim") { set(options.copy(trimFront = it)) }
@@ -513,20 +515,78 @@ fun SettingsPanel(options: Options, onExportBackup: () -> Unit, set: (Options) -
         status?.let { Text(it, Modifier.padding(horizontal = 24.dp).testTag("voice-status"), style = MaterialTheme.typography.bodySmall) }
         var summary by remember { mutableStateOf(SummarySettings.load(ctx)) }
         fun setSummary(s: SummarySettings) { summary = s; s.save(ctx) }
+        // The summaries send the book to Anthropic, so they can only be turned on once the key has been checked with Anthropic; off is always allowed.
+        var check by remember { mutableStateOf<KeyStatus?>(null) }
+        var checking by remember { mutableStateOf(false) }
         SwitchRow(
-            "Summarise chapters with Claude", summary.enabled, "opt-summaries",
-            hint = "Sends the book's text to Anthropic's API with your own key, kept on this device. Applies to books made from now on.",
+            "Summarise chapters with Claude", summary.enabled, "opt-summaries", enabled = summary.keyChecked || summary.enabled,
+            hint = if (summary.keyChecked || summary.enabled) "Sends the book's text to Anthropic's API with your own key, kept on this device. Applies to books made from now on."
+            else "Add your Anthropic API key below and check it first.",
         ) { setSummary(summary.copy(enabled = it)) }
-        if (summary.enabled) {
-            SwitchRow("Speak each summary, in the voice above", summary.audio, "opt-summary-audio") { setSummary(summary.copy(audio = it)) }
-            OutlinedTextField(
-                summary.apiKey, { setSummary(summary.copy(apiKey = it)) }, Modifier.fillMaxWidth().padding(horizontal = 24.dp).testTag("api-key"),
-                label = { Text("Anthropic API key (kept on this device only)") }, singleLine = true,
-                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-            )
+        OutlinedTextField(
+            summary.apiKey, { check = null; setSummary(summary.copy(apiKey = it, keyChecked = false)) }, Modifier.fillMaxWidth().padding(horizontal = 24.dp).testTag("api-key"),
+            label = { Text("Anthropic API key (kept on this device only)") }, singleLine = true,
+            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+        )
+        Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(
+                {
+                    val key = summary.apiKey
+                    checking = true
+                    scope.launch {
+                        val found = Engines.checkKey(key)
+                        checking = false
+                        check = found
+                        // An edit made while Anthropic answered makes the answer about another key: ignore it.
+                        if (found != KeyStatus.UNREACHABLE && summary.apiKey == key) setSummary(summary.copy(keyChecked = found == KeyStatus.VALID))
+                    }
+                },
+                Modifier.testTag("check-key"), enabled = summary.apiKey.isNotBlank() && !checking,
+            ) { Text(if (checking) "Checking…" else "Check key", maxLines = 1) }
+            val line = when {
+                check == KeyStatus.UNREACHABLE -> "Could not reach Anthropic. Try again."
+                check == KeyStatus.REJECTED || (summary.warn && summary.apiKey.isNotBlank() && check == null) -> "Anthropic rejected this key."
+                summary.keyChecked -> "Key works."
+                else -> null
+            }
+            line?.let { Text(it, Modifier.testTag("key-status"), style = MaterialTheme.typography.bodySmall) }
         }
+        if (summary.enabled) SwitchRow("Speak each summary, in the voice above", summary.audio, "opt-summary-audio") { setSummary(summary.copy(audio = it)) }
+        if (summary.warn) KeyWarning()
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onExportBackup, Modifier.testTag("export-backup")) { Text("Export backup", maxLines = 1) }
+        }
+    }
+}
+
+/**
+ * Warns that the summaries are on but the key no longer works, so books are being made without them. It looks again at the
+ * key when it first shows (Anthropic may have revoked it since), and follows the stored setting as the settings panel changes it.
+ */
+@Composable
+fun KeyWarning(onClick: (() -> Unit)? = null) {
+    val ctx = LocalContext.current
+    var settings by remember { mutableStateOf(SummarySettings.load(ctx)) }
+    LaunchedEffect(Unit) {
+        if (settings.usable) {
+            when (Engines.checkKey(settings.apiKey)) {
+                KeyStatus.REJECTED -> SummarySettings.markChecked(ctx, false)
+                else -> {}
+            }
+        }
+        while (true) {
+            settings = SummarySettings.load(ctx)
+            kotlinx.coroutines.delay(2_000)
+        }
+    }
+    // A Box, so a lazy list item holding this always has a layout node, even when there is nothing to warn of.
+    Box(Modifier.fillMaxWidth()) {
+        if (settings.warn) {
+            Text(
+                "Chapter summaries are turned on, but your Anthropic API key does not work. New books are made without them. Open Settings to check the key.",
+                Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp).testTag("summary-key-warning"),
+                color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium,
+            )
         }
     }
 }

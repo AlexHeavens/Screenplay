@@ -48,7 +48,7 @@ class OptionsSpecTest {
         Options(spell = true, trimFront = false, mergeFragments = false, cleanText = false, footnotes = false, contents = false, voice = Voice.PIPER, theme = ThemeMode.DARK).save(prefs)
         CatalogueLanguage.choose(prefs, "fr")
         Player.saveSpeed(prefs, 1.5f)
-        SummarySettings(enabled = true, audio = true, apiKey = "sk-test").save(prefs)
+        SummarySettings(enabled = true, audio = true, apiKey = "sk-test", keyChecked = true).save(prefs)
         MediaControl.markAsked(prefs)
         Catalogue.rememberLanguages(prefs, listOf(LanguageCount("en", 60000), LanguageCount("fr", 2000)))
         return prefs.snapshot()

@@ -1845,8 +1845,11 @@ Goal: get the gist of a chapter, spoken in my chosen voice.
 - The summary shows above its chapter in the reader, with a Listen button that becomes Stop while the clip plays.
 - A failure part way (for example, no network) keeps the summaries already made, and a retry makes the rest.
 - The summaries and clips go into the backup of the book.
+- "Summarise chapters with Claude" can only be turned on after "Check key" has shown that Anthropic accepts the key. Editing the key undoes the check; turning the switch off is always allowed.
+- If the key stops working (Anthropic rejects it when the shelf opens, when it is checked again, or during a summary), the switch stays on and a warning shows on the shelf and in the settings. Books are then made without summaries until the key is checked again. Being offline does not count as a rejection.
 
 Tests:
+- `SummaryTest.theSummariesCanOnlyBeTurnedOnWithAKeyThatWorksAndAWarningShowsWhenItStopsWorking`
 - `SummaryTest.theChosenVoiceSpeaksEachSummaryAndTheClipPlaysFromItsBoxAndIsBackedUp`
 - `SummaryTest.noClipIsMadeUnlessSpeakingIsAskedFor`
 - `SummaryTest.aFailurePartWayKeepsTheSummariesMadeAndARetryMakesTheRest`
