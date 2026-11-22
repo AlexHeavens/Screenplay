@@ -143,24 +143,20 @@ class SummaryTest {
     }
 
     @Test
-    fun theSummariesAreMadeWhileTheBookIsStillBeingSpoken() {
+    fun aChapterIsSummarisedOnceTheNextHeadingIsReadWhileTheBookIsStillBeingRead() {
         val assets = InstrumentationRegistry.getInstrumentation().context.assets
         val pdf = File(ctx.cacheDir, "summary-book.pdf")
         assets.open("ocr/varieties-preface.pdf").use { i -> pdf.outputStream().use { i.copyTo(it) } }
         val pages = ParcelFileDescriptor.open(pdf, ParcelFileDescriptor.MODE_READ_ONLY).use { fd -> PdfRenderer(fd).use { it.pageCount } }
-        Engines.recognisePage = cannedOcr(assets, "varieties-preface", pages)
+        val last = pages - 1
+        // A heading on the first page, then the fixture's own text; the last page is held, so the text is never whole until it is let through.
+        // The fixture's own text, with a heading added above the first page.
+        val text = cannedOcr(assets, "varieties-preface", pages)
+        Engines.recognisePage = { page -> (if (page == 0) listOf("Chapter One") else emptyList()) + text(page) }
         Engines.surveyPages = { emptyList() }
         SummarySettings(enabled = true, audio = true, apiKey = "sk-test").save(ctx)
-        // Speech is held after its first sentence, so the book cannot be READY while the summaries are looked for.
-        val gate = CompletableDeferred<Unit>()
-        val calls = java.util.concurrent.atomic.AtomicInteger()
-        Engines.neural = { _, _ ->
-            val tone = FakeSynthesizer()
-            object : Synthesizer {
-                override suspend fun speak(text: String, wav: File) { if (calls.getAndIncrement() > 0) gate.await(); tone.speak(text, wav) }
-                override fun close() = Unit
-            }
-        }
+        val held = CompletableDeferred<Unit>()
+        Engines.beforeRecognise = { page, _ -> if (page == last) held.await() }
         try {
             scenario = ActivityScenario.launch(
                 Intent(ctx, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
@@ -168,23 +164,29 @@ class SummaryTest {
             )
             val end = System.currentTimeMillis() + 120_000
             fun book() = Library.books.value.singleOrNull()
-            while (book()?.let { Summaries.load(ctx, it.id).summaries.isNotEmpty() } != true) {
+            while (book()?.let { b -> Summaries.load(ctx, b.id).summaries.isNotEmpty() } != true) {
                 assertTrue("no summary while the book is ${book()?.status}", System.currentTimeMillis() < end)
                 Thread.sleep(100)
             }
             val id = book()!!.id
-            assertEquals(Status.SPEAKING, book()!!.status)
-            assertTrue("no clip before the book is ready", Library.chapters(ctx, id).none { clip(id, it.index).exists() })
+            val made = Summaries.load(ctx, id).summaries
+            // The last page is still held: the book is being read, and the first chapter, with the next heading after it, is already summarised.
+            assertEquals(Status.READING, book()!!.status)
+            assertEquals("Chapter One", made.first().title)
+            assertTrue("no clip before the book is ready", made.none { clip(id, it.index).exists() })
         } finally {
-            gate.complete(Unit)
+            held.complete(Unit)
+            Engines.beforeRecognise = { _, _ -> }
             Engines.recognisePage = null
             Engines.surveyPages = null
         }
-        // Once the book is ready its clips are made too.
+        // Once the book is ready every chapter is summarised and every clip is made.
         val ready = System.currentTimeMillis() + 120_000
         val id = Library.books.value.single().id
-        while (Library.books.value.single().status != Status.READY || Library.chapters(ctx, id).any { !clip(id, it.index).exists() }) {
-            assertTrue("clips not made: ${Library.books.value.single().status}", System.currentTimeMillis() < ready)
+        while (Library.books.value.single().status != Status.READY || Summaries.load(ctx, id).summaries.size < Library.chapters(ctx, id).size ||
+            Library.chapters(ctx, id).any { !clip(id, it.index).exists() }
+        ) {
+            assertTrue("not finished: ${Library.books.value.single().status}", System.currentTimeMillis() < ready)
             Thread.sleep(100)
         }
     }
