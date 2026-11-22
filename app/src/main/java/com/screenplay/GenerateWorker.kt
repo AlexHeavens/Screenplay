@@ -10,6 +10,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
@@ -114,6 +115,15 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         val wordsAfter = Collections.synchronizedList(ArrayList<Int>())
         if (kept.segments.isNotEmpty()) RandomAccessFile(pcm, "rw").use { it.setLength(kept.bytes) }
 
+        // The summaries of the chapters are made from the text as soon as it is whole, while the speech is still running, so they show up
+        // as the book is made. They are a child of the worker, not of the reader, so they never hold up the encoding.
+        val summarySettings = SummarySettings.load(ctx)
+        val worker = this
+        var summaries: Job? = null
+        fun summariseWhileSpeaking() {
+            if (summarySettings.enabled) summaries = worker.launch { Summaries.run(ctx, id, audio = false) }
+        }
+
         val reader = launch {
             val stream = SentenceStream(options)
             val speller = if (options.spell) PlatformSpeller(ctx) else null
@@ -152,6 +162,7 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
                 emitChecked(Epub.speakable(book.paragraphs), last = true)
                 progress.readingDone(wordsAfter.lastOrNull() ?: error("No text found in this EPUB"))
                 order.finish()
+                summariseWhileSpeaking()
                 return@launch
             }
             // The pre-pass: chapters from the contents page, before the book is read, so the contents page stays out of the text.
@@ -212,6 +223,7 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             Library.detectChapters(ctx, id)
             progress.readingDone(wordsAfter.last())
             order.finish()
+            summariseWhileSpeaking()
         }
 
         val synths = Engines.lanes(ctx, options.voice)
@@ -249,8 +261,11 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         File(dir, Files.JUMP).delete()
         Library.saveSegments(ctx, id, ordered)
         Library.update(ctx, id) { it.copy(status = Status.READY, commit = BuildConfig.COMMIT, progress = 1f, durationMs = ordered.last().end, positionMs = it.positionMs?.let { p -> Speech.moved(p, segments, ordered) }) }
-        // After READY, so the summaries (network calls, one per chapter) never hold up playback or the finished state.
-        SummarySettings.load(ctx).let { if (it.enabled) Summaries.run(ctx, id, it.audio) }
+        // The clips come after READY, so speaking them never slows the book; the text summaries made meanwhile are kept, and a failed one is retried.
+        if (summarySettings.enabled) {
+            summaries?.join()
+            Summaries.run(ctx, id, summarySettings.audio)
+        }
     }
 
     /**
