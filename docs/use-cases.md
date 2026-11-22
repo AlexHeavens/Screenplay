@@ -1840,7 +1840,7 @@ Tests:
 
 Goal: get the gist of a chapter, spoken in my chosen voice.
 
-- With "Summarise chapters with Claude" on and an Anthropic API key set, each chapter gets an overview and a list of key lessons as soon as the book's text is read, while the speech is still running.
+- With "Summarise chapters with Claude" on and an Anthropic API key set, each chapter gets an overview and a list of key lessons as soon as the heading of the next chapter has been read, while the book is still being read and spoken.
 - With "Speak each summary, in the voice above" on, each summary is also made into an audio clip in the voice chosen in the settings. The clips are made once the book is ready, so they never slow the book.
 - The summary shows above its chapter in the reader, with a Listen button that becomes Stop while the clip plays.
 - A failure part way (for example, no network) keeps the summaries already made, and a retry makes the rest.
@@ -1850,7 +1850,7 @@ Tests:
 - `SummaryTest.theChosenVoiceSpeaksEachSummaryAndTheClipPlaysFromItsBoxAndIsBackedUp`
 - `SummaryTest.noClipIsMadeUnlessSpeakingIsAskedFor`
 - `SummaryTest.aFailurePartWayKeepsTheSummariesMadeAndARetryMakesTheRest`
-- `SummaryTest.theSummariesAreMadeWhileTheBookIsStillBeingSpoken`
+- `SummaryTest.aChapterIsSummarisedOnceTheNextHeadingIsReadWhileTheBookIsStillBeingRead`
 - `SummaryParseTest.theSummaryLineIsTheOverviewAndTheBulletsAreTheLessons`
 
 ## Notes and highlights

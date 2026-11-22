@@ -106,7 +106,9 @@ object Summaries {
 
     /** Tries again for the chapters still without a summary, from the reader's retry button. */
     fun retry(ctx: Context, id: String) {
-        scope.launch { run(ctx, id, SummarySettings.load(ctx).audio) }
+        // A book still being read has no final chapters yet.
+        val reading = Library.books.value.firstOrNull { it.id == id }?.status == Status.READING
+        scope.launch { run(ctx, id, SummarySettings.load(ctx).audio, textWhole = !reading) }
     }
 
     fun load(ctx: Context, id: String): SummaryState {
@@ -172,21 +174,32 @@ object Summaries {
     /**
      * Summarises each chapter that has no summary yet, and with [audio] speaks each one that has no clip, saving after
      * each chapter so a failure part way keeps what exists.
+     * While the book's text is still being read ([textWhole] false), only the chapters followed by a heading already read are whole, so only those are done.
+     * Once it is whole, the chapters are the final ones: a summary of a heading that turned out not to be one is dropped.
      * One run per book at a time: a second call while one is going does nothing.
      * Never throws: a failure is stored as the state's [SummaryState.failure] for the reader to show with a retry.
      */
-    suspend fun run(ctx: Context, id: String, audio: Boolean) {
+    suspend fun run(ctx: Context, id: String, audio: Boolean, textWhole: Boolean = true) {
         if (!running.add(id)) return
-        try { make(ctx, id, audio) } finally { running.remove(id) }
+        try { make(ctx, id, audio, textWhole) } finally { running.remove(id) }
     }
 
-    private suspend fun make(ctx: Context, id: String, audio: Boolean) {
+    private suspend fun make(ctx: Context, id: String, audio: Boolean, textWhole: Boolean) {
         var state = load(ctx, id)
         val segments = Library.bookSegments(ctx, id)
-        val chapters = Library.chapters(ctx, id, segments)
+        val chapters = if (textWhole) Library.chapters(ctx, id, segments) else Library.chaptersSoFar(ctx, id, segments)
+        if (textWhole) {
+            val stale = state.summaries.filter { s -> chapters.none { it.index == s.index } }
+            if (stale.isNotEmpty()) {
+                stale.forEach { File(Library.dir(ctx, id), Files.summaryAudio(it.index)).delete() }
+                state = state.copy(summaries = state.summaries - stale.toSet())
+                save(ctx, id, state)
+            }
+        }
         val summariser = Engines.summariser(ctx)
         try {
-            for ((n, c) in chapters.withIndex()) {
+            // A chapter still being read has no heading after it yet, so its end is not known.
+            for ((n, c) in chapters.withIndex().take(if (textWhole) chapters.size else (chapters.size - 1).coerceAtLeast(0))) {
                 var summary = state.at(c.index)
                 if (summary == null) {
                     val end = chapters.getOrNull(n + 1)?.index ?: segments.size

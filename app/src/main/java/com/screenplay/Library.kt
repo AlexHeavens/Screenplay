@@ -227,6 +227,14 @@ object Library {
         return marks
     }
 
+    /**
+     * The chapters in the text read so far, for a book still being read: the last one may go on, so its end is not known. Nothing is stored.
+     */
+    fun chaptersSoFar(ctx: Context, id: String, segments: List<Segment> = bookSegments(ctx, id)): List<Chapter> {
+        val book = readBook(dir(ctx, id)) ?: return emptyList()
+        return Chapters.place(Chapters.detect(segments.map { it.text }, book.contents, book.estimates), segments)
+    }
+
     /** The stored chapters with their audio times; a book stored before chapters were kept gets them detected on this first call. */
     fun chapters(ctx: Context, id: String, segments: List<Segment> = bookSegments(ctx, id)): List<Chapter> =
         Chapters.place(readBook(dir(ctx, id))?.chapters ?: detectChapters(ctx, id), segments)
