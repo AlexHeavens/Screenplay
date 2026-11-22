@@ -511,6 +511,20 @@ fun SettingsPanel(options: Options, onExportBackup: () -> Unit, set: (Options) -
             }
         }
         status?.let { Text(it, Modifier.padding(horizontal = 24.dp).testTag("voice-status"), style = MaterialTheme.typography.bodySmall) }
+        var summary by remember { mutableStateOf(SummarySettings.load(ctx)) }
+        fun setSummary(s: SummarySettings) { summary = s; s.save(ctx) }
+        SwitchRow(
+            "Summarise chapters with Claude", summary.enabled, "opt-summaries",
+            hint = "Sends the book's text to Anthropic's API with your own key, kept on this device. Applies to books made from now on.",
+        ) { setSummary(summary.copy(enabled = it)) }
+        if (summary.enabled) {
+            SwitchRow("Speak each summary, in the voice above", summary.audio, "opt-summary-audio") { setSummary(summary.copy(audio = it)) }
+            OutlinedTextField(
+                summary.apiKey, { setSummary(summary.copy(apiKey = it)) }, Modifier.fillMaxWidth().padding(horizontal = 24.dp).testTag("api-key"),
+                label = { Text("Anthropic API key (kept on this device only)") }, singleLine = true,
+                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+            )
+        }
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onExportBackup, Modifier.testTag("export-backup")) { Text("Export backup", maxLines = 1) }
         }
@@ -555,6 +569,12 @@ fun Reader(id: String, onBack: () -> Unit) {
     // The sentence the reader jumped to that has no audio yet: playback starts there once it has.
     var waitingFor by remember(id) { mutableStateOf<Int?>(null) }
     var notes by remember(id) { mutableStateOf(Library.notes(ctx, id)) }
+    var summaryState by remember(id) { mutableStateOf(SummaryState()) }
+    LaunchedEffect(id) { while (true) { summaryState = withContext(Dispatchers.IO) { Summaries.load(ctx, id) }; delay(2000) } }
+    // At most one chapter clip plays; starting one pauses the book, and the same button stops it.
+    var listening by remember(id) { mutableStateOf<Int?>(null) }
+    val clip = remember(id) { arrayOfNulls<Player>(1) }
+    DisposableEffect(id) { onDispose { clip[0]?.release() } }
     // Footnotes of a scanned book: annotations under their paragraphs, read-only and never spoken. They grow with the book while it is read.
     var footnotes by remember(id, ready) { mutableStateOf(Library.footnotes(ctx, id)) }
     // A book opens where it was left: at the start of the last paragraph played, which the player is moved to below.
@@ -573,6 +593,14 @@ fun Reader(id: String, onBack: () -> Unit) {
         MediaControl.start(ctx, MediaControl.Now(player, book?.title ?: "", book?.author ?: "", id, playerKey))
     }
     DisposableEffect(player) { onDispose { MediaControl.leave(player) } }
+    fun listen(index: Int) {
+        clip[0]?.release()
+        clip[0] = null
+        if (listening == index) { listening = null; return }
+        if (player.playing) player.toggle()
+        clip[0] = Player(ctx, id, Files.summaryAudio(index)).also { it.toggle() }
+        listening = index
+    }
     LaunchedEffect(player.playing) { if (player.playing) MediaControl.askOnce(ctx) { askNotifications.launch(android.Manifest.permission.POST_NOTIFICATIONS) } }
     BackHandler(onBack = onBack)
     LaunchedEffect(player) { while (true) { player.tick(); resume[0] = player.position; delay(100) } }
@@ -850,7 +878,9 @@ fun Reader(id: String, onBack: () -> Unit) {
     ) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
         LazyColumn(Modifier.padding(horizontal = 32.dp), state = list) {
+            summaryState.failure?.let { why -> item { SummaryStatus(why) { Summaries.retry(ctx, id) } } }
             itemsIndexed(segments) { i, s ->
+                summaryState.at(i)?.let { SummaryBox(i, it, listening == i && clip[0]?.playing == true) { listen(i) } }
                 if (s.pending) {
                     // Read but not spoken yet: tapping it moves speech here, and playback follows once it has audio.
                     val text = s.text

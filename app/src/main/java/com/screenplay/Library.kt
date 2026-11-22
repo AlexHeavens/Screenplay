@@ -40,6 +40,13 @@ object Files {
     /** Where speech of a book being made goes on from, after a jump ([Speaking]). */
     const val JUMP = "jump.txt"
     const val META = "meta.json"
+    /** A book's chapter summaries, if they were asked for ([Summaries]). */
+    const val SUMMARIES = "summaries.json"
+
+    /** The spoken summary of the chapter that starts at sentence [index]. */
+    fun summaryAudio(index: Int) = "summary-$index.m4a"
+
+    fun isSummaryAudio(name: String) = Regex("summary-\\d+\\.m4a").matches(name)
 }
 
 object Library {

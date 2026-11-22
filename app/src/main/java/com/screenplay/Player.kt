@@ -27,11 +27,11 @@ interface Playback {
     fun release()
 }
 
-/** Wraps MediaPlayer and exposes position and play state to Compose. */
-class Player(ctx: Context, id: String) : Playback {
+/** Wraps MediaPlayer and exposes position and play state to Compose. Plays the book's audio, or another clip of the book given as [file]. */
+class Player(ctx: Context, id: String, file: String = Files.AUDIO) : Playback {
     private val prefs = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val media = MediaPlayer().apply {
-        setDataSource(File(Library.dir(ctx, id), Files.AUDIO).path)
+        setDataSource(File(Library.dir(ctx, id), file).path)
         prepare()
     }
     override var position by mutableStateOf(0L)

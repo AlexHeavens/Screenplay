@@ -22,9 +22,9 @@ import java.util.zip.ZipOutputStream
 /** The zip cannot be restored; the message is shown to the user as it is. */
 class BackupException(message: String) : Exception(message)
 
-/** One zip of the PDF, audio, transcript, notes, highlights and details, handed to whatever app the user picks in the share sheet. */
+/** One zip of the PDF, audio, transcript, notes, highlights, chapter summaries and details, handed to whatever app the user picks in the share sheet. */
 object Backup {
-    private val entries = listOf(Files.PDF, Files.EPUB, Files.AUDIO, Files.TRANSCRIPT, Files.NOTES, Files.PARAGRAPH_NOTES, Files.HIGHLIGHTS, Files.FOOTNOTES, Files.META)
+    private val entries = listOf(Files.PDF, Files.EPUB, Files.AUDIO, Files.TRANSCRIPT, Files.NOTES, Files.PARAGRAPH_NOTES, Files.HIGHLIGHTS, Files.FOOTNOTES, Files.SUMMARIES, Files.META)
     private val required = listOf(Files.AUDIO, Files.TRANSCRIPT)
 
     fun zip(ctx: Context, id: String, title: String): Uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", zipFile(ctx, id, File(ctx.cacheDir, "backup/${fileSafe(title)}.zip")))
@@ -35,7 +35,8 @@ object Backup {
         val dir = Library.dir(ctx, id)
         out.parentFile!!.mkdirs()
         ZipOutputStream(out.outputStream().buffered()).use { z ->
-            for (name in entries) {
+            val clips = dir.list { _, name -> Files.isSummaryAudio(name) }.orEmpty().sorted()
+            for (name in entries + clips) {
                 val f = File(dir, name)
                 if (!f.exists()) continue
                 z.putNextEntry(ZipEntry(name))
@@ -103,7 +104,7 @@ object Backup {
             while (true) {
                 val e = z.nextEntry ?: break
                 if (e.name.startsWith("/") || e.name.split('/', '\\').contains("..")) throw BackupException("Not a valid backup: unsafe file name \"${e.name}\".")
-                if (e.name !in entries) continue
+                if (e.name !in entries && !Files.isSummaryAudio(e.name)) continue
                 File(dest, e.name).outputStream().use { z.copyTo(it) }
                 found += e.name
             }

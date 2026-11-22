@@ -6,7 +6,6 @@ package com.screenplay
 
 import android.content.Context
 import android.content.pm.ServiceInfo
-import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
@@ -215,16 +214,7 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             order.finish()
         }
 
-        // The shelf's settings sheet downloads a voice when it is picked; this covers a model removed since, and the
-        // default voice, which nobody picked. Without a network the book is read by the phone's voice rather than failing.
-        val voice = if (!options.voice.neural) options.voice else try {
-            Engines.prepareNeural(ctx, options.voice) {}
-            options.voice
-        } catch (e: java.io.IOException) {
-            Log.w("GenerateWorker", "The ${options.voice.name.lowercase()} voice could not be downloaded; the phone's voice reads this book", e)
-            Voice.PHONE
-        }
-        val synths = List(voice.lanes) { if (voice.neural) Engines.neural(ctx, voice) else Engines.synthesizer(ctx) }
+        val synths = Engines.lanes(ctx, options.voice)
         val (segments, rate) = try {
             Speech.render(
                 synths, order::take, File(dir, "sentence.wav"), pcm,
@@ -259,6 +249,8 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         File(dir, Files.JUMP).delete()
         Library.saveSegments(ctx, id, ordered)
         Library.update(ctx, id) { it.copy(status = Status.READY, commit = BuildConfig.COMMIT, progress = 1f, durationMs = ordered.last().end, positionMs = it.positionMs?.let { p -> Speech.moved(p, segments, ordered) }) }
+        // After READY, so the summaries (network calls, one per chapter) never hold up playback or the finished state.
+        SummarySettings.load(ctx).let { if (it.enabled) Summaries.run(ctx, id, it.audio) }
     }
 
     /**

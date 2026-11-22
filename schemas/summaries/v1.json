@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlexHeavens/Screenplay/schemas/summaries/v1.json",
+  "title": "Chapter summaries (summaries.json), version 1",
+  "description": "Written by Summaries.save, read by Summaries.load, one file per book that was summarised. A file that cannot be parsed reads as no summaries. The spoken clips are separate files, summary-<index>.m4a, and are not described here. Frozen once released: never edit, add a v2.json.",
+  "type": "object",
+  "required": ["summaries"],
+  "properties": {
+    "summaries": {
+      "description": "The chapters summarised so far, in reading order.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["index", "title", "bullets"],
+        "properties": {
+          "index": { "description": "The sentence where the chapter starts.", "type": "integer", "minimum": 0 },
+          "title": { "type": "string" },
+          "bullets": { "description": "The key lessons, one per entry.", "type": "array", "items": { "type": "string" } },
+          "overview": { "description": "2 to 3 sentences on the chapter. Absent in a summary made before overviews: reads as empty.", "type": "string", "default": "" }
+        }
+      }
+    },
+    "failure": { "description": "Why the last attempt failed, shown with a retry. Absent when the last attempt worked.", "type": "string" }
+  }
+}
