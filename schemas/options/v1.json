@@ -47,6 +47,16 @@
       "enum": ["SYSTEM", "LIGHT", "DARK"],
       "default": "SYSTEM"
     },
+    "summaries": {
+      "description": "SummarySettings.enabled: summarise each chapter of a new book with the small language model that runs on the device (LocalModel), for an overview and key lessons. Turning it on starts the download of the model.",
+      "type": "boolean",
+      "default": false
+    },
+    "summary-audio": {
+      "description": "SummarySettings.audio: speak each chapter summary into its own clip, in the voice chosen in \"voice\". Only used while \"summaries\" is true.",
+      "type": "boolean",
+      "default": false
+    },
     "natural": {
       "description": "Legacy, read only, never written now. The first build had a Natural voice switch; true means voice KOKORO and false the phone's voice, when \"voice\" is absent or unknown. Nothing removes it, so it may stay beside \"voice\".",
       "type": "boolean",

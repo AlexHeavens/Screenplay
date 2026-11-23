@@ -6,11 +6,11 @@ package com.screenplay
 
 import android.content.Context
 import android.content.pm.ServiceInfo
-import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
@@ -18,6 +18,7 @@ import kotlinx.coroutines.supervisorScope
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.Dispatchers
@@ -115,6 +116,20 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         val wordsAfter = Collections.synchronizedList(ArrayList<Int>())
         if (kept.segments.isNotEmpty()) RandomAccessFile(pcm, "rw").use { it.setLength(kept.bytes) }
 
+        // A chapter is summarised as soon as the next chapter's heading has been read, so the summaries show up while the book is still being read
+        // and spoken. They are a child of the worker, not of the reader, so they never hold up the encoding.
+        val summarySettings = SummarySettings.load(ctx)
+        val textWhole = CompletableDeferred<Unit>()
+        val summaries = if (!summarySettings.enabled) null else launch {
+            // After a failure it waits for the text to be whole, then tries again, rather than call the API every few seconds.
+            while (!textWhole.isCompleted && Summaries.load(ctx, id).failure == null) {
+                Summaries.run(ctx, id, audio = false, textWhole = false)
+                withTimeoutOrNull(SUMMARY_POLL_MS) { textWhole.await() }
+            }
+            textWhole.await()
+            Summaries.run(ctx, id, audio = false)
+        }
+
         val reader = launch {
             val stream = SentenceStream(options)
             val speller = if (options.spell) PlatformSpeller(ctx) else null
@@ -153,6 +168,7 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
                 emitChecked(Epub.speakable(book.paragraphs), last = true)
                 progress.readingDone(wordsAfter.lastOrNull() ?: error("No text found in this EPUB"))
                 order.finish()
+                textWhole.complete(Unit)
                 return@launch
             }
             // The pre-pass: chapters from the contents page, before the book is read, so the contents page stays out of the text.
@@ -213,18 +229,10 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             Library.detectChapters(ctx, id)
             progress.readingDone(wordsAfter.last())
             order.finish()
+            textWhole.complete(Unit)
         }
 
-        // The shelf's settings sheet downloads a voice when it is picked; this covers a model removed since, and the
-        // default voice, which nobody picked. Without a network the book is read by the phone's voice rather than failing.
-        val voice = if (!options.voice.neural) options.voice else try {
-            Engines.prepareNeural(ctx, options.voice) {}
-            options.voice
-        } catch (e: java.io.IOException) {
-            Log.w("GenerateWorker", "The ${options.voice.name.lowercase()} voice could not be downloaded; the phone's voice reads this book", e)
-            Voice.PHONE
-        }
-        val synths = List(voice.lanes) { if (voice.neural) Engines.neural(ctx, voice) else Engines.synthesizer(ctx) }
+        val synths = Engines.lanes(ctx, options.voice)
         val (segments, rate) = try {
             Speech.render(
                 synths, order::take, File(dir, "sentence.wav"), pcm,
@@ -259,6 +267,11 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         File(dir, Files.JUMP).delete()
         Library.saveSegments(ctx, id, ordered)
         Library.update(ctx, id) { it.copy(status = Status.READY, commit = BuildConfig.COMMIT, progress = 1f, durationMs = ordered.last().end, positionMs = it.positionMs?.let { p -> Speech.moved(p, segments, ordered) }) }
+        // The clips come after READY, so speaking them never slows the book; the text summaries made meanwhile are kept, and a failed one is retried.
+        if (summarySettings.enabled) {
+            summaries?.join()
+            Summaries.run(ctx, id, summarySettings.audio)
+        }
     }
 
     /**
@@ -308,5 +321,8 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
 
         /** Longest wait for the catalogue; the audiobook is made regardless. */
         const val LOOKUP_MS = 15_000L
+
+        /** How often the text read so far is looked at for a chapter that is whole, to summarise. */
+        const val SUMMARY_POLL_MS = 3_000L
     }
 }

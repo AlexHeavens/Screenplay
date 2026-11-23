@@ -55,6 +55,27 @@ object Engines {
     /** Runs on the importing thread before a picked file is copied into the app; a test holds it to see the file's row while it is being saved. */
     var beforeCopy: () -> Unit = {}
 
+    /** Where tests swap in the chapter summariser, so no call goes to the Claude API. */
+    var summariser: (Context) -> Summariser = { LocalSummariser(it) }
+
+    /** Where tests swap in the download of the summary model, so no 1.6 GB file is fetched. Does nothing if the model is there. */
+    var prepareSummaryModel: suspend (Context, (Float) -> Unit) -> Unit = { c, progress -> LocalModel.ensure(c, progress) }
+
+    /**
+     * The speech lanes for the voice the user chose, its model downloaded first if it is missing (the settings sheet downloads it when it is picked;
+     * this covers one removed since, and the default voice, which nobody picked). Without a network the phone's voice speaks rather than nothing.
+     */
+    suspend fun lanes(ctx: Context, wanted: Voice): List<Synthesizer> {
+        val voice = if (!wanted.neural) wanted else try {
+            prepareNeural(ctx, wanted) {}
+            wanted
+        } catch (e: java.io.IOException) {
+            android.util.Log.w("Engines", "The ${wanted.name.lowercase()} voice could not be downloaded; the phone's voice speaks instead", e)
+            Voice.PHONE
+        }
+        return List(voice.lanes) { if (voice.neural) neural(ctx, voice) else synthesizer(ctx) }
+    }
+
     /** The opt-in neural voice; a test swaps it as it does [synthesizer]. */
     var neural: (Context, Voice) -> Synthesizer = { ctx, voice -> NeuralVoice.Lane(ctx, voice) }
 

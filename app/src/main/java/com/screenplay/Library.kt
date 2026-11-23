@@ -40,6 +40,13 @@ object Files {
     /** Where speech of a book being made goes on from, after a jump ([Speaking]). */
     const val JUMP = "jump.txt"
     const val META = "meta.json"
+    /** A book's chapter summaries, if they were asked for ([Summaries]). */
+    const val SUMMARIES = "summaries.json"
+
+    /** The spoken summary of the chapter that starts at sentence [index]. */
+    fun summaryAudio(index: Int) = "summary-$index.m4a"
+
+    fun isSummaryAudio(name: String) = Regex("summary-\\d+\\.m4a").matches(name)
 }
 
 object Library {
@@ -218,6 +225,14 @@ object Library {
         val marks = Chapters.detect(bookSegments(ctx, id).map { it.text }, book.contents, book.estimates)
         update(ctx, id) { it.copy(chapters = marks) }
         return marks
+    }
+
+    /**
+     * The chapters in the text read so far, for a book still being read: the last one may go on, so its end is not known. Nothing is stored.
+     */
+    fun chaptersSoFar(ctx: Context, id: String, segments: List<Segment> = bookSegments(ctx, id)): List<Chapter> {
+        val book = readBook(dir(ctx, id)) ?: return emptyList()
+        return Chapters.place(Chapters.detect(segments.map { it.text }, book.contents, book.estimates), segments)
     }
 
     /** The stored chapters with their audio times; a book stored before chapters were kept gets them detected on this first call. */

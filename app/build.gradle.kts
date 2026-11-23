@@ -117,6 +117,7 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.9.1")
     // Bundled model: OCR runs offline and needs no Google Play services.
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.mediapipe:tasks-genai:0.10.35")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20260814")
