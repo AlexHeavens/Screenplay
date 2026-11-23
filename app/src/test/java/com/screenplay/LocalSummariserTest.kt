@@ -30,4 +30,12 @@ class LocalSummariserTest {
         assertTrue(parts.all { it.length <= 100 && !it.startsWith("ord") })
         assertEquals(200, parts.joinToString(" ").split(" ").size)
     }
+
+    @Test
+    fun lessonsRunTogetherOnOneLineAreSplitAndLinesAreKept() {
+        val inline = "Habits compound over time. - Focus on systems, not goals. - Good habits make time your ally."
+        val expected = listOf("Habits compound over time.", "Focus on systems, not goals.", "Good habits make time your ally.")
+        assertEquals(expected, LocalSummariser.lessonsIn(inline))
+        assertEquals(expected, LocalSummariser.lessonsIn("- ${expected[0]}\n- ${expected[1]}\n- ${expected[2]}"))
+    }
 }

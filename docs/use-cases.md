@@ -1852,6 +1852,7 @@ Tests:
 - `LocalSummariserTest.aChapterThatFitsIsOnePart`
 - `LocalSummariserTest.aLongChapterIsCutAtSentenceEndsAndNothingIsLost`
 - `LocalSummariserTest.textWithNoSentenceEndIsCutAtASpace`
+- `LocalSummariserTest.lessonsRunTogetherOnOneLineAreSplitAndLinesAreKept`
 - `SummaryTest.theChosenVoiceSpeaksEachSummaryAndTheClipPlaysFromItsBoxAndIsBackedUp`
 - `SummaryTest.noClipIsMadeUnlessSpeakingIsAskedFor`
 - `SummaryTest.aFailurePartWayKeepsTheSummariesMadeAndARetryMakesTheRest`

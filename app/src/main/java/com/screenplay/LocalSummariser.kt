@@ -11,7 +11,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * Summarises on the device with [LocalModel]. A chapter longer than the model's window is read in parts: each part is boiled down to
- * a few notes, and the summary is written from the notes. The model is loaded on first use and held until [close], so a book's
+ * a few notes, and the overview and the lessons are each written from the notes. The model is loaded on first use and held until [close], so a book's
  * chapters share one load and the memory is given back when the book's summaries are done.
  */
 class LocalSummariser(private val ctx: Context) : Summariser {
@@ -36,18 +36,17 @@ class LocalSummariser(private val ctx: Context) : Summariser {
         val source = if (parts.size == 1) parts.single() else parts.joinToString("\n\n") { part ->
             ask(llm, "Here is part of the chapter \"$chapterTitle\" from a book. Write notes on it in at most 60 words, plain text.\n\n$part")
         }
-        ChapterDigest.parse(
-            ask(
-                llm,
-                "Here is the text of the chapter \"$chapterTitle\" from a book. Reply in this form and nothing else: " +
-                    "one line starting with \"SUMMARY: \" that sums up the chapter in 2 or 3 plain sentences for a listener, then " +
-                    "its 3 to 5 most important lessons as short bullet points, one per line, each starting with \"- \".\n\n${source.take(CHUNK_CHARS)}",
-            ),
-        )
+        val chapter = "Here is the text of the chapter \"$chapterTitle\" from a book. "
+        val body = "\n\n${source.take(CHUNK_CHARS)}"
+        // Two requests: asked for both in one reply, the model gives the summary and leaves out the bullets.
+        val overview = ask(llm, chapter + "Sum up the chapter in 2 or 3 plain sentences for a listener. Write only the summary." + body)
+        val lessons = ask(llm, chapter + "List its 3 to 5 most important lessons for a listener as short bullet points, one per line, each starting with \"- \". Write nothing else." + body)
+        ChapterDigest(overview.trim().removePrefix("SUMMARY:").trim(), lessonsIn(lessons))
     }
 
+    /** The model sometimes writes a line break as the two characters backslash and n, so those are turned into line breaks. */
     private fun ask(llm: LlmInference, prompt: String): String =
-        NeuralVoice.inBackground { llm.generateResponse("<|im_start|>user\n$prompt<|im_end|>\n<|im_start|>assistant\n") }
+        NeuralVoice.inBackground { llm.generateResponse("<|im_start|>user\n$prompt<|im_end|>\n<|im_start|>assistant\n") }.replace("\\n", "\n")
 
     override fun close() {
         engine?.close()
@@ -60,6 +59,10 @@ class LocalSummariser(private val ctx: Context) : Summariser {
 
         /** About 1500 tokens of English, which leaves the window room for the instructions and the reply. */
         const val CHUNK_CHARS = 6_000
+
+        /** The lessons in [reply]: bullet lines, or, when the model runs them together on one line, the items cut at each spaced dash (the first may have no mark). */
+        fun lessonsIn(reply: String): List<String> =
+            ChapterDigest.parse(("- " + reply.trim().removePrefix("-").trim()).replace(Regex("\\s+-\\s+"), "\n- ")).lessons
 
         /** Cuts [text] into parts of at most [max] characters, at the last sentence end or space before the limit where there is one. */
         fun chunks(text: String, max: Int = CHUNK_CHARS): List<String> {
