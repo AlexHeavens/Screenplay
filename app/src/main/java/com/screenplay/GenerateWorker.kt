@@ -118,15 +118,15 @@ class GenerateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         if (kept.segments.isNotEmpty()) RandomAccessFile(pcm, "rw").use { it.setLength(kept.bytes) }
 
         // One chapter at a time goes through the heavy stages, so none of them competes with another for the processor: the pages are read until
-        // the next heading shows a chapter is whole, the reader waits while the chapter is summarised and its summary clip spoken, and then
-        // the chapter itself is spoken. Only after that does the reader go on. Speech is held back from each chapter until its summary is done.
+        // the next heading shows a chapter is whole, the reader waits while the chapter is spoken, then summarised and its summary clip spoken.
+        // Only after that does the reader go on. Speech is held back from each chapter until the one before it is done.
         val summarySettings = SummarySettings.load(ctx)
         var speechHeld = summarySettings.enabled
         if (speechHeld) order.hold()
         val spokenAt = ConcurrentHashMap.newKeySet<Int>().apply { addAll(keptText.keys) }
         val spokenSignal = Channel<Unit>(Channel.CONFLATED)
         var lastSettled = 0L
-        /** Takes the chapters that are whole through summary and speech, in order. A failed summary lets speech go on without the rest. */
+        /** Takes the chapters that are whole through speech and then summary, in order. A failed summary lets speech go on without the rest. */
         suspend fun settleChapters(textWhole: Boolean) {
             if (!speechHeld) return
             if (!textWhole && SystemClock.elapsedRealtime() - lastSettled < SUMMARY_POLL_MS) return

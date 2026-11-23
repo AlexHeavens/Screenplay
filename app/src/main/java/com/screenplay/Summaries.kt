@@ -137,16 +137,16 @@ object Summaries {
      * each chapter so a failure part way keeps what exists.
      * While the book's text is still being read ([textWhole] false), only the chapters followed by a heading already read are whole, so only those are done.
      * Once it is whole, the chapters are the final ones: a summary of a heading that turned out not to be one is dropped.
-     * [afterChapter] is told where each chapter ends, once its summary (and clip) is done, so a caller can move on chapter by chapter.
+     * [chapterWhole] is told where each chapter ends, and returns before the chapter is summarised, so a caller can have the chapter spoken first and take the chapters one at a time.
      * One run per book at a time: a second call while one is going does nothing.
      * Never throws: a failure is stored as the state's [SummaryState.failure] for the reader to show with a retry.
      */
-    suspend fun run(ctx: Context, id: String, audio: Boolean, textWhole: Boolean = true, afterChapter: suspend (end: Int) -> Unit = {}) {
+    suspend fun run(ctx: Context, id: String, audio: Boolean, textWhole: Boolean = true, chapterWhole: suspend (end: Int) -> Unit = {}) {
         if (!running.add(id)) return
-        try { make(ctx, id, audio, textWhole, afterChapter) } finally { running.remove(id) }
+        try { make(ctx, id, audio, textWhole, chapterWhole) } finally { running.remove(id) }
     }
 
-    private suspend fun make(ctx: Context, id: String, audio: Boolean, textWhole: Boolean, afterChapter: suspend (end: Int) -> Unit) {
+    private suspend fun make(ctx: Context, id: String, audio: Boolean, textWhole: Boolean, chapterWhole: suspend (end: Int) -> Unit) {
         var state = load(ctx, id)
         val segments = Library.bookSegments(ctx, id)
         val chapters = if (textWhole) Library.chapters(ctx, id, segments) else Library.chaptersSoFar(ctx, id, segments)
@@ -162,9 +162,10 @@ object Summaries {
         try {
             // A chapter still being read has no heading after it yet, so its end is not known.
             for ((n, c) in chapters.withIndex().take(if (textWhole) chapters.size else (chapters.size - 1).coerceAtLeast(0))) {
+                val end = chapters.getOrNull(n + 1)?.index ?: segments.size
+                chapterWhole(end)
                 var summary = state.at(c.index)
                 if (summary == null) {
-                    val end = chapters.getOrNull(n + 1)?.index ?: segments.size
                     val text = segments.subList(c.index, end).joinToString(" ") { it.text }
                     val digest = summariser.summarise(c.title, text) { done, total -> working.update { it + (id to SummaryWork(c.title, done, total)) } }
                     if (digest.lessons.isEmpty() && digest.overview.isBlank()) throw SummaryFailure("empty reply")
@@ -173,7 +174,6 @@ object Summaries {
                     save(ctx, id, state)
                 }
                 if (audio) speak(ctx, id, summary)
-                afterChapter(chapters.getOrNull(n + 1)?.index ?: segments.size)
             }
             if (state.failure != null) save(ctx, id, state.copy(failure = null))
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
