@@ -61,7 +61,7 @@ fun SummaryPlaceholder(index: Int, title: String, work: SummaryWork?) {
             val grey = MaterialTheme.colorScheme.onSurfaceVariant
             if (work == null) Text("Summary of $title: not written yet", style = label, color = grey)
             else {
-                Text("Summary of $title: step ${minOf(work.done + 1, work.total)} of ${work.total}, ${(work.fraction * 100).toInt()}%", Modifier.testTag("summary-progress"), style = label, color = grey)
+                Text("Summary of $title: ${work.stage}, ${(work.fraction * 100).toInt()}%", Modifier.testTag("summary-progress"), style = label, color = grey)
                 LinearProgressIndicator(progress = { work.fraction }, Modifier.fillMaxWidth())
             }
         }

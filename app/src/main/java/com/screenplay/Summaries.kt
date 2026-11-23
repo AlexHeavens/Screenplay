@@ -34,9 +34,9 @@ data class ChapterDigest(val overview: String, val lessons: List<String>) {
 interface Summariser {
     /**
      * Throws [SummaryFailure] when the summary cannot be made, with a message safe to show.
-     * [onProgress] is told how many of the [total] model calls the chapter needs are done, and how far through the one under way (0 to 1, an estimate), as the reply streams in.
+     * [onProgress] is told how many of the [total] model calls the chapter needs are done, and how far through the one under way (0 to 1, an estimate), as the reply streams in, with the name of what it is doing.
      */
-    suspend fun summarise(chapterTitle: String, text: String, onProgress: (done: Int, total: Int, within: Float) -> Unit = { _, _, _ -> }): ChapterDigest
+    suspend fun summarise(chapterTitle: String, text: String, onProgress: (done: Int, total: Int, within: Float, stage: String) -> Unit = { _, _, _, _ -> }): ChapterDigest
 
     /** Gives back what the summariser holds, once a book's summaries are done. */
     fun close() {}
@@ -56,7 +56,7 @@ data class SummaryState(val summaries: List<ChapterSummary> = emptyList(), val f
 }
 
 /** The chapter being summarised and how far its model calls have got, with the estimated share of the call under way: the measure behind the progress bar. */
-data class SummaryWork(val title: String, val done: Int, val total: Int, val within: Float = 0f) {
+data class SummaryWork(val title: String, val done: Int, val total: Int, val within: Float = 0f, val stage: String = "") {
     /** The bar's fill, from 0 to 1. */
     val fraction: Float get() = ((done + within) / total.coerceAtLeast(1)).coerceIn(0f, 1f)
 }
@@ -170,7 +170,7 @@ object Summaries {
                 var summary = state.at(c.index)
                 if (summary == null) {
                     val text = segments.subList(c.index, end).joinToString(" ") { it.text }
-                    val digest = summariser.summarise(c.title, text) { done, total, within -> working.update { it + (id to SummaryWork(c.title, done, total, within)) } }
+                    val digest = summariser.summarise(c.title, text) { done, total, within, stage -> working.update { it + (id to SummaryWork(c.title, done, total, within, stage)) } }
                     if (digest.lessons.isEmpty() && digest.overview.isBlank()) throw SummaryFailure("empty reply")
                     summary = ChapterSummary(c.index, c.title, digest.lessons, digest.overview)
                     state = state.copy(summaries = state.summaries + summary, failure = null)

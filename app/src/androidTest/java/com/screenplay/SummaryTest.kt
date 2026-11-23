@@ -81,7 +81,7 @@ class SummaryTest {
     }
 
     private fun digesting(make: (title: String) -> ChapterDigest) = object : Summariser {
-        override suspend fun summarise(chapterTitle: String, text: String, onProgress: (done: Int, total: Int, within: Float) -> Unit) = make(chapterTitle)
+        override suspend fun summarise(chapterTitle: String, text: String, onProgress: (done: Int, total: Int, within: Float, stage: String) -> Unit) = make(chapterTitle)
     }
 
     private fun clip(id: String, index: Int) = File(Library.dir(ctx, id), Files.summaryAudio(index))

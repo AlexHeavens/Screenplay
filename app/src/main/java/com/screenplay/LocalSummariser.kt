@@ -17,7 +17,7 @@ import kotlinx.coroutines.withContext
 class LocalSummariser(private val ctx: Context) : Summariser {
     private var engine: LlmInference? = null
 
-    override suspend fun summarise(chapterTitle: String, text: String, onProgress: (done: Int, total: Int, within: Float) -> Unit): ChapterDigest = withContext(Dispatchers.Default) {
+    override suspend fun summarise(chapterTitle: String, text: String, onProgress: (done: Int, total: Int, within: Float, stage: String) -> Unit): ChapterDigest = withContext(Dispatchers.Default) {
         try {
             Engines.prepareSummaryModel(ctx) {}
         } catch (e: java.io.IOException) {
@@ -36,15 +36,17 @@ class LocalSummariser(private val ctx: Context) : Summariser {
         // One call for each part of a long chapter, then the overview and the lessons.
         val total = (if (parts.size == 1) 0 else parts.size) + 2
         var done = 0
-        onProgress(done, total, 0f)
-        val source = if (parts.size == 1) parts.single() else parts.joinToString("\n\n") { part ->
-            ask(llm, "Here is part of the chapter \"$chapterTitle\" from a book. Write notes on it in at most 60 words, plain text.\n\n$part") { onProgress(done, total, it) }.also { onProgress(++done, total, 0f) }
-        }
+        fun noting(part: Int) = "Noting part $part of ${parts.size}"
+        onProgress(done, total, 0f, if (parts.size == 1) OVERVIEW_STAGE else noting(1))
+        val source = if (parts.size == 1) parts.single() else parts.mapIndexed { n, part ->
+            ask(llm, "Here is part of the chapter \"$chapterTitle\" from a book. Write notes on it in at most 60 words, plain text.\n\n$part") { onProgress(done, total, it, noting(n + 1)) }
+                .also { onProgress(++done, total, 0f, if (n + 1 < parts.size) noting(n + 2) else OVERVIEW_STAGE) }
+        }.joinToString("\n\n")
         val chapter = "Here is the text of the chapter \"$chapterTitle\" from a book. "
         val body = "\n\n${source.take(CHUNK_CHARS)}"
         // Two requests: asked for both in one reply, the model gives the summary and leaves out the bullets.
-        val overview = ask(llm, chapter + "Sum up the chapter in 2 or 3 plain sentences for a listener. Write only the summary." + body) { onProgress(done, total, it) }.also { onProgress(++done, total, 0f) }
-        val lessons = ask(llm, chapter + "List its 3 to 5 most important lessons for a listener as short bullet points, one per line, each starting with \"- \". Write nothing else." + body) { onProgress(done, total, it) }.also { onProgress(++done, total, 0f) }
+        val overview = ask(llm, chapter + "Sum up the chapter in 2 or 3 plain sentences for a listener. Write only the summary." + body) { onProgress(done, total, it, OVERVIEW_STAGE) }.also { onProgress(++done, total, 0f, LESSONS_STAGE) }
+        val lessons = ask(llm, chapter + "List its 3 to 5 most important lessons for a listener as short bullet points, one per line, each starting with \"- \". Write nothing else." + body) { onProgress(done, total, it, LESSONS_STAGE) }.also { onProgress(++done, total, 0f, "Finishing") }
         ChapterDigest(overview.trim().removePrefix("SUMMARY:").trim(), lessonsIn(lessons))
     }
 
@@ -67,6 +69,9 @@ class LocalSummariser(private val ctx: Context) : Summariser {
     companion object {
         /** The model's window, in tokens, shared by the prompt and the reply. */
         private const val WINDOW = 4096
+
+        private const val OVERVIEW_STAGE = "Writing the overview"
+        private const val LESSONS_STAGE = "Writing the lessons"
 
         /** About how many streamed pieces a reply has: the notes, the overview and the lessons are each asked to be about this long. */
         private const val PIECES_IN_A_REPLY = 100f
