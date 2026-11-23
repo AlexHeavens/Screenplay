@@ -105,6 +105,8 @@ object MediaControl {
     fun keepPlace(ctx: Context, now: Now) {
         appContext = ctx.applicationContext
         val p = now.player
+        // A summary track's position is no place in the book.
+        if (p is SummaryPlaylist) return
         val playing = p.playing; val position = p.position; val duration = p.duration
         saveScope.launch { runCatching { saver.tick(now.id, playing, position, duration, p is Player) } }
     }

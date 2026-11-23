@@ -113,6 +113,24 @@ class SummaryTest {
         compose.onNodeWithTag("summary-0").assert(hasText("Overview of Chapter One", substring = true))
         compose.onNodeWithTag("summary-listen-0").assert(hasText("Listen")).performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("summary-listen-0").fetchSemanticsNodes().isNotEmpty() && runCatching { compose.onNodeWithTag("summary-listen-0").assert(hasText("Stop")) }.isSuccess }
+        // The clip plays through the book's media controls, so a pause from the notification or a headset stops it; and one track holds every clip.
+        val track = MediaControl.current!!.player as SummaryPlaylist
+        assertTrue("both clips in one track", track.duration > 0 && track.startOf(chapterStarts[1])!! > 0)
+        track.toggle()
+        compose.waitUntil(10_000) { runCatching { compose.onNodeWithTag("summary-listen-0").assert(hasText("Listen")) }.isSuccess }
+        // Summaries only: the same button leaves the track for the book, and the book's player is back.
+        compose.onNodeWithTag("summaries-only").performClick()
+        compose.waitUntil(10_000) { MediaControl.current?.player !is SummaryPlaylist }
+    }
+
+    @Test
+    fun aChapterWithoutASummaryYetHasAPlaceholderWhereItWillBe() {
+        SummarySettings(enabled = true).save(ctx)
+        Fixtures.seedSpokenBook(ctx, sentences = sentences)
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        compose.waitUntil(30_000) { compose.onAllNodesWithTag("book-${Fixtures.TITLE}").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("book-${Fixtures.TITLE}").performClick()
+        compose.waitUntil(30_000) { compose.onAllNodesWithTag("summary-placeholder-${chapterStarts[0]}").fetchSemanticsNodes().isNotEmpty() }
     }
 
     @Test

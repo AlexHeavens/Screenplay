@@ -46,6 +46,20 @@ fun SummaryBox(index: Int, summary: ChapterSummary, listening: Boolean, onListen
     }
 }
 
+/** Where a chapter's summary will appear, shown at the chapter's start until it is made. */
+@Composable
+fun SummaryPlaceholder(index: Int, title: String, underway: Boolean) {
+    OutlinedCard(
+        Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag("summary-placeholder-$index"),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Text(
+            if (underway) "Summary of $title: being written now" else "Summary of $title: not written yet",
+            Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
 /** The chapter being summarised, with a bar of its model calls done out of those it needs, filled as each call's reply streams in. */
 @Composable
 fun SummaryProgress(work: SummaryWork) {
