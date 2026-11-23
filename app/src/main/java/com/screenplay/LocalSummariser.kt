@@ -6,8 +6,12 @@ package com.screenplay
 
 import android.content.Context
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
+import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * Summarises on the device with [LocalModel]. A chapter longer than the model's window is read in parts: each part is boiled down to
@@ -52,13 +56,24 @@ class LocalSummariser(private val ctx: Context) : Summariser {
 
     /** The model sometimes writes a line break as the two characters backslash and n, so those are turned into line breaks. */
     /** The reply to [prompt]; [onShare] is told how far through its usual length the streamed reply is, from 0 to [MOST_OF_A_REPLY]. */
-    private fun ask(llm: LlmInference, prompt: String, onShare: (Float) -> Unit): String {
+    private suspend fun ask(llm: LlmInference, prompt: String, onShare: (Float) -> Unit): String {
         var pieces = 0
-        return NeuralVoice.inBackground {
-            llm.generateResponseAsync("<|im_start|>user\n$prompt<|im_end|>\n<|im_start|>assistant\n") { _, _ ->
-                onShare(minOf(++pieces / PIECES_IN_A_REPLY, MOST_OF_A_REPLY))
-            }.get()
-        }.replace("\\n", "\n")
+        val session = LlmInferenceSession.createFromOptions(llm, LlmInferenceSession.LlmInferenceSessionOptions.builder().build())
+        val reply = suspendCancellableCoroutine { waiting ->
+            val generating = NeuralVoice.inBackground {
+                session.addQueryChunk("<|im_start|>user\n$prompt<|im_end|>\n<|im_start|>assistant\n")
+                session.generateResponseAsync { _, _ -> onShare(minOf(++pieces / PIECES_IN_A_REPLY, MOST_OF_A_REPLY)) }
+            }
+            // A reply is minutes of work that nothing else can stop: when the book is deleted, the model is told to give up, so the next book is not kept waiting.
+            waiting.invokeOnCancellation { session.cancelGenerateResponseAsync() }
+            generating.addListener({
+                // The session is closed only once the model has finished with it, however it ended.
+                val result = runCatching { generating.get() }
+                session.close()
+                result.onSuccess { waiting.resume(it) }.onFailure { waiting.resumeWithException(it) }
+            }, Runnable::run)
+        }
+        return reply.replace("\\n", "\n")
     }
 
     override fun close() {
