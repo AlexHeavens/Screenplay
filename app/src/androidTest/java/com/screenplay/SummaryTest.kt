@@ -178,16 +178,15 @@ class SummaryTest {
             )
             val end = System.currentTimeMillis() + 120_000
             fun book() = Library.books.value.singleOrNull()
-            while (book()?.let { b -> Summaries.load(ctx, b.id).summaries.isNotEmpty() } != true) {
-                assertTrue("no summary while the book is ${book()?.status}", System.currentTimeMillis() < end)
+            while (book()?.let { b -> Summaries.load(ctx, b.id).summaries.let { made -> made.isNotEmpty() && made.all { clip(b.id, it.index).exists() } } } != true) {
+                assertTrue("no summary and clip while the book is ${book()?.status}", System.currentTimeMillis() < end)
                 Thread.sleep(100)
             }
             val id = book()!!.id
             val made = Summaries.load(ctx, id).summaries
-            // The last page is still held: the book is being read, and the first chapter, with the next heading after it, is already summarised.
+            // The last page is still held: the book is being read, and the first chapter, with the next heading after it, is already spoken, summarised and has its clip.
             assertEquals(Status.READING, book()!!.status)
             assertEquals("Chapter One", made.first().title)
-            assertTrue("no clip before the book is ready", made.none { clip(id, it.index).exists() })
         } finally {
             held.complete(Unit)
             Engines.beforeRecognise = { _, _ -> }
