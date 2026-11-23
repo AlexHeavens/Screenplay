@@ -46,12 +46,12 @@ fun SummaryBox(index: Int, summary: ChapterSummary, listening: Boolean, onListen
     }
 }
 
-/** The chapter being summarised, with a bar of its model calls done out of those it needs. */
+/** The chapter being summarised, with a bar of its model calls done out of those it needs, filled as each call's reply streams in. */
 @Composable
 fun SummaryProgress(work: SummaryWork) {
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("summary-progress"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Summarising ${work.title}: step ${work.done} of ${work.total}", style = MaterialTheme.typography.bodySmall)
-        LinearProgressIndicator(progress = { work.done / work.total.coerceAtLeast(1).toFloat() }, Modifier.fillMaxWidth())
+        Text("Summarising ${work.title}: step ${minOf(work.done + 1, work.total)} of ${work.total}, ${(work.fraction * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
+        LinearProgressIndicator(progress = { work.fraction }, Modifier.fillMaxWidth())
     }
 }
 

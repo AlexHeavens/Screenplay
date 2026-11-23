@@ -17,7 +17,7 @@ import kotlinx.coroutines.withContext
 class LocalSummariser(private val ctx: Context) : Summariser {
     private var engine: LlmInference? = null
 
-    override suspend fun summarise(chapterTitle: String, text: String, onStep: (done: Int, total: Int) -> Unit): ChapterDigest = withContext(Dispatchers.Default) {
+    override suspend fun summarise(chapterTitle: String, text: String, onProgress: (done: Int, total: Int, within: Float) -> Unit): ChapterDigest = withContext(Dispatchers.Default) {
         try {
             Engines.prepareSummaryModel(ctx) {}
         } catch (e: java.io.IOException) {
@@ -36,21 +36,28 @@ class LocalSummariser(private val ctx: Context) : Summariser {
         // One call for each part of a long chapter, then the overview and the lessons.
         val total = (if (parts.size == 1) 0 else parts.size) + 2
         var done = 0
-        onStep(done, total)
+        onProgress(done, total, 0f)
         val source = if (parts.size == 1) parts.single() else parts.joinToString("\n\n") { part ->
-            ask(llm, "Here is part of the chapter \"$chapterTitle\" from a book. Write notes on it in at most 60 words, plain text.\n\n$part").also { onStep(++done, total) }
+            ask(llm, "Here is part of the chapter \"$chapterTitle\" from a book. Write notes on it in at most 60 words, plain text.\n\n$part") { onProgress(done, total, it) }.also { onProgress(++done, total, 0f) }
         }
         val chapter = "Here is the text of the chapter \"$chapterTitle\" from a book. "
         val body = "\n\n${source.take(CHUNK_CHARS)}"
         // Two requests: asked for both in one reply, the model gives the summary and leaves out the bullets.
-        val overview = ask(llm, chapter + "Sum up the chapter in 2 or 3 plain sentences for a listener. Write only the summary." + body).also { onStep(++done, total) }
-        val lessons = ask(llm, chapter + "List its 3 to 5 most important lessons for a listener as short bullet points, one per line, each starting with \"- \". Write nothing else." + body).also { onStep(++done, total) }
+        val overview = ask(llm, chapter + "Sum up the chapter in 2 or 3 plain sentences for a listener. Write only the summary." + body) { onProgress(done, total, it) }.also { onProgress(++done, total, 0f) }
+        val lessons = ask(llm, chapter + "List its 3 to 5 most important lessons for a listener as short bullet points, one per line, each starting with \"- \". Write nothing else." + body) { onProgress(done, total, it) }.also { onProgress(++done, total, 0f) }
         ChapterDigest(overview.trim().removePrefix("SUMMARY:").trim(), lessonsIn(lessons))
     }
 
     /** The model sometimes writes a line break as the two characters backslash and n, so those are turned into line breaks. */
-    private fun ask(llm: LlmInference, prompt: String): String =
-        NeuralVoice.inBackground { llm.generateResponse("<|im_start|>user\n$prompt<|im_end|>\n<|im_start|>assistant\n") }.replace("\\n", "\n")
+    /** The reply to [prompt]; [onShare] is told how far through its usual length the streamed reply is, from 0 to [MOST_OF_A_REPLY]. */
+    private fun ask(llm: LlmInference, prompt: String, onShare: (Float) -> Unit): String {
+        var pieces = 0
+        return NeuralVoice.inBackground {
+            llm.generateResponseAsync("<|im_start|>user\n$prompt<|im_end|>\n<|im_start|>assistant\n") { _, _ ->
+                onShare(minOf(++pieces / PIECES_IN_A_REPLY, MOST_OF_A_REPLY))
+            }.get()
+        }.replace("\\n", "\n")
+    }
 
     override fun close() {
         engine?.close()
@@ -60,6 +67,12 @@ class LocalSummariser(private val ctx: Context) : Summariser {
     companion object {
         /** The model's window, in tokens, shared by the prompt and the reply. */
         private const val WINDOW = 4096
+
+        /** About how many streamed pieces a reply has: the notes, the overview and the lessons are each asked to be about this long. */
+        private const val PIECES_IN_A_REPLY = 100f
+
+        /** A reply that runs long holds the bar here rather than past its call's share. */
+        private const val MOST_OF_A_REPLY = 0.95f
 
         /** About 1500 tokens of English, which leaves the window room for the instructions and the reply. */
         const val CHUNK_CHARS = 6_000
