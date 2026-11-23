@@ -13,7 +13,7 @@ A test is named `ClassName.methodName`. Unit tests live in `app/src/test` and de
 - [Importing](#importing): UC-01 to UC-13 (see also [Making a book](#making-a-book))
 - [Making a book](#making-a-book): UC-48, UC-49, UC-51
 - [Listening](#listening): UC-14 to UC-20
-- [Reading along](#reading-along): UC-21 to UC-26, UC-53, UC-55
+- [Reading along](#reading-along): UC-21 to UC-26, UC-53, UC-55, UC-56
 - [Notes and highlights](#notes-and-highlights): UC-27 to UC-33
 - [Library](#library): UC-34 to UC-40, UC-54
 - [Settings and looks](#settings-and-looks): UC-41 to UC-47
@@ -1859,6 +1859,30 @@ Tests:
 - `SummaryTest.aFailurePartWayKeepsTheSummariesMadeAndARetryMakesTheRest`
 - `SummaryTest.aChapterIsSummarisedOnceTheNextHeadingIsReadWhileTheBookIsStillBeingRead`
 - `SummaryParseTest.theSummaryLineIsTheOverviewAndTheBulletsAreTheLessons`
+
+### UC-56 Ask the model about the book
+
+Goal: ask a question about the book I am reading and get a short answer, without anything leaving my phone.
+
+- Tap "Ask" in the reader. A sheet opens with a box for the question.
+- Each question is answered by the small AI model on the phone, shown the passages of the book that best match the question, the summary of the chapter being read, and the last two questions and answers. The answer appears as it is written, and Stop ends it, keeping what was written.
+- The model's window is small, so an answer reflects a few pages at most. It can be wrong, and it says when the passages do not hold the answer.
+- While an import is running the model is busy: the sheet says so and the box stays off until the import has finished.
+- Closing the sheet stops an answer under way and gives the model's memory back.
+
+Tests:
+- `ChatTest.aQuestionIsAnsweredFromThePassagesThatMatchIt`
+- `ChatTest.anImportInProgressHoldsTheChatBack`
+- `ChatTest.leavingTheChatGivesTheModelBack`
+- `PassagesTest.theQuestionsWordsChooseThePassagesThatHoldThem`
+- `PassagesTest.passagesComeBackInReadingOrderWithinTheBudget`
+- `PassagesTest.aQuestionWithNoWordInTheBookGetsThePassageWhereTheReaderIs`
+- `PassagesTest.accentsAndCaseAreIgnored`
+- `PassagesTest.sentencesAreJoinedIntoPassagesNoLongerThanTheSize`
+- `ChatPromptTest.thePromptEndsOpenForTheModelAndHoldsTheNotesAndTheQuestion`
+- `ChatPromptTest.onlyTheLastTwoEarlierTurnsAreKeptAndLongAnswersAreCut`
+
+Unchecked: how good the answers are on the real model.
 
 ## Notes and highlights
 

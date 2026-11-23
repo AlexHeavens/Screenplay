@@ -6,12 +6,8 @@ package com.screenplay
 
 import android.content.Context
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
-import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 /**
  * Summarises on the device with [LocalModel]. A chapter longer than the model's window is read in parts: each part is boiled down to
@@ -22,20 +18,7 @@ class LocalSummariser(private val ctx: Context) : Summariser {
     private var engine: LlmInference? = null
 
     override suspend fun summarise(chapterTitle: String, text: String, onProgress: (done: Int, total: Int, within: Float, stage: String) -> Unit): ChapterDigest = withContext(Dispatchers.Default) {
-        try {
-            Engines.prepareSummaryModel(ctx) {}
-        } catch (e: java.io.IOException) {
-            throw SummaryFailure("could not download the summary model")
-        }
-        val llm = engine ?: try {
-            NeuralVoice.inBackground {
-                LlmInference.createFromOptions(
-                    ctx, LlmInference.LlmInferenceOptions.builder().setModelPath(LocalModel.file(ctx).path).setMaxTokens(WINDOW).build(),
-                )
-            }
-        } catch (e: Exception) {
-            throw SummaryFailure("could not load the summary model")
-        }.also { engine = it }
+        val llm = engine ?: LocalLlm.load(ctx).also { engine = it }
         val parts = chunks(text)
         // One call for each part of a long chapter, then the overview and the lessons.
         val total = (if (parts.size == 1) 0 else parts.size) + 2
@@ -54,26 +37,10 @@ class LocalSummariser(private val ctx: Context) : Summariser {
         ChapterDigest(overview.trim().removePrefix("SUMMARY:").trim(), lessonsIn(lessons))
     }
 
-    /** The model sometimes writes a line break as the two characters backslash and n, so those are turned into line breaks. */
     /** The reply to [prompt]; [onShare] is told how far through its usual length the streamed reply is, from 0 to [MOST_OF_A_REPLY]. */
     private suspend fun ask(llm: LlmInference, prompt: String, onShare: (Float) -> Unit): String {
         var pieces = 0
-        val session = LlmInferenceSession.createFromOptions(llm, LlmInferenceSession.LlmInferenceSessionOptions.builder().build())
-        val reply = suspendCancellableCoroutine { waiting ->
-            val generating = NeuralVoice.inBackground {
-                session.addQueryChunk("<|im_start|>user\n$prompt<|im_end|>\n<|im_start|>assistant\n")
-                session.generateResponseAsync { _, _ -> onShare(minOf(++pieces / PIECES_IN_A_REPLY, MOST_OF_A_REPLY)) }
-            }
-            // A reply is minutes of work that nothing else can stop: when the book is deleted, the model is told to give up, so the next book is not kept waiting.
-            waiting.invokeOnCancellation { session.cancelGenerateResponseAsync() }
-            generating.addListener({
-                // The session is closed only once the model has finished with it, however it ended.
-                val result = runCatching { generating.get() }
-                session.close()
-                result.onSuccess { waiting.resume(it) }.onFailure { waiting.resumeWithException(it) }
-            }, Runnable::run)
-        }
-        return reply.replace("\\n", "\n")
+        return LocalLlm.ask(llm, LocalLlm.turn("user", prompt) + LocalLlm.turn("assistant")) { onShare(minOf(++pieces / PIECES_IN_A_REPLY, MOST_OF_A_REPLY)) }
     }
 
     override fun close() {
@@ -82,9 +49,6 @@ class LocalSummariser(private val ctx: Context) : Summariser {
     }
 
     companion object {
-        /** The model's window, in tokens, shared by the prompt and the reply. */
-        private const val WINDOW = 4096
-
         private const val OVERVIEW_STAGE = "Writing the overview"
         private const val LESSONS_STAGE = "Writing the lessons"
 

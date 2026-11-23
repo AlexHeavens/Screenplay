@@ -58,6 +58,9 @@ object Engines {
     /** Where tests swap in the chapter summariser, so no call goes to the Claude API. */
     var summariser: (Context) -> Summariser = { LocalSummariser(it) }
 
+    /** Where tests swap in the chat about a book, so no model is loaded. */
+    var chat: (Context) -> Chat = { LocalChat(it) }
+
     /** Where tests swap in the download of the summary model, so no 1.6 GB file is fetched. Does nothing if the model is there. */
     var prepareSummaryModel: suspend (Context, (Float) -> Unit) -> Unit = { c, progress -> LocalModel.ensure(c, progress) }
 
