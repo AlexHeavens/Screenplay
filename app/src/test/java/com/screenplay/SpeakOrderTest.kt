@@ -114,4 +114,20 @@ class SpeakOrderTest {
         assertEquals(12, f.readText().trim().toInt())
         assertTrue(f.delete())
     }
+
+    @Test
+    fun heldSentencesAreSpokenOnlyAfterTheirChapterIsReleased() {
+        val held = order(6).also { it.hold() }
+        assertNull(held.pick())
+        held.releaseUpTo(2)
+        assertEquals(listOf(0, 1), held.drain())
+        held.releaseUpTo(6)
+        assertEquals(listOf(2, 3, 4, 5), held.drain())
+    }
+
+    @Test
+    fun aJumpPastTheReleasedChapterSpeaksTheReleasedSentencesFirst() {
+        val held = order(6).also { it.hold(); it.releaseUpTo(3); it.jump(5) }
+        assertEquals(listOf(0, 1, 2), held.drain())
+    }
 }

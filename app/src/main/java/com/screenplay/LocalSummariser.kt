@@ -17,7 +17,7 @@ import kotlinx.coroutines.withContext
 class LocalSummariser(private val ctx: Context) : Summariser {
     private var engine: LlmInference? = null
 
-    override suspend fun summarise(chapterTitle: String, text: String): ChapterDigest = withContext(Dispatchers.Default) {
+    override suspend fun summarise(chapterTitle: String, text: String, onStep: (done: Int, total: Int) -> Unit): ChapterDigest = withContext(Dispatchers.Default) {
         try {
             Engines.prepareSummaryModel(ctx) {}
         } catch (e: java.io.IOException) {
@@ -33,14 +33,18 @@ class LocalSummariser(private val ctx: Context) : Summariser {
             throw SummaryFailure("could not load the summary model")
         }.also { engine = it }
         val parts = chunks(text)
+        // One call for each part of a long chapter, then the overview and the lessons.
+        val total = (if (parts.size == 1) 0 else parts.size) + 2
+        var done = 0
+        onStep(done, total)
         val source = if (parts.size == 1) parts.single() else parts.joinToString("\n\n") { part ->
-            ask(llm, "Here is part of the chapter \"$chapterTitle\" from a book. Write notes on it in at most 60 words, plain text.\n\n$part")
+            ask(llm, "Here is part of the chapter \"$chapterTitle\" from a book. Write notes on it in at most 60 words, plain text.\n\n$part").also { onStep(++done, total) }
         }
         val chapter = "Here is the text of the chapter \"$chapterTitle\" from a book. "
         val body = "\n\n${source.take(CHUNK_CHARS)}"
         // Two requests: asked for both in one reply, the model gives the summary and leaves out the bullets.
-        val overview = ask(llm, chapter + "Sum up the chapter in 2 or 3 plain sentences for a listener. Write only the summary." + body)
-        val lessons = ask(llm, chapter + "List its 3 to 5 most important lessons for a listener as short bullet points, one per line, each starting with \"- \". Write nothing else." + body)
+        val overview = ask(llm, chapter + "Sum up the chapter in 2 or 3 plain sentences for a listener. Write only the summary." + body).also { onStep(++done, total) }
+        val lessons = ask(llm, chapter + "List its 3 to 5 most important lessons for a listener as short bullet points, one per line, each starting with \"- \". Write nothing else." + body).also { onStep(++done, total) }
         ChapterDigest(overview.trim().removePrefix("SUMMARY:").trim(), lessonsIn(lessons))
     }
 

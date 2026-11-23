@@ -576,6 +576,7 @@ fun Reader(id: String, onBack: () -> Unit) {
     var waitingFor by remember(id) { mutableStateOf<Int?>(null) }
     var notes by remember(id) { mutableStateOf(Library.notes(ctx, id)) }
     var summaryState by remember(id) { mutableStateOf(SummaryState()) }
+    val summaryWork by Summaries.working.collectAsState()
     LaunchedEffect(id) { while (true) { summaryState = withContext(Dispatchers.IO) { Summaries.load(ctx, id) }; delay(2000) } }
     // At most one chapter clip plays; starting one pauses the book, and the same button stops it.
     var listening by remember(id) { mutableStateOf<Int?>(null) }
@@ -884,6 +885,7 @@ fun Reader(id: String, onBack: () -> Unit) {
     ) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
         LazyColumn(Modifier.padding(horizontal = 32.dp), state = list) {
+            summaryWork[id]?.let { work -> item { SummaryProgress(work) } }
             summaryState.failure?.let { why -> item { SummaryStatus(why) { Summaries.retry(ctx, id) } } }
             itemsIndexed(segments) { i, s ->
                 summaryState.at(i)?.let { SummaryBox(i, it, listening == i && clip[0]?.playing == true) { listen(i) } }

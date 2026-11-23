@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
@@ -42,6 +43,15 @@ fun SummaryBox(index: Int, summary: ChapterSummary, listening: Boolean, onListen
             }
             if (summary.audio) TextButton(onListen, Modifier.testTag("summary-listen-$index")) { Text(if (listening) "Stop" else "Listen") }
         }
+    }
+}
+
+/** The chapter being summarised, with a bar of its model calls done out of those it needs. */
+@Composable
+fun SummaryProgress(work: SummaryWork) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("summary-progress"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Summarising ${work.title}: step ${work.done} of ${work.total}", style = MaterialTheme.typography.bodySmall)
+        LinearProgressIndicator(progress = { work.done / work.total.coerceAtLeast(1).toFloat() }, Modifier.fillMaxWidth())
     }
 }
 
