@@ -1,17 +1,17 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Theme.Screenplay.Light" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">#FFFFFF</item>
         <item name="android:statusBarColor">#FFFFFF</item>
         <item name="android:navigationBarColor">#FFFFFF</item>
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
     </style>
     <style name="Theme.Screenplay.Dark" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">#0E1420</item>
         <item name="android:statusBarColor">#0E1420</item>
         <item name="android:navigationBarColor">#0E1420</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
     </style>
     <!-- The launch theme follows the device; the activity switches to Light or Dark when the user chose one. -->
     <style name="Theme.Screenplay" parent="Theme.Screenplay.Light" />
