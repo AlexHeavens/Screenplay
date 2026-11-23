@@ -52,6 +52,8 @@ class BackupImportTest {
     @After
     fun close() {
         scenario?.close()
+        // A refused backup leaves a failed row in the process-wide pending list; later test classes would find the shelf still importing.
+        for (p in Library.pending.value) Library.finish(p.key)
     }
 
     private fun pick(uri: android.net.Uri?) {

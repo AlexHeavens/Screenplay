@@ -13,8 +13,10 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
@@ -28,6 +30,7 @@ data class ImportNotice(val title: String, val text: String, val paused: Boolean
         const val RESUME = "com.screenplay.action.RESUME_IMPORT"
         const val CHANNEL = "generate"
         const val TITLE_NONE = "Making an audiobook"
+        private const val REPOST_MS = 1_000L
 
         /** The notice for [books]: the first of [ImportQueue.line] is the book being made (or the next to be, when none runs). */
         fun of(books: List<Book>, paused: Boolean): ImportNotice {
@@ -58,7 +61,8 @@ data class ImportNotice(val title: String, val text: String, val paused: Boolean
 
         /**
          * Posts a new notification under [id] when what it says changes, until cancelled, at most four times a second: Android sheds a package's
-         * updates above about five a second, and when the last one is shed (a pause, as the progress stops) nothing posts it again.
+         * updates above about five a second. A shed update is not retried, so each notice is posted once more after a second with no change, which puts
+         * the latest one up when the last of a burst (a quick change of stage, a pause as the progress stops) was shed.
          */
         @OptIn(FlowPreview::class)
         suspend fun keepUpdated(ctx: Context, id: Int) {
@@ -66,6 +70,7 @@ data class ImportNotice(val title: String, val text: String, val paused: Boolean
             combine(Library.books, ImportQueue.paused) { books, paused -> of(ImportQueue.showStoppingAsWaiting(books), paused) }
                 .distinctUntilChanged()
                 .sample(250)
+                .transformLatest { emit(it); delay(REPOST_MS); emit(it) }
                 .collect { nm.notify(id, build(ctx, it)) }
         }
     }
