@@ -1841,7 +1841,7 @@ Tests:
 Goal: get the gist of a chapter, spoken in my chosen voice.
 
 - With "Summarise chapters on this device" on, each chapter gets an overview and a list of key lessons as soon as the heading of the next chapter has been read, while the book is still being read and spoken.
-- With "Speak each summary, in the voice above" on, each summary is also made into an audio clip in the voice chosen in the settings. The clips are made once the book is ready, so they never slow the book.
+- With "Speak each summary, in the voice above" on (it is on unless turned off), each summary is also made into an audio clip in the voice chosen in the settings. The clips are made once the book is ready, so they never slow the book.
 - The summary shows above its chapter in the reader, with a Listen button that becomes Stop while the clip plays.
 - A failure part way (for example, no network) keeps the summaries already made, and a retry makes the rest.
 - The summaries and clips go into the backup of the book.
@@ -1855,6 +1855,7 @@ Tests:
 - `LocalSummariserTest.lessonsRunTogetherOnOneLineAreSplitAndLinesAreKept`
 - `SummaryTest.theChosenVoiceSpeaksEachSummaryAndTheClipPlaysFromItsBoxAndIsBackedUp`
 - `SummaryTest.noClipIsMadeUnlessSpeakingIsAskedFor`
+- `SummaryTest.aChapterWithNoLessonsKeepsItsOverviewAndTheNextChapterIsStillSummarised`
 - `SummaryTest.aFailurePartWayKeepsTheSummariesMadeAndARetryMakesTheRest`
 - `SummaryTest.aChapterIsSummarisedOnceTheNextHeadingIsReadWhileTheBookIsStillBeingRead`
 - `SummaryParseTest.theSummaryLineIsTheOverviewAndTheBulletsAreTheLessons`
