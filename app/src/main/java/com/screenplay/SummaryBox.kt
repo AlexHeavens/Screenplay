@@ -46,26 +46,25 @@ fun SummaryBox(index: Int, summary: ChapterSummary, listening: Boolean, onListen
     }
 }
 
-/** Where a chapter's summary will appear, shown at the chapter's start until it is made. */
+/**
+ * Where a chapter's summary will appear, shown at the chapter's start until it is made. While [work] says it is being written,
+ * a bar of its model calls shows how far it has got, filled as each call's reply streams in.
+ */
 @Composable
-fun SummaryPlaceholder(index: Int, title: String, underway: Boolean) {
+fun SummaryPlaceholder(index: Int, title: String, work: SummaryWork?) {
     OutlinedCard(
         Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag("summary-placeholder-$index"),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Text(
-            if (underway) "Summary of $title: being written now" else "Summary of $title: not written yet",
-            Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-/** The chapter being summarised, with a bar of its model calls done out of those it needs, filled as each call's reply streams in. */
-@Composable
-fun SummaryProgress(work: SummaryWork) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("summary-progress"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Summarising ${work.title}: step ${minOf(work.done + 1, work.total)} of ${work.total}, ${(work.fraction * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
-        LinearProgressIndicator(progress = { work.fraction }, Modifier.fillMaxWidth())
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            val label = MaterialTheme.typography.bodyMedium
+            val grey = MaterialTheme.colorScheme.onSurfaceVariant
+            if (work == null) Text("Summary of $title: not written yet", style = label, color = grey)
+            else {
+                Text("Summary of $title: step ${minOf(work.done + 1, work.total)} of ${work.total}, ${(work.fraction * 100).toInt()}%", Modifier.testTag("summary-progress"), style = label, color = grey)
+                LinearProgressIndicator(progress = { work.fraction }, Modifier.fillMaxWidth())
+            }
+        }
     }
 }
 

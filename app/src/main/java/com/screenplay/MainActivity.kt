@@ -907,12 +907,11 @@ fun Reader(id: String, onBack: () -> Unit) {
     ) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
         LazyColumn(Modifier.padding(horizontal = 32.dp), state = list) {
-            summaryWork[id]?.let { work -> item { SummaryProgress(work) } }
             summaryState.failure?.let { why -> item { SummaryStatus(why) { Summaries.retry(ctx, id) } } }
             itemsIndexed(segments) { i, s ->
                 val summary = summaryState.at(i)
                 if (summary != null) SummaryBox(i, summary, summaryTrack?.let { it.playing && it.chapterAt(it.position) == i } == true) { listen(i) }
-                else if (summariesEnabled) headings[i]?.let { SummaryPlaceholder(i, it.title, summaryWork[id]?.title == it.title) }
+                else if (summariesEnabled) headings[i]?.let { SummaryPlaceholder(i, it.title, summaryWork[id]?.takeIf { work -> work.title == it.title }) }
                 if (s.pending) {
                     // Read but not spoken yet: tapping it moves speech here, and playback follows once it has audio.
                     val text = s.text
