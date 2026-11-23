@@ -125,6 +125,17 @@ class SummaryTest {
     }
 
     @Test
+    fun aChapterWithNoLessonsKeepsItsOverviewAndTheNextChapterIsStillSummarised() {
+        Engines.summariser = { digesting { title -> ChapterDigest("Overview of $title.", if (title == "Chapter One") emptyList() else listOf("Lesson of $title")) } }
+        val id = Fixtures.seedSpokenBook(ctx, sentences = sentences)
+        runBlocking { Summaries.run(ctx, id, audio = false) }
+        val state = Summaries.load(ctx, id)
+        assertEquals(2, state.summaries.size)
+        assertEquals(null, state.failure)
+        assertEquals(emptyList<String>(), state.summaries.first { it.index == 0 }.bullets)
+    }
+
+    @Test
     fun aFailurePartWayKeepsTheSummariesMadeAndARetryMakesTheRest() {
         val id = Fixtures.seedSpokenBook(ctx, sentences = sentences)
         var offline = true

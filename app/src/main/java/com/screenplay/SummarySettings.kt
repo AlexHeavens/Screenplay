@@ -8,7 +8,7 @@ import android.content.Context
 import android.content.SharedPreferences
 
 /** The chapter summaries' settings, kept in the settings store beside the options but outside [Options]: a book is not made differently by them. */
-data class SummarySettings(val enabled: Boolean = false, val audio: Boolean = false) {
+data class SummarySettings(val enabled: Boolean = false, val audio: Boolean = true) {
     fun save(ctx: Context) = save(ctx.getSharedPreferences("settings", Context.MODE_PRIVATE))
 
     /** [save] on any store, so a test can drive it without a device. */

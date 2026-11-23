@@ -55,7 +55,7 @@
     "summary-audio": {
       "description": "SummarySettings.audio: speak each chapter summary into its own clip, in the voice chosen in \"voice\". Only used while \"summaries\" is true.",
       "type": "boolean",
-      "default": false
+      "default": true
     },
     "natural": {
       "description": "Legacy, read only, never written now. The first build had a Natural voice switch; true means voice KOKORO and false the phone's voice, when \"voice\" is absent or unknown. Nothing removes it, so it may stay beside \"voice\".",

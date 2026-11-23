@@ -98,7 +98,7 @@ object Summaries {
 
     /** What the clip says: the overview, then the lessons. Long overviews are split so no one utterance passes the engine's limit. */
     private fun script(s: ChapterSummary): List<String> =
-        (if (s.overview.isBlank()) emptyList() else Text.sentences(listOf(s.overview))) + "Key lessons." + s.bullets
+        (if (s.overview.isBlank()) emptyList() else Text.sentences(listOf(s.overview))) + (if (s.bullets.isEmpty()) emptyList() else listOf("Key lessons.") + s.bullets)
 
     /** Speaks a chapter's summary in the voice chosen in the options, into its own clip. A clip that exists is kept. */
     private suspend fun speak(ctx: Context, id: String, s: ChapterSummary) {
@@ -156,7 +156,7 @@ object Summaries {
                     val end = chapters.getOrNull(n + 1)?.index ?: segments.size
                     val text = segments.subList(c.index, end).joinToString(" ") { it.text }
                     val digest = summariser.summarise(c.title, text)
-                    if (digest.lessons.isEmpty()) throw SummaryFailure("empty reply")
+                    if (digest.lessons.isEmpty() && digest.overview.isBlank()) throw SummaryFailure("empty reply")
                     summary = ChapterSummary(c.index, c.title, digest.lessons, digest.overview)
                     state = state.copy(summaries = state.summaries + summary, failure = null)
                     save(ctx, id, state)
