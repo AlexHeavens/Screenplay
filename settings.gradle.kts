@@ -16,5 +16,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "PdfAudiobook"
+rootProject.name = "Screenplay"
 include(":app")

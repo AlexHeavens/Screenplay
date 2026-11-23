@@ -6,7 +6,7 @@ import java.net.URI
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 fun git(vararg args: String): String? = try {
@@ -20,9 +20,13 @@ fun gitCommit(): String {
     return if (git("status", "--porcelain", "--untracked-files=no") != null) "$head-dirty" else head
 }
 
+kotlin {
+    compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17 }
+}
+
 android {
     namespace = "com.screenplay"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.screenplay"
@@ -42,20 +46,14 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
     buildFeatures {
         compose = true
         buildConfig = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
     // Fixture checks that run on the device (real OCR) and in the JVM (saved OCR) share one source file.
     sourceSets {
-        getByName("test").java.srcDir("src/sharedTest/java")
-        getByName("androidTest").java.srcDir("src/sharedTest/java")
+        getByName("test").kotlin.directories.add("src/sharedTest/java")
+        getByName("androidTest").kotlin.directories.add("src/sharedTest/java")
     }
     testOptions {
         animationsDisabled = true
@@ -114,7 +112,7 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.work:work-runtime-ktx:2.9.1")
+    implementation("androidx.work:work-runtime-ktx:2.12.0")
     // Bundled model: OCR runs offline and needs no Google Play services.
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("com.google.mediapipe:tasks-genai:0.10.35")
