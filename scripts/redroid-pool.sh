@@ -8,7 +8,7 @@ adb=${ANDROID_HOME:+$ANDROID_HOME/platform-tools/}adb
 image=redroid/redroid:14.0.0-latest
 base_port=5601
 idle_limit_seconds=$((30 * 60))
-state=${XDG_CACHE_HOME:-$HOME/.cache}/pdfaudiobook-emulator
+state=${XDG_CACHE_HOME:-$HOME/.cache}/screenplay-emulator
 mkdir -p "$state"
 case "${1:-}" in
   start)

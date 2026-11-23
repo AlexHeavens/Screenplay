@@ -17,7 +17,7 @@ abi=x86_64
 [ -z "$USE_EMULATOR" ] && [ -z "$ANDROID_SERIAL" ] && [ -z "$POOL_SERIALS" ] && [ -e /dev/binderfs/binder ] && POOL_SERIALS=$(scripts/redroid-pool.sh ensure 2 9>&-)
 [ -n "$POOL_SERIALS" ] && abi=x86_64
 ./gradlew -q ${abi:+-Pabi=$abi} assembleDebug assembleDebugAndroidTest || { echo "EXIT=1 WALL=$(( $(date +%s) - start ))s"; exit 1; }
-state=${XDG_CACHE_HOME:-$HOME/.cache}/pdfaudiobook-emulator
+state=${XDG_CACHE_HOME:-$HOME/.cache}/screenplay-emulator
 mkdir -p "$state"
 if [ -n "$POOL_SERIALS" ]; then
     # Fd 9 holds the claimed device's lock until this script exits.

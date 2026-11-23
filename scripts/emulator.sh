@@ -6,11 +6,11 @@ set -euo pipefail
 sdk=$(sed -n 's/^sdk.dir=//p' "$(dirname "$0")/../local.properties")
 sdk=${ANDROID_HOME:-${sdk:-$HOME/Android/sdk}}
 adb=$sdk/platform-tools/adb
-avd=pdfaudiobook-ui
+avd=screenplay-ui
 port=5580
 serial=emulator-$port
 idle_limit_seconds=$((30 * 60))
-state=${XDG_CACHE_HOME:-$HOME/.cache}/pdfaudiobook-emulator
+state=${XDG_CACHE_HOME:-$HOME/.cache}/screenplay-emulator
 mkdir -p "$state"
 
 online() { [ "$($adb -s $serial get-state 2>/dev/null)" = device ]; }

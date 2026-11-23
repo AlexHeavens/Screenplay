@@ -33,7 +33,7 @@ emulator)
   (cd "$repo" && ./gradlew --quiet -Pabi=x86_64 assembleDebug assembleDebugAndroidTest)
   # The emulator is shared: wait for UI test runs, then hold the same lock they use.
   while pgrep -f "bash scripts/ui-tests" >/dev/null; do sleep 20; done
-  state=${XDG_CACHE_HOME:-$HOME/.cache}/pdfaudiobook-emulator
+  state=${XDG_CACHE_HOME:-$HOME/.cache}/screenplay-emulator
   exec 9>"$state/run.lock"; flock 9
   export ANDROID_SERIAL=${ANDROID_SERIAL:-emulator-5580}
   trap 'touch "$state/last-used"' EXIT
