@@ -84,7 +84,7 @@ jobs:
       - name: Device test results
         if: always()
         run: |
-          find app/build/outputs/androidTest-results -name '*.xml' -exec grep -E '<failure|<error' {} + | cut -c1-400 || true
+          find app/build/outputs/androidTest-results -name '*.xml' -exec grep -E -B1 -A8 '<failure|<error' {} + | cut -c1-400 || true
       - name: Last tests that finished
         if: always()
         run: |
