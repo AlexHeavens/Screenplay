@@ -85,6 +85,15 @@ jobs:
           ANDROID_AVD_HOME=$(dirname "$ini") \
             timeout 60 "$ANDROID_HOME/emulator/emulator" -avd "$(basename "$ini" .ini)" -no-window -no-audio \
             -gpu swiftshader_indirect -no-snapshot-save -verbose 2>&1 | tail -80 || true
+      # The report is an artifact, which is slow to open; print what failed in the log, too.
+      - name: Failed device tests
+        if: failure()
+        run: |
+          for f in $(grep --recursive --files-with-matches --include='*.xml' '<failure' app/build/outputs/androidTest-results/ || true); do
+            echo "::group::$f"
+            grep --before-context=1 --after-context=12 '<failure' "$f" | cut --characters=1-400
+            echo "::endgroup::"
+          done
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
