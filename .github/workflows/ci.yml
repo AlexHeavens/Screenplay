@@ -28,7 +28,18 @@ jobs:
         with: { distribution: temurin, java-version: 21 }
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with: { cache-read-only: "${{ github.ref != 'refs/heads/main' }}" }
-      - run: ./gradlew --stacktrace testDebugUnitTest assembleDebug lintDebug
+      - id: build
+        run: ./gradlew --stacktrace testDebugUnitTest assembleDebug lintDebug
+      # TEMPORARY: harvest the Android Lint findings and a baseline, then remove this step and the upload below.
+      - if: failure()
+        run: ./gradlew --stacktrace updateLintBaseline || true
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lint-harvest
+          path: |
+            app/lint-baseline.xml
+            app/build/intermediates/lint_intermediate_text_report/debug/lintReportDebug/lint-results-debug.txt
 
   # The data specs (docs/data-specs.md): the tools' tests, schema changes since the last release, every golden file against its schema, and the
   # catalogue published now against its schema. The golden files are also read by the unit job's tests.
