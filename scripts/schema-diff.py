@@ -22,6 +22,7 @@ import subprocess
 import sys
 
 _spec = importlib.util.spec_from_file_location("schemalib", os.path.join(os.path.dirname(os.path.abspath(__file__)), "schemalib.py"))
+assert _spec is not None and _spec.loader is not None
 schemalib = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(schemalib)
 
@@ -84,7 +85,7 @@ def compare(old, new, old_root, new_root, where="#"):
                 out.append("%s: anyOf lost an alternative" % where)
         elif len(news) != len(olds):
             out.append("%s: %s changed from %d to %d alternatives" % (where, key, len(olds), len(news)))
-        for i, (o, n) in enumerate(zip(olds, news)):
+        for i, (o, n) in enumerate(zip(olds, news, strict=False)):
             out += compare(o, n, old_root, new_root, "%s/%s/%d" % (where, key, i))
     old_cols, new_cols = old.get("x-column-order"), new.get("x-column-order")
     if old_cols is not None and (new_cols is None or new_cols[:len(old_cols)] != old_cols):
@@ -100,12 +101,12 @@ def compare(old, new, old_root, new_root, where="#"):
 
 
 def git_show(ref, path):
-    done = subprocess.run(["git", "show", "%s:%s" % (ref, path)], capture_output=True, text=True)
+    done = subprocess.run(["git", "show", "%s:%s" % (ref, path)], capture_output=True, text=True, check=False)
     return done.stdout if done.returncode == 0 else None
 
 
 def default_base():
-    tags = subprocess.run(["git", "tag", "--list", "v[0-9]*", "--sort=-v:refname"], capture_output=True, text=True).stdout.split()
+    tags = subprocess.run(["git", "tag", "--list", "v[0-9]*", "--sort=-v:refname"], capture_output=True, text=True, check=False).stdout.split()
     return tags[0] if tags else "origin/main"
 
 

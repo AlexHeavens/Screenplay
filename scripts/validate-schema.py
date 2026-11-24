@@ -22,6 +22,7 @@ import re
 import sys
 
 _spec = importlib.util.spec_from_file_location("schemalib", os.path.join(os.path.dirname(os.path.abspath(__file__)), "schemalib.py"))
+assert _spec is not None and _spec.loader is not None
 schemalib = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(schemalib)
 
@@ -65,8 +66,8 @@ def rows(path, schema):
         raise schemalib.SchemaError("a TSV file needs `x-column-order` in the schema")
     headers = schema.get("x-header-lines", [])
     with open_text(path) as f:
-        for number, line in enumerate(f, 1):
-            line = line.rstrip("\n")
+        for number, raw_line in enumerate(f, 1):
+            line = raw_line.rstrip("\n")
             if number <= len(headers):
                 if not re.search(headers[number - 1], line):
                     yield number, "header line %d %s does not match %s" % (number, json.dumps(line[:60]), headers[number - 1])
@@ -75,7 +76,7 @@ def rows(path, schema):
             if len(fields) != len(columns):
                 yield number, "%d columns, expected %d" % (len(fields), len(columns))
                 continue
-            yield number, {name: cell(text, schema.get("properties", {}).get(name, {}), schema) for name, text in zip(columns, fields)}
+            yield number, {name: cell(text, schema.get("properties", {}).get(name, {}), schema) for name, text in zip(columns, fields, strict=True)}
 
 
 def validate(schema, path, max_errors=20):
