@@ -34,6 +34,7 @@ git config core.hooksPath .githooks
 
 ```bash
 ./gradlew testDebugUnitTest      # JVM tests; the command CI runs
+./gradlew lintDebug              # Android Lint; CI runs it too. Kotlin compiler warnings already fail the build
 scripts/ui-tests.sh              # e2e on a warm emulator that scripts/emulator.sh starts (quick boot) and stops after 30 idle minutes; set ANDROID_SERIAL to use another device
 ./gradlew pixel6Api34DebugAndroidTest   # same tests on a Gradle Managed Device
 ```

@@ -55,6 +55,8 @@ android {
         warningsAsErrors = true
         abortOnError = true
         baseline = file("lint-baseline.xml")
+        // "A newer version exists": Dependabot proposes those bumps, and a check that starts failing when upstream publishes would break CI unprompted.
+        disable += setOf("GradleDependency", "AndroidGradlePluginVersion")
     }
     buildFeatures {
         compose = true
