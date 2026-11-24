@@ -12,6 +12,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
@@ -65,6 +66,7 @@ data class ImportNotice(val title: String, val text: String, val paused: Boolean
          * the latest one up when the last of a burst (a quick change of stage, a pause as the progress stops) was shed.
          */
         @OptIn(FlowPreview::class)
+        @OptIn(ExperimentalCoroutinesApi::class)
         suspend fun keepUpdated(ctx: Context, id: Int) {
             val nm = ctx.getSystemService(NotificationManager::class.java)
             combine(Library.books, ImportQueue.paused) { books, paused -> of(ImportQueue.showStoppingAsWaiting(books), paused) }

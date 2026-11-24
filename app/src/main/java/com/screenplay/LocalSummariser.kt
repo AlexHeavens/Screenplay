@@ -14,6 +14,8 @@ import kotlinx.coroutines.withContext
  * a few notes, and the overview and the lessons are each written from the notes. The model is loaded on first use and held until [close], so a book's
  * chapters share one load and the memory is given back when the book's summaries are done.
  */
+// MediaPipe marks LlmInference deprecated in favour of its LiteRT-LM API; moving to that is a model and dependency change of its own.
+@Suppress("DEPRECATION")
 class LocalSummariser(private val ctx: Context) : Summariser {
     private var engine: LlmInference? = null
 
