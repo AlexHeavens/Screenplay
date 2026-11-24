@@ -580,6 +580,7 @@ fun Reader(id: String, onBack: () -> Unit) {
     LaunchedEffect(id) { while (true) { summaryState = withContext(Dispatchers.IO) { Summaries.load(ctx, id) }; delay(2000) } }
     // "Summaries" swaps the book's player for one track of its chapter summaries, so the notification, headset, mini player and sleep timer drive them like the book.
     var summariesOnly by rememberSaveable(id) { mutableStateOf(false) }
+    var showChat by rememberSaveable(id) { mutableStateOf(false) }
     // The chapter whose summary was asked for: the summary track plays from it once that is the player.
     var listenTo by remember(id) { mutableStateOf<Int?>(null) }
     val summaryChapters = remember(summaryState) { summaryState.summaries.filter { it.audio }.map { it.index } }
@@ -672,6 +673,15 @@ fun Reader(id: String, onBack: () -> Unit) {
     }
     if (book != null && stored == null && !book.importing) LaunchedEffect(id) { withContext(Dispatchers.IO) { Library.detectChapters(ctx, id) } }
     val chapters = remember(marks, segments) { Chapters.place(marks, segments) }
+    // The chat shows the model the passages that match the question and the summary of the chapter being read; it waits while an import has the model.
+    if (showChat) {
+        val importing = Library.books.collectAsState().value.any { it.importing }
+        ChatSheet(book?.title ?: "this book", importing, { question, earlier ->
+            val near = current.coerceAtLeast(0)
+            val summary = chapters.lastOrNull { it.index <= near }?.let { summaryState.at(it.index) }?.let { (listOf(it.overview) + it.bullets).filter(String::isNotBlank).joinToString("\n") }
+            ChatPrompt.build(book?.title ?: "this book", summary, Passages.pick(segments.map { it.text }, question, ChatPrompt.PASSAGE_CHARS, near), earlier, question)
+        }) { showChat = false }
+    }
     // Per transcript change, not per playback tick; the annotations are no part of the transcript, so search, chapters and word counts never see them.
     val placedFootnotes = remember(footnotes, texts) { Footnotes.place(footnotes, texts) }
     val footnoteMarks = remember(footnotes, texts) { Footnotes.markers(footnotes, texts) }
@@ -877,6 +887,7 @@ fun Reader(id: String, onBack: () -> Unit) {
                     val toggleSummaries = { if (player.playing) player.toggle(); summariesOnly = !summariesOnly }
                     if (summariesOnly) Button(onClick = toggleSummaries, shape = ControlShape, modifier = Modifier.testTag("summaries-only")) { Text("Summaries") }
                     else OutlinedButton(onClick = toggleSummaries, enabled = summaryChapters.isNotEmpty(), shape = ControlShape, modifier = Modifier.testTag("summaries-only")) { Text("Summaries") }
+                    OutlinedButton(onClick = { showChat = true }, shape = ControlShape, modifier = Modifier.testTag("ask")) { Text("Ask") }
                     Box {
                         var sleepMenu by remember { mutableStateOf(false) }
                         val sleep = MediaControl.sleep
