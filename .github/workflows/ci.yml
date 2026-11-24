@@ -52,7 +52,7 @@ jobs:
     needs: unit
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 14
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # The emulator's userdata partition needs about 7.4 GB; a stock runner has about 4.5 GB free.
@@ -73,6 +73,7 @@ jobs:
         run: >
           ./gradlew --stacktrace pixel6Api34DebugAndroidTest
           -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+          -Pandroid.testInstrumentationRunnerArguments.class=com.screenplay.ChatTest
       # Gradle hides the emulator's own output; on a setup failure, start it directly to print why it exited.
       - name: Emulator diagnostics
         if: failure()
@@ -87,8 +88,9 @@ jobs:
             -gpu swiftshader_indirect -no-snapshot-save -verbose 2>&1 | tail -80 || true
       # The report is an artifact, which is slow to open; print what failed in the log, too.
       - name: Failed device tests
-        if: failure()
+        if: always()
         run: |
+          find app/build/outputs/androidTest-results -name '*.xml' | head -20
           for f in $(grep --recursive --files-with-matches --include='*.xml' '<failure' app/build/outputs/androidTest-results/ || true); do
             echo "::group::$f"
             grep --before-context=1 --after-context=12 '<failure' "$f" | cut --characters=1-400
