@@ -44,7 +44,8 @@ Lint, as CI runs it (`pins/lint/requirements.txt` pins the versions):
 python3 -m venv /tmp/lint && /tmp/lint/bin/pip install --requirement pins/lint/requirements.txt
 git ls-files '*.sh' .githooks | xargs /tmp/lint/bin/shellcheck --severity=warning
 /tmp/lint/bin/actionlint
-/tmp/lint/bin/ruff check --isolated --select E9,F .
+/tmp/lint/bin/ruff check --isolated --select E4,E7,E9,F,I,B,PLW .
+/tmp/lint/bin/mypy --ignore-missing-imports scripts tools
 ```
 
 The e2e tests use the real app, OCR, AAC encoder, player and share intent. Only speech is faked (`FakeSynthesizer`, a tone per word), because the `aosp_atd` emulator image has no speech engine. `RealSpeechTest` runs against the real engine and skips itself where none exists.
