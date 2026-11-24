@@ -65,8 +65,7 @@ data class ImportNotice(val title: String, val text: String, val paused: Boolean
          * updates above about five a second. A shed update is not retried, so each notice is posted once more after a second with no change, which puts
          * the latest one up when the last of a burst (a quick change of stage, a pause as the progress stops) was shed.
          */
-        @OptIn(FlowPreview::class)
-        @OptIn(ExperimentalCoroutinesApi::class)
+        @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
         suspend fun keepUpdated(ctx: Context, id: Int) {
             val nm = ctx.getSystemService(NotificationManager::class.java)
             combine(Library.books, ImportQueue.paused) { books, paused -> of(ImportQueue.showStoppingAsWaiting(books), paused) }
