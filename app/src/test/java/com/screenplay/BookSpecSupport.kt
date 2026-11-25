@@ -14,7 +14,7 @@ import java.io.File
  */
 internal object BookSpec {
     /** The repository root: the nearest folder upwards holding `schemas`. */
-    val root: File = generateSequence(File(System.getProperty("user.dir")).absoluteFile) { it.parentFile }.first { File(it, "schemas").isDirectory }
+    val root: File = generateSequence(File(requireNotNull(System.getProperty("user.dir"))).absoluteFile) { it.parentFile }.first { File(it, "schemas").isDirectory }
 
     fun schema(name: String, version: Int = 1) = File(root, "schemas/$name/v$version.json")
 

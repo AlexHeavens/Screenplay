@@ -64,7 +64,7 @@ class GoldenCatalogueTest {
     fun theFormatInTheFileNameFolderIsTheFormatInTheFile() {
         for (file in dataFiles(golden)) {
             val first = XZInputStream(file.inputStream()).bufferedReader().readLine()
-            assertEquals(file.path, "catalogue-format ${file.parentFile.name.removePrefix("v")} build ${first.split(' ')[3]}", first)
+            assertEquals(file.path, "catalogue-format ${file.parentFile!!.name.removePrefix("v")} build ${first.split(' ')[3]}", first)
         }
     }
 

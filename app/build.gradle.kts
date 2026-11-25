@@ -21,7 +21,11 @@ fun gitCommit(): String {
 }
 
 kotlin {
-    compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17 }
+    // Every compiler warning fails the build, as every other linter finding does (see the repo conventions).
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+        allWarningsAsErrors = true
+    }
 }
 
 android {
@@ -45,6 +49,14 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+    // Android Lint: every warning fails the build. Findings that existed when this was added are in lint-baseline.xml.
+    lint {
+        warningsAsErrors = true
+        abortOnError = true
+        baseline = file("lint-baseline.xml")
+        // "A newer version exists": Dependabot proposes those bumps, and a check that starts failing when upstream publishes would break CI unprompted.
+        disable += setOf("GradleDependency", "AndroidGradlePluginVersion")
     }
     buildFeatures {
         compose = true

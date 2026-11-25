@@ -8,7 +8,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ImportNoticeTest {
-    private fun book(id: String, status: Status, order: Long = 0) = Book(id, "Title $id", status, 0f, null, 0, order.toLong(), queueOrder = order)
+    private fun book(id: String, status: Status, order: Long = 0) = Book(id, "Title $id", status, 0f, null, 0, order, queueOrder = order)
 
     @Test
     fun theNoticeNamesTheBookBeingMadeAndItsStageWithPercent() {

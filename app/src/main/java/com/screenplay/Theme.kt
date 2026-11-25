@@ -74,8 +74,12 @@ fun ScreenplayTheme(dark: Boolean = ThemeChoice.mode.dark(isSystemInDarkTheme())
         val window = (view.context as? android.app.Activity)?.window ?: return@SideEffect
         val bg = (if (dark) DarkColors else LightColors).background.toArgb()
         window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(bg))
-        window.statusBarColor = bg
-        window.navigationBarColor = bg
+        // Deprecated for edge-to-edge windows; this app draws its own background behind the bars, so the colours still apply.
+        @Suppress("DEPRECATION")
+        run {
+            window.statusBarColor = bg
+            window.navigationBarColor = bg
+        }
         WindowCompat.getInsetsController(window, view).apply { isAppearanceLightStatusBars = !dark; isAppearanceLightNavigationBars = !dark }
     }
     MaterialTheme(colorScheme = if (dark) DarkColors else LightColors, content = content)

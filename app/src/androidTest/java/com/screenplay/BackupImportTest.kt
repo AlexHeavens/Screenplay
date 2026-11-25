@@ -7,6 +7,7 @@ package com.screenplay
 import android.app.Activity
 import android.app.Instrumentation
 import android.content.Intent
+import androidx.core.content.IntentCompat
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.assertTextEquals
@@ -119,8 +120,9 @@ class BackupImportTest {
             compose.onNodeWithTag("settings-panel").performTouchInput { swipeUp() }
             compose.onNodeWithTag("export-backup").performScrollTo().performClick()
             compose.waitUntil(30_000) { Intents.getIntents().any { it.action == Intent.ACTION_CHOOSER } }
-            Intents.getIntents().first { it.action == Intent.ACTION_CHOOSER }
-                .getParcelableExtra<Intent>(Intent.EXTRA_INTENT)!!.getParcelableExtra<android.net.Uri>(Intent.EXTRA_STREAM)!!
+            val chooser = Intents.getIntents().first { it.action == Intent.ACTION_CHOOSER }
+            val share = IntentCompat.getParcelableExtra(chooser, Intent.EXTRA_INTENT, Intent::class.java)!!
+            IntentCompat.getParcelableExtra(share, Intent.EXTRA_STREAM, android.net.Uri::class.java)!!
         } finally {
             Intents.release()
         }

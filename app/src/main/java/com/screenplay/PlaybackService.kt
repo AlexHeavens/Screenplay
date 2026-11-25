@@ -218,7 +218,7 @@ class PlaybackService : Service() {
         val playing = player?.playing == true
         val position = player?.position ?: 0L
         val duration = player?.duration ?: 0L
-        val speed = if (playing) player?.speed ?: 1f else 0f
+        val speed = if (playing) player.speed else 0f
         val clock = SystemClock.elapsedRealtime()
         // The notification extrapolates the position itself, so only a pause, a speed change or a jump (a seek) needs a new state.
         val expected = shownPosition + ((clock - shownAt) * shownSpeed).toLong()
