@@ -28,7 +28,8 @@ latest=$(curl --silent --show-error --fail --head --user-agent "$agent" https://
     | awk 'tolower($1) == "location:" { print $2 }' | grep --only-matching --extended-regexp '[0-9]{4}-[0-9]{2}-[0-9]{2}' | tail --lines 1) || latest=
 cached_date=
 if gh release download catalogue --repo "$repo" --pattern ol-ratings.tsv.xz --dir "$work/cached" 2>/dev/null; then
-    cached_date=$(xz --decompress --stdout "$work/cached/ol-ratings.tsv.xz" | head --lines 1 | awk '{ print $4 }')
+    # awk reads the whole stream: `head` would close the pipe early, and under pipefail xz's SIGPIPE (exit 141) fails the script.
+    cached_date=$(xz --decompress --stdout "$work/cached/ol-ratings.tsv.xz" | awk 'NR == 1 { print $4 }')
 fi
 echo "open library: newest dump ${latest:-unknown}, ratings in the release from dump ${cached_date:-none}"
 
@@ -78,7 +79,7 @@ build_date=$(date --utc --date "$modified" +%F)
 
 python3 -I scripts/build-catalogue.py "$work/rdf-files.tar.bz2" "$work/catalogue.tsv.xz" --build-date "$build_date" --ratings "$ratings"
 # A file that breaks its schema (docs/data-specs.md) is not published: the old catalogue stays and the job fails.
-format=$(xz --decompress --stdout "$work/catalogue.tsv.xz" | head --lines 1 | awk '{ print $2 }')
+format=$(xz --decompress --stdout "$work/catalogue.tsv.xz" | awk 'NR == 1 { print $2 }')
 python3 -I scripts/validate-schema.py "schemas/catalogue/v$format.json" "$work/catalogue.tsv.xz"
 size=$(stat --format %s "$work/catalogue.tsv.xz")
 echo "catalogue built $build_date: $size bytes"
