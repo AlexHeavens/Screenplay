@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
@@ -41,6 +42,28 @@ fun SummaryBox(index: Int, summary: ChapterSummary, listening: Boolean, onListen
                 summary.bullets.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
             }
             if (summary.audio) TextButton(onListen, Modifier.testTag("summary-listen-$index")) { Text(if (listening) "Stop" else "Listen") }
+        }
+    }
+}
+
+/**
+ * Where a chapter's summary will appear, shown at the chapter's start until it is made. While [work] says it is being written,
+ * a bar of its model calls shows how far it has got, filled as each call's reply streams in.
+ */
+@Composable
+fun SummaryPlaceholder(index: Int, title: String, work: SummaryWork?) {
+    OutlinedCard(
+        Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag("summary-placeholder-$index"),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            val label = MaterialTheme.typography.bodyMedium
+            val grey = MaterialTheme.colorScheme.onSurfaceVariant
+            if (work == null) Text("Summary of $title: not written yet", style = label, color = grey)
+            else {
+                Text("Summary of $title: ${work.stage}, ${(work.fraction * 100).toInt()}%", Modifier.testTag("summary-progress"), style = label, color = grey)
+                LinearProgressIndicator(progress = { work.fraction }, Modifier.fillMaxWidth())
+            }
         }
     }
 }

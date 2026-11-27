@@ -25,6 +25,8 @@ class SpeakOrder(spoken: Collection<Int> = emptySet(), from: Int = 0) {
     private var forward = from
     private var lowest = 0
     private var finished = false
+    // Sentences from here on are kept back, so a chapter is spoken only once the stage before speech has finished with it.
+    private var limit = Int.MAX_VALUE
     private val wake = Channel<Unit>(Channel.CONFLATED)
 
     @Synchronized
@@ -32,6 +34,14 @@ class SpeakOrder(spoken: Collection<Int> = emptySet(), from: Int = 0) {
 
     @Synchronized
     fun finish() { finished = true; wake.trySend(Unit) }
+
+    /** Keeps every sentence back until [releaseUpTo] lets it go. */
+    @Synchronized
+    fun hold() { limit = 0 }
+
+    /** Lets the sentences before [index] be spoken; later ones stay held. */
+    @Synchronized
+    fun releaseUpTo(index: Int) { limit = maxOf(limit, index); wake.trySend(Unit) }
 
     /** Speech goes on from sentence [index]: the next sentence handed out is the first without audio at or after it. */
     @Synchronized
@@ -41,7 +51,8 @@ class SpeakOrder(spoken: Collection<Int> = emptySet(), from: Int = 0) {
     @Synchronized
     fun pick(): Pair<Int, String>? {
         while (lowest in taken) lowest++
-        val i = (forward until texts.size).firstOrNull { it !in taken } ?: lowest.takeIf { it < texts.size } ?: return null
+        val end = minOf(texts.size, limit)
+        val i = (forward until end).firstOrNull { it !in taken } ?: lowest.takeIf { it < end } ?: return null
         taken += i
         forward = i + 1
         return i to texts[i]

@@ -22,3 +22,12 @@ class SummaryParseTest {
         assertEquals(emptyList<String>(), digest.lessons)
     }
 }
+
+class SummaryWorkTest {
+    @org.junit.Test
+    fun theBarFillsWithTheCallUnderWayAndNeverPassesFull() {
+        org.junit.Assert.assertEquals(0.25f, SummaryWork("Chapter", done = 1, total = 4).fraction, 0.001f)
+        org.junit.Assert.assertEquals(0.375f, SummaryWork("Chapter", done = 1, total = 4, within = 0.5f).fraction, 0.001f)
+        org.junit.Assert.assertEquals(1f, SummaryWork("Chapter", done = 4, total = 4, within = 0.95f).fraction, 0.001f)
+    }
+}

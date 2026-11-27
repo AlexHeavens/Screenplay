@@ -6,6 +6,7 @@ package com.screenplay
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -31,8 +32,11 @@ data class ChapterDigest(val overview: String, val lessons: List<String>) {
 
 /** Turns the text of one chapter into a short overview and a few bullet points of its key lessons. */
 interface Summariser {
-    /** Throws [SummaryFailure] when the summary cannot be made, with a message safe to show. */
-    suspend fun summarise(chapterTitle: String, text: String): ChapterDigest
+    /**
+     * Throws [SummaryFailure] when the summary cannot be made, with a message safe to show.
+     * [onProgress] is told how many of the [total] model calls the chapter needs are done, and how far through the one under way (0 to 1, an estimate), as the reply streams in, with the name of what it is doing.
+     */
+    suspend fun summarise(chapterTitle: String, text: String, onProgress: (done: Int, total: Int, within: Float, stage: String) -> Unit = { _, _, _, _ -> }): ChapterDigest
 
     /** Gives back what the summariser holds, once a book's summaries are done. */
     fun close() {}
@@ -51,7 +55,16 @@ data class SummaryState(val summaries: List<ChapterSummary> = emptyList(), val f
     fun at(index: Int) = summaries.firstOrNull { it.index == index }
 }
 
+/** The chapter being summarised and how far its model calls have got, with the estimated share of the call under way: the measure behind the progress bar. */
+data class SummaryWork(val title: String, val done: Int, val total: Int, val within: Float = 0f, val stage: String = "") {
+    /** The bar's fill, from 0 to 1. */
+    val fraction: Float get() = ((done + within) / total.coerceAtLeast(1)).coerceIn(0f, 1f)
+}
+
 object Summaries {
+    /** What each book's summariser is working on now; a book with no entry is not summarising. */
+    val working = kotlinx.coroutines.flow.MutableStateFlow<Map<String, SummaryWork>>(emptyMap())
+
     private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
     private val running = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
@@ -127,15 +140,16 @@ object Summaries {
      * each chapter so a failure part way keeps what exists.
      * While the book's text is still being read ([textWhole] false), only the chapters followed by a heading already read are whole, so only those are done.
      * Once it is whole, the chapters are the final ones: a summary of a heading that turned out not to be one is dropped.
+     * [chapterWhole] is told where each chapter ends, and returns before the chapter is summarised, so a caller can have the chapter spoken first and take the chapters one at a time.
      * One run per book at a time: a second call while one is going does nothing.
      * Never throws: a failure is stored as the state's [SummaryState.failure] for the reader to show with a retry.
      */
-    suspend fun run(ctx: Context, id: String, audio: Boolean, textWhole: Boolean = true) {
+    suspend fun run(ctx: Context, id: String, audio: Boolean, textWhole: Boolean = true, chapterWhole: suspend (end: Int) -> Unit = {}) {
         if (!running.add(id)) return
-        try { make(ctx, id, audio, textWhole) } finally { running.remove(id) }
+        try { make(ctx, id, audio, textWhole, chapterWhole) } finally { running.remove(id) }
     }
 
-    private suspend fun make(ctx: Context, id: String, audio: Boolean, textWhole: Boolean) {
+    private suspend fun make(ctx: Context, id: String, audio: Boolean, textWhole: Boolean, chapterWhole: suspend (end: Int) -> Unit) {
         var state = load(ctx, id)
         val segments = Library.bookSegments(ctx, id)
         val chapters = if (textWhole) Library.chapters(ctx, id, segments) else Library.chaptersSoFar(ctx, id, segments)
@@ -151,11 +165,12 @@ object Summaries {
         try {
             // A chapter still being read has no heading after it yet, so its end is not known.
             for ((n, c) in chapters.withIndex().take(if (textWhole) chapters.size else (chapters.size - 1).coerceAtLeast(0))) {
+                val end = chapters.getOrNull(n + 1)?.index ?: segments.size
+                chapterWhole(end)
                 var summary = state.at(c.index)
                 if (summary == null) {
-                    val end = chapters.getOrNull(n + 1)?.index ?: segments.size
                     val text = segments.subList(c.index, end).joinToString(" ") { it.text }
-                    val digest = summariser.summarise(c.title, text)
+                    val digest = summariser.summarise(c.title, text) { done, total, within, stage -> working.update { it + (id to SummaryWork(c.title, done, total, within, stage)) } }
                     if (digest.lessons.isEmpty() && digest.overview.isBlank()) throw SummaryFailure("empty reply")
                     summary = ChapterSummary(c.index, c.title, digest.lessons, digest.overview)
                     state = state.copy(summaries = state.summaries + summary, failure = null)
@@ -169,6 +184,7 @@ object Summaries {
         } catch (e: Exception) {
             save(ctx, id, state.copy(failure = (e as? SummaryFailure)?.message ?: "failed"))
         } finally {
+            working.update { it - id }
             summariser.close()
         }
     }

@@ -81,7 +81,7 @@ class SummaryTest {
     }
 
     private fun digesting(make: (title: String) -> ChapterDigest) = object : Summariser {
-        override suspend fun summarise(chapterTitle: String, text: String) = make(chapterTitle)
+        override suspend fun summarise(chapterTitle: String, text: String, onProgress: (done: Int, total: Int, within: Float, stage: String) -> Unit) = make(chapterTitle)
     }
 
     private fun clip(id: String, index: Int) = File(Library.dir(ctx, id), Files.summaryAudio(index))
@@ -113,6 +113,24 @@ class SummaryTest {
         compose.onNodeWithTag("summary-0").assert(hasText("Overview of Chapter One", substring = true))
         compose.onNodeWithTag("summary-listen-0").assert(hasText("Listen")).performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("summary-listen-0").fetchSemanticsNodes().isNotEmpty() && runCatching { compose.onNodeWithTag("summary-listen-0").assert(hasText("Stop")) }.isSuccess }
+        // The clip plays through the book's media controls, so a pause from the notification or a headset stops it; and one track holds every clip.
+        val track = MediaControl.current!!.player as SummaryPlaylist
+        assertTrue("both clips in one track", track.duration > 0 && track.startOf(chapterStarts[1])!! > 0)
+        track.toggle()
+        compose.waitUntil(10_000) { runCatching { compose.onNodeWithTag("summary-listen-0").assert(hasText("Listen")) }.isSuccess }
+        // Summaries only: the same button leaves the track for the book, and the book's player is back.
+        compose.onNodeWithTag("summaries-only").performClick()
+        compose.waitUntil(10_000) { MediaControl.current?.player !is SummaryPlaylist }
+    }
+
+    @Test
+    fun aChapterWithoutASummaryYetHasAPlaceholderWhereItWillBe() {
+        SummarySettings(enabled = true).save(ctx)
+        Fixtures.seedSpokenBook(ctx, sentences = sentences)
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        compose.waitUntil(30_000) { compose.onAllNodesWithTag("book-${Fixtures.TITLE}").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("book-${Fixtures.TITLE}").performClick()
+        compose.waitUntil(30_000) { compose.onAllNodesWithTag("summary-placeholder-${chapterStarts[0]}").fetchSemanticsNodes().isNotEmpty() }
     }
 
     @Test
@@ -178,16 +196,15 @@ class SummaryTest {
             )
             val end = System.currentTimeMillis() + 120_000
             fun book() = Library.books.value.singleOrNull()
-            while (book()?.let { b -> Summaries.load(ctx, b.id).summaries.isNotEmpty() } != true) {
-                assertTrue("no summary while the book is ${book()?.status}", System.currentTimeMillis() < end)
+            while (book()?.let { b -> Summaries.load(ctx, b.id).summaries.let { made -> made.isNotEmpty() && made.all { clip(b.id, it.index).exists() } } } != true) {
+                assertTrue("no summary and clip while the book is ${book()?.status}", System.currentTimeMillis() < end)
                 Thread.sleep(100)
             }
             val id = book()!!.id
             val made = Summaries.load(ctx, id).summaries
-            // The last page is still held: the book is being read, and the first chapter, with the next heading after it, is already summarised.
+            // The last page is still held: the book is being read, and the first chapter, with the next heading after it, is already spoken, summarised and has its clip.
             assertEquals(Status.READING, book()!!.status)
             assertEquals("Chapter One", made.first().title)
-            assertTrue("no clip before the book is ready", made.none { clip(id, it.index).exists() })
         } finally {
             held.complete(Unit)
             Engines.beforeRecognise = { _, _ -> }

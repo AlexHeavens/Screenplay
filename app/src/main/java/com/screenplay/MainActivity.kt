@@ -576,11 +576,14 @@ fun Reader(id: String, onBack: () -> Unit) {
     var waitingFor by remember(id) { mutableStateOf<Int?>(null) }
     var notes by remember(id) { mutableStateOf(Library.notes(ctx, id)) }
     var summaryState by remember(id) { mutableStateOf(SummaryState()) }
+    val summaryWork by Summaries.working.collectAsState()
     LaunchedEffect(id) { while (true) { summaryState = withContext(Dispatchers.IO) { Summaries.load(ctx, id) }; delay(2000) } }
-    // At most one chapter clip plays; starting one pauses the book, and the same button stops it.
-    var listening by remember(id) { mutableStateOf<Int?>(null) }
-    val clip = remember(id) { arrayOfNulls<Player>(1) }
-    DisposableEffect(id) { onDispose { clip[0]?.release() } }
+    // "Summaries" swaps the book's player for one track of its chapter summaries, so the notification, headset, mini player and sleep timer drive them like the book.
+    var summariesOnly by rememberSaveable(id) { mutableStateOf(false) }
+    // The chapter whose summary was asked for: the summary track plays from it once that is the player.
+    var listenTo by remember(id) { mutableStateOf<Int?>(null) }
+    val summaryChapters = remember(summaryState) { summaryState.summaries.filter { it.audio }.map { it.index } }
+    val summariesEnabled = remember { SummarySettings.load(ctx).enabled }
     // Footnotes of a scanned book: annotations under their paragraphs, read-only and never spoken. They grow with the book while it is read.
     var footnotes by remember(id, ready) { mutableStateOf(Library.footnotes(ctx, id)) }
     // A book opens where it was left: at the start of the last paragraph played, which the player is moved to below.
@@ -588,10 +591,11 @@ fun Reader(id: String, onBack: () -> Unit) {
     val rate = book?.rate ?: 0
     val playable = book?.playable == true
     // Speech outlives this screen: coming back to a book that is still playing takes the running player over rather than starting a new one.
-    val playerKey = Pair(ready, playable)
+    val playerKey = Triple(ready, playable, summariesOnly)
     val player: Playback = remember(id, playerKey) {
         MediaControl.reuse(id, playerKey)
-            ?: (if (ready) Player(ctx, id) else LivePlayer(ctx, id, rate.coerceAtLeast(1))).also { if (resume[0] > 0) it.seek(resume[0]) }
+            ?: if (summariesOnly) SummaryPlaylist(ctx, id, summaryChapters)
+            else (if (ready) Player(ctx, id) else LivePlayer(ctx, id, rate.coerceAtLeast(1))).also { if (resume[0] > 0) it.seek(resume[0]) }
     }
     // The media notification and session follow the open book; the first playback asks, once, to be allowed to show it.
     val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
@@ -599,17 +603,26 @@ fun Reader(id: String, onBack: () -> Unit) {
         MediaControl.start(ctx, MediaControl.Now(player, book?.title ?: "", book?.author ?: "", id, playerKey))
     }
     DisposableEffect(player) { onDispose { MediaControl.leave(player) } }
-    fun listen(index: Int) {
-        clip[0]?.release()
-        clip[0] = null
-        if (listening == index) { listening = null; return }
+    val summaryTrack = player as? SummaryPlaylist
+    fun listen(chapter: Int) {
+        if (summaryTrack != null && summaryTrack.playing && summaryTrack.chapterAt(summaryTrack.position) == chapter) { summaryTrack.toggle(); return }
         if (player.playing) player.toggle()
-        clip[0] = Player(ctx, id, Files.summaryAudio(index)).also { it.toggle() }
-        listening = index
+        listenTo = chapter
+        summariesOnly = true
+    }
+    // Back to the book at [ms]: the book's player is made again and moved there, ready to play.
+    fun resumeBookAt(ms: Long) { if (player.playing) player.toggle(); resume[0] = ms; summariesOnly = false }
+    LaunchedEffect(summaryTrack, summaryChapters) { summaryTrack?.update(summaryChapters) }
+    LaunchedEffect(summaryTrack, listenTo) {
+        val chapter = listenTo ?: return@LaunchedEffect
+        val start = summaryTrack?.startOf(chapter) ?: return@LaunchedEffect
+        summaryTrack.seek(start)
+        if (!summaryTrack.playing) summaryTrack.toggle()
+        listenTo = null
     }
     LaunchedEffect(player.playing) { if (player.playing) MediaControl.askOnce(ctx) { askNotifications.launch(android.Manifest.permission.POST_NOTIFICATIONS) } }
     BackHandler(onBack = onBack)
-    LaunchedEffect(player) { while (true) { player.tick(); resume[0] = player.position; delay(100) } }
+    LaunchedEffect(player) { while (true) { player.tick(); if (player !is SummaryPlaylist) resume[0] = player.position; delay(100) } }
     if (!ready) LaunchedEffect(id) {
         while (true) {
             delay(2000)
@@ -620,10 +633,12 @@ fun Reader(id: String, onBack: () -> Unit) {
         }
     }
 
-    val current = Timeline.indexAt(segments, player.position)
+    // No sentence of the book is the speaking one while a summary is.
+    val current = if (summaryTrack != null) -1 else Timeline.indexAt(segments, player.position)
     // The jumped-to sentence got its audio: playback starts there.
     LaunchedEffect(segments, waitingFor) {
         val at = waitingFor ?: return@LaunchedEffect
+        if (summaryTrack != null) return@LaunchedEffect
         val s = segments.getOrNull(at) ?: return@LaunchedEffect
         if (!s.pending) { waitingFor = null; player.seek(s.start); if (!player.playing) player.toggle() }
     }
@@ -691,7 +706,9 @@ fun Reader(id: String, onBack: () -> Unit) {
     }
     // By item index, for the heading rows over the spoken and the read-but-unspoken text alike.
     val headings = remember(chapters) { chapters.associateBy { it.index } }
-    LaunchedEffect(current) { if (segments.isNotEmpty() && scrubbing == null) list.animateScrollToItem(current) }
+    LaunchedEffect(current) { if (current >= 0 && segments.isNotEmpty() && scrubbing == null) list.animateScrollToItem(current) }
+    val summaryClip = summaryTrack?.chapterAt(summaryTrack.position)
+    LaunchedEffect(summaryClip) { summaryClip?.let { if (scrubbing == null) list.animateScrollToItem(it) } }
     var showNotes by remember { mutableStateOf(false) }
     var editingNote by remember { mutableStateOf<String?>(null) }
     var paragraphNotes by remember(id) { mutableStateOf(ParagraphNotes.load(ctx, id)) }
@@ -849,11 +866,17 @@ fun Reader(id: String, onBack: () -> Unit) {
                                 chapterMenu = false
                                 exportScope.launch { list.animateScrollToItem(c.index) }
                                 val target = segments.getOrNull(c.index)
-                                if (target != null && !ready) Speaking.jump(ctx, id, c.index)
-                                if (target != null && target.pending) waitingFor = c.index else if (target != null && playable) player.seek(c.start)
+                                if (summaryTrack != null) summaryTrack.startOf(c.index)?.let(summaryTrack::seek) else {
+                                    if (target != null && !ready) Speaking.jump(ctx, id, c.index)
+                                    if (target != null && target.pending) waitingFor = c.index else if (target != null && playable) player.seek(c.start)
+                                }
                             })
                         }
                     }
+                    // Plays only the chapter summaries, in order, through these same controls; pressed again it goes back to the book.
+                    val toggleSummaries = { if (player.playing) player.toggle(); summariesOnly = !summariesOnly }
+                    if (summariesOnly) Button(onClick = toggleSummaries, shape = ControlShape, modifier = Modifier.testTag("summaries-only")) { Text("Summaries") }
+                    else OutlinedButton(onClick = toggleSummaries, enabled = summaryChapters.isNotEmpty(), shape = ControlShape, modifier = Modifier.testTag("summaries-only")) { Text("Summaries") }
                     Box {
                         var sleepMenu by remember { mutableStateOf(false) }
                         val sleep = MediaControl.sleep
@@ -862,7 +885,7 @@ fun Reader(id: String, onBack: () -> Unit) {
                             DropdownMenuItem(text = { Text("Off") }, modifier = Modifier.testTag("sleep-off"), onClick = { sleepMenu = false; sleep.cancel() })
                             for (minutes in SLEEP_MINUTES) DropdownMenuItem(text = { Text("$minutes minutes") }, modifier = Modifier.testTag("sleep-$minutes"), onClick = { sleepMenu = false; sleep.startMinutes(minutes) })
                             // The next chapter's start, or the end of a finished book; a book still being made has no end to stop at yet.
-                            val chapterEnd = chapters.firstOrNull { it.start > player.position }?.start ?: player.duration.takeIf { ready }
+                            val chapterEnd = summaryTrack?.clipEndAt(player.position) ?: chapters.firstOrNull { it.start > player.position }?.start ?: player.duration.takeIf { ready }
                             if (chapters.isNotEmpty() && chapterEnd != null) {
                                 DropdownMenuItem(text = { Text("End of chapter") }, modifier = Modifier.testTag("sleep-chapter"), onClick = { sleepMenu = false; sleep.startAtPosition(chapterEnd) })
                             }
@@ -886,7 +909,9 @@ fun Reader(id: String, onBack: () -> Unit) {
         LazyColumn(Modifier.padding(horizontal = 32.dp), state = list) {
             summaryState.failure?.let { why -> item { SummaryStatus(why) { Summaries.retry(ctx, id) } } }
             itemsIndexed(segments) { i, s ->
-                summaryState.at(i)?.let { SummaryBox(i, it, listening == i && clip[0]?.playing == true) { listen(i) } }
+                val summary = summaryState.at(i)
+                if (summary != null) SummaryBox(i, summary, summaryTrack?.let { it.playing && it.chapterAt(it.position) == i } == true) { listen(i) }
+                else if (summariesEnabled) headings[i]?.let { SummaryPlaceholder(i, it.title, summaryWork[id]?.takeIf { work -> work.title == it.title }) }
                 if (s.pending) {
                     // Read but not spoken yet: tapping it moves speech here, and playback follows once it has audio.
                     val text = s.text
@@ -939,7 +964,7 @@ fun Reader(id: String, onBack: () -> Unit) {
                         onLongClick = { if (ready) menuFor = i },
                         onClick = {
                             // The speaking paragraph pauses and resumes; another one speaks from its start, and a book still being made speaks on from there.
-                            if (i == current) player.toggle() else { player.seek(s.start); if (!player.playing) player.toggle(); if (importingNow) Speaking.jump(ctx, id, i) }
+                            if (summaryTrack != null) resumeBookAt(s.start) else if (i == current) player.toggle() else { player.seek(s.start); if (!player.playing) player.toggle(); if (importingNow) Speaking.jump(ctx, id, i) }
                         },
                     )
                         .padding(vertical = 6.dp)
@@ -1023,7 +1048,7 @@ fun Reader(id: String, onBack: () -> Unit) {
             enter = slideInHorizontally { it }, exit = slideOutHorizontally { it }) {
             NotesPanel(
                 noteItems, editingNote,
-                onOpen = { player.seek(it.at); if (!player.playing) player.toggle(); showNotes = false },
+                onOpen = { if (summaryTrack != null) resumeBookAt(it.at) else { player.seek(it.at); if (!player.playing) player.toggle() }; showNotes = false },
                 onEdit = { editingNote = it.key },
                 onEdited = { n, t -> setNote(n, t); editingNote = null },
                 onDelete = { n -> if (n.text.isEmpty() && n.paragraph != null) setHighlight(n.paragraph) else setNote(n, "") },
