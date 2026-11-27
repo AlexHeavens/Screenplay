@@ -55,7 +55,24 @@ else
     exit 1
 fi
 
-curl --silent --show-error --fail --location --user-agent "$agent" --dump-header "$work/headers" --output "$work/rdf-files.tar.bz2" "$feed"
+# Gutenberg goes down for maintenance for days at a time (the whole site answers 503). Retry a few times for a short blip, then fail
+# with the status, so the log says the upstream is down and not that this script broke. The old catalogue stays published.
+download_feed() {
+    local attempt=1 delay=30 status
+    while :; do
+        status=$(curl --silent --show-error --location --user-agent "$agent" --dump-header "$work/headers" --output "$work/rdf-files.tar.bz2" \
+            --write-out '%{http_code}' "$feed") || status=000
+        [ "$status" = 200 ] && return 0
+        if [ "$attempt" -ge 4 ]; then
+            echo "Project Gutenberg's feed is unavailable (HTTP $status from $feed after $attempt attempts); the published catalogue is left as it is." >&2
+            return 1
+        fi
+        echo "feed download failed (HTTP $status), attempt $attempt of 4; retrying in ${delay}s" >&2
+        sleep "$delay"
+        attempt=$((attempt + 1)) delay=$((delay * 2))
+    done
+}
+download_feed
 modified=$(awk 'tolower($1) == "last-modified:" { sub(/^[^:]*: */, ""); sub(/\r$/, ""); print }' "$work/headers" | tail --lines 1)
 build_date=$(date --utc --date "$modified" +%F)
 
