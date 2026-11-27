@@ -17,6 +17,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -568,6 +569,12 @@ class FindBooksUiTest {
 
     private fun barRange(title: String) = compose.onNodeWithTag("stage-bar-DOWNLOAD-$title", useUnmergedTree = true).fetchSemanticsNode().config[SemanticsProperties.ProgressBarRangeInfo]
 
+    private fun waitForText(tag: String, text: String) = compose.waitUntil(30_000) {
+        compose.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().any { node ->
+            node.config.getOrNull(SemanticsProperties.Text)?.any { it.text.contains(text) } == true
+        }
+    }
+
     private fun waitForBar(title: String, value: ProgressBarRangeInfo) = compose.waitUntil(30_000) { exists("stage-bar-DOWNLOAD-$title") && barRange(title) == value }
 
     @Smoke @Test
@@ -633,7 +640,8 @@ class FindBooksUiTest {
         compose.onNodeWithTag("find-back").performClick()
 
         waitForBar("Harbour Notes", ProgressBarRangeInfo.Indeterminate)
-        compose.onNodeWithTag("stage-text-DOWNLOAD-Harbour Notes", useUnmergedTree = true).assertTextContains("1.0 MB")
+        // The bar is indeterminate before the first byte too, so the bytes so far are waited for, not read at once.
+        waitForText("stage-text-DOWNLOAD-Harbour Notes", "1.0 MB")
 
         mayFinish.complete(Unit)
         compose.waitUntil(30_000) { !exists("stage-bar-DOWNLOAD-Harbour Notes") }
