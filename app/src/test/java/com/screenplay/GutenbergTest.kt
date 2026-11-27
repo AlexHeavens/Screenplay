@@ -24,6 +24,72 @@ class GutenbergTest {
         assertEquals("Screenplay/1.0 (+https://github.com/AlexHeavens/Screenplay)", Gutenberg.userAgent("1.0"))
     }
 
+    /** Probes with [answers] (a site is up when its address is in it), as the screen does when it opens. */
+    private fun probeWith(answers: Set<String>) = runBlocking {
+        val saved = Engines.httpProbe
+        Gutenberg.forgetProbe()
+        try {
+            Engines.httpProbe = { url, _ -> url in answers }
+            Gutenberg.probe("Screenplay/test", maxAgeMs = 0)
+        } finally {
+            Engines.httpProbe = saved
+        }
+    }
+
+    private val mainEpub = Gutenberg.epubUrl(84)
+    private val mirrorEpub = "https://gutenberg.pglaf.org/cache/epub/84/pg84-images-3.epub"
+
+    @Test
+    fun aBookComesFromGutenbergWhileItAnswers() {
+        probeWith(setOf(Gutenberg.SITE_URL, Gutenberg.MIRROR_URL))
+        assertEquals(mainEpub, Gutenberg.routed(mainEpub))
+    }
+
+    @Test
+    fun aBookComesFromTheMirrorWhenGutenbergIsDownAndTheMirrorAnswers() {
+        probeWith(setOf(Gutenberg.MIRROR_URL))
+        assertEquals(mirrorEpub, Gutenberg.routed(mainEpub))
+    }
+
+    @Test
+    fun aBookStillAsksGutenbergWhenNeitherSiteAnswersSoTheReaderSeesTheUsualError() {
+        probeWith(emptySet())
+        assertEquals(mainEpub, Gutenberg.routed(mainEpub))
+    }
+
+    @Test
+    fun aBookStillAsksGutenbergWhenOnlyTheMirrorIsDownOrNoProbeWasMade() {
+        probeWith(setOf(Gutenberg.SITE_URL))
+        assertEquals(mainEpub, Gutenberg.routed(mainEpub))
+        Gutenberg.forgetProbe()
+        assertEquals(mainEpub, Gutenberg.routed(mainEpub))
+    }
+
+    @Test
+    fun onlyABooksEpubLinkIsSentToTheMirror() {
+        probeWith(setOf(Gutenberg.MIRROR_URL))
+        assertEquals(Catalogue.URL, Gutenberg.routed(Catalogue.URL))
+        assertEquals("https://www.gutenberg.org/ebooks/84.epub3.images.evil", Gutenberg.routed("https://www.gutenberg.org/ebooks/84.epub3.images.evil"))
+    }
+
+    @Test
+    fun aProbeThatIsRecentEnoughIsNotRepeated() = runBlocking {
+        val saved = Engines.httpProbe
+        Gutenberg.forgetProbe()
+        val asked = mutableListOf<String>()
+        try {
+            Engines.httpProbe = { url, _ -> asked += url; true }
+            Gutenberg.probe("Screenplay/test", maxAgeMs = 60_000)
+            Gutenberg.probe("Screenplay/test", maxAgeMs = 60_000)
+            assertEquals("one HEAD request for each site, once", listOf(Gutenberg.SITE_URL, Gutenberg.MIRROR_URL), asked.sorted().reversed())
+            Gutenberg.probe("Screenplay/test", maxAgeMs = 0)
+            assertEquals("a screen opening probes again", 4, asked.size)
+        } finally {
+            Engines.httpProbe = saved
+            Gutenberg.forgetProbe()
+        }
+    }
+
     @Test
     fun waitsAfterAFailureAndDoublesTheWaitUpToALimit() {
         val backoff = Backoff(baseMs = 2_000, maxMs = 60_000)

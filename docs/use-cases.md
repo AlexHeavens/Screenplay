@@ -911,7 +911,7 @@ Goal: get a book without hunting for a file.
 
 - "Catalogue" on the shelf searches a list of Project Gutenberg's public-domain text books that is stored on the phone. A search answers at once, with no network request, because the list is searched on the device (UC-13j).
 - The list is shown as soon as the screen opens, in title order, and narrows as the reader types or picks a genre. It says how many books match.
-- Tapping a book adds it to the import queue at once, as an EPUB still to fetch. The EPUB is fetched from gutenberg.org when the book's turn comes, never at the tap.
+- Tapping a book adds it to the import queue at once, as an EPUB still to fetch. The EPUB is fetched when the book's turn comes, never at the tap: from gutenberg.org, or from its mirror gutenberg.pglaf.org when the check made as the screen opened found gutenberg.org down and the mirror up.
 - While one book is made (compute bound), the highest book in line that has no file yet is fetched in the background (network bound), so it is ready when its turn comes. Its row says "Downloading 42% · 3.1 of 7.4 MB" under a bar that fills with the bytes received over the length the server announced, then "Queued". With no announced length the bar runs without end and the row says the bytes so far. The result in "Catalogue" shows the same text. Progress is kept in memory only and updates once per whole percent, so it costs no disk writes.
 - One fetch runs at a time, in queue order, and a reorder, an addition or a deletion is taken into account at the next fetch. A book is never fetched twice.
 - A failed fetch shows its error on the row and does not stop the book being made; the book's own turn retries it, and fails it with the reason if that fails too.

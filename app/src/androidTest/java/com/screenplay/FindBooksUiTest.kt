@@ -17,6 +17,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -102,6 +103,8 @@ class FindBooksUiTest {
         CatalogueLanguage.choose(ctx, "en") // most tests search the English books; the language tests say otherwise
         Engines.synthesizer = { FakeSynthesizer() }
         Gutenberg.client = null
+        Gutenberg.forgetProbe()
+        Engines.httpProbe = { _, _ -> true }
         Catalogue.reset()
         Engines.httpGet = { url, agent, out, _ ->
             requests += url
@@ -119,6 +122,8 @@ class FindBooksUiTest {
     fun restore() {
         CatalogueLanguage.reset(ctx)
         Engines.httpGet = Gutenberg::fetch
+        Engines.httpProbe = Gutenberg::headSucceeds
+        Gutenberg.forgetProbe()
         Gutenberg.client = null
         Catalogue.reset()
         scenario?.close()
@@ -422,6 +427,21 @@ class FindBooksUiTest {
     }
 
     @Test
+    fun aBookIsFetchedFromTheMirrorWhenGutenbergIsDownAndTheMirrorAnswers() {
+        Engines.httpProbe = { url, _ -> url == Gutenberg.MIRROR_URL }
+        val inner = Engines.httpGet
+        Engines.httpGet = { url, agent, out, onProgress ->
+            if (url == "https://gutenberg.pglaf.org/cache/epub/4242/pg4242-images-3.epub") { requests += url; out.write(book()) } else inner(url, agent, out, onProgress)
+        }
+
+        openFindBooks()
+        waitForTag("result-4242")
+        compose.onNodeWithTag("result-4242").performClick()
+        compose.waitUntil(30_000) { "https://gutenberg.pglaf.org/cache/epub/4242/pg4242-images-3.epub" in requests }
+        assertTrue("nothing was asked of Gutenberg's own site", epubLink !in requests)
+    }
+
+    @Test
     fun theSecondBookIsDownloadedWhileTheFirstIsBeingMade() {
         val firstLink = epubLink
         val secondLink = "https://www.gutenberg.org/ebooks/77.epub3.images"
@@ -549,6 +569,12 @@ class FindBooksUiTest {
 
     private fun barRange(title: String) = compose.onNodeWithTag("stage-bar-DOWNLOAD-$title", useUnmergedTree = true).fetchSemanticsNode().config[SemanticsProperties.ProgressBarRangeInfo]
 
+    private fun waitForText(tag: String, text: String) = compose.waitUntil(30_000) {
+        compose.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().any { node ->
+            node.config.getOrNull(SemanticsProperties.Text)?.any { it.text.contains(text) } == true
+        }
+    }
+
     private fun waitForBar(title: String, value: ProgressBarRangeInfo) = compose.waitUntil(30_000) { exists("stage-bar-DOWNLOAD-$title") && barRange(title) == value }
 
     @Smoke @Test
@@ -614,7 +640,8 @@ class FindBooksUiTest {
         compose.onNodeWithTag("find-back").performClick()
 
         waitForBar("Harbour Notes", ProgressBarRangeInfo.Indeterminate)
-        compose.onNodeWithTag("stage-text-DOWNLOAD-Harbour Notes", useUnmergedTree = true).assertTextContains("1.0 MB")
+        // The bar is indeterminate before the first byte too, so the bytes so far are waited for, not read at once.
+        waitForText("stage-text-DOWNLOAD-Harbour Notes", "1.0 MB")
 
         mayFinish.complete(Unit)
         compose.waitUntil(30_000) { !exists("stage-bar-DOWNLOAD-Harbour Notes") }

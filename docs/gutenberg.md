@@ -27,6 +27,10 @@ It is not legal advice. The author read the pages named below on 2026-11-14. Nob
   (all languages by default), and a sort by title, downloads or rating. It needs no network after the first download.
 - **A tap sends one request** for that book's EPUB to gutenberg.org, using `https://www.gutenberg.org/ebooks/<id>.epub3.images`, when the
   book's turn comes in the import queue. The workflow keeps only books whose feed entry lists that file.
+- **A fallback to Gutenberg's own mirror.** Each time "Catalogue" opens, the app sends one HEAD request to `https://www.gutenberg.org/` and one to
+  `https://gutenberg.pglaf.org/`. A queued book is fetched from the mirror (`/cache/epub/<id>/pg<id>-images-3.epub`, the file the
+  catalogue link redirects to) only when the first site did not answer with 2xx or 3xx and the mirror did. A book whose turn comes after the screen
+  was last opened is probed again when the last probe is more than ten minutes old. In every other case the book comes from gutenberg.org.
 - Every request carries `User-Agent: Screenplay/<version> (+https://github.com/AlexHeavens/Screenplay)`.
   After a failed request the app refuses to send another for 2 s, doubling to 60 s, or for the `Retry-After` the server gave.
   It never retries by itself.
@@ -105,11 +109,12 @@ Dump of 2026-10-31, feed of 2026-11-14, 77,715 books:
 ## Check before publishing
 
 - **Gutenberg**: read the terms of use and the robot page again (they change). Decide with Gutenberg whether EPUB downloads through an app are allowed.
-  Decide whether the app should use a mirror instead.
+  The app already falls back to the mirror when gutenberg.org is down (see above); ask Gutenberg whether it should use the mirror first.
 - **Play Store content policy**: check the rules for apps that let users download books (copyright, user-generated and "impersonation"
   sections), and what the data-safety form needs.
 - **Privacy policy**: say that opening "Catalogue" downloads the book list from github.com (at most once a day), and a tap sends the book's
-  link to gutenberg.org, with the app's user agent and the device's IP address. Search words never leave the device. The app has no account, no analytics and no tracking.
+  link to gutenberg.org, with the app's user agent and the device's IP address. Opening "Catalogue" also sends one HEAD request each to gutenberg.org and to
+  gutenberg.pglaf.org, and a book is fetched from the mirror when gutenberg.org is down. Search words never leave the device. The app has no account, no analytics and no tracking.
 - **`INTERNET` permission**: the manifest comment says why. Only "Catalogue" uses the network.
 - **Store text**: do not put "Project Gutenberg" in the app name, icon or promotional text unless the trademark rules are met.
 - **Catalogue release**: check that the `catalogue` release still holds a current file (the workflow's last run) and that the repository is public
