@@ -43,7 +43,7 @@ object Gutenberg {
     /** Which of the two sites answered the last [probe]; both are assumed up until one has been made. */
     @Volatile private var siteUp = true
     @Volatile private var mirrorUp = true
-    @Volatile private var probedAt = Long.MIN_VALUE
+    @Volatile private var probedAt = 0L
 
     /**
      * Asks both sites whether they answer, unless a probe was made less than [maxAgeMs] ago. The "Catalogue" screen probes each time it opens
@@ -68,7 +68,7 @@ object Gutenberg {
     }
 
     /** Forgets the last probe, so both sites are assumed up again; a test starts from here. */
-    fun forgetProbe() { siteUp = true; mirrorUp = true; probedAt = Long.MIN_VALUE }
+    fun forgetProbe() { siteUp = true; mirrorUp = true; probedAt = 0L }
 
     /** The default of [Engines.httpProbe]: one HEAD request; a site is up when it answers 2xx or 3xx, and down on any other status, a timeout or a network error. */
     suspend fun headSucceeds(url: String, userAgent: String): Boolean = withContext(Dispatchers.IO) {
