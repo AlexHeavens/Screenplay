@@ -5,6 +5,8 @@
 package com.screenplay
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
@@ -30,8 +32,61 @@ object Gutenberg {
     /** Gutenberg asks every automated client to name itself and give a contact address. */
     fun userAgent(version: String) = "Screenplay/$version (+$PROJECT_URL)"
 
-    /** The book's EPUB with images, the link Gutenberg's own catalogue gives; only this https address on gutenberg.org is ever fetched for a book. */
+    /** Gutenberg's own mirror, run by the Project Gutenberg Literary Archive Foundation; it holds the same files and stays up when [SITE_URL] is down. */
+    const val MIRROR_URL = "https://gutenberg.pglaf.org/"
+
+    /** The book's EPUB with images, the link Gutenberg's own catalogue gives; this is the address a queued book keeps, and [routed] says where it is fetched from. */
     fun epubUrl(id: Int) = "${SITE_URL}ebooks/$id.epub3.images"
+
+    private val epubUrlPattern = Regex("^" + Regex.escape(SITE_URL) + "ebooks/(\\d+)\\.epub3\\.images$")
+
+    /** Which of the two sites answered the last [probe]; both are assumed up until one has been made. */
+    @Volatile private var siteUp = true
+    @Volatile private var mirrorUp = true
+    @Volatile private var probedAt = Long.MIN_VALUE
+
+    /**
+     * Asks both sites whether they answer, unless a probe was made less than [maxAgeMs] ago. The "Catalogue" screen probes each time it opens
+     * (maxAgeMs 0); a book's turn in the queue probes only when the last probe is old, so a book queued long ago does not go to a site found down hours before.
+     */
+    suspend fun probe(agent: String, maxAgeMs: Long) {
+        val now = System.currentTimeMillis()
+        if (now - probedAt < maxAgeMs) return
+        coroutineScope {
+            val site = async { Engines.httpProbe(SITE_URL, agent) }
+            val mirror = async { Engines.httpProbe(MIRROR_URL, agent) }
+            siteUp = site.await()
+            mirrorUp = mirror.await()
+        }
+        probedAt = now
+    }
+
+    /** [url] as it is fetched: a book's EPUB link goes to the mirror when the last probe found [SITE_URL] down and the mirror up; any other address, or any other answer, leaves it as it is. */
+    fun routed(url: String): String {
+        val id = epubUrlPattern.matchEntire(url)?.groupValues?.get(1) ?: return url
+        return if (!siteUp && mirrorUp) "${MIRROR_URL}cache/epub/$id/pg$id-images-3.epub" else url
+    }
+
+    /** Forgets the last probe, so both sites are assumed up again; a test starts from here. */
+    fun forgetProbe() { siteUp = true; mirrorUp = true; probedAt = Long.MIN_VALUE }
+
+    /** The default of [Engines.httpProbe]: one HEAD request; a site is up when it answers 2xx or 3xx, and down on any other status, a timeout or a network error. */
+    suspend fun headSucceeds(url: String, userAgent: String): Boolean = withContext(Dispatchers.IO) {
+        val connection = URL(url).openConnection() as HttpURLConnection
+        try {
+            connection.requestMethod = "HEAD"
+            connection.setRequestProperty("User-Agent", userAgent)
+            connection.connectTimeout = PROBE_TIMEOUT_MS
+            connection.readTimeout = PROBE_TIMEOUT_MS
+            connection.responseCode in 200..399
+        } catch (e: IOException) {
+            false
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private const val PROBE_TIMEOUT_MS = 8_000
 
     /**
      * The default of [Engines.httpGet]: one GET, the body copied to [out] in chunks, each reported to [onProgress] with the length the server
@@ -102,7 +157,7 @@ class Backoff(private val baseMs: Long = 2_000, private val maxMs: Long = 60_000
 }
 
 /** Fetches EPUBs, one request per call, through [Engines.httpGet]; waits out a [Backoff] instead of retrying. */
-class CatalogueClient(private val userAgent: String, private val now: () -> Long = System::currentTimeMillis) {
+class CatalogueClient(val userAgent: String, private val now: () -> Long = System::currentTimeMillis) {
     private val backoff = Backoff()
 
     /** How long a request must still wait after a failure; the queue waits this out rather than failing a book. */

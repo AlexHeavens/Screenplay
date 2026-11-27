@@ -82,6 +82,7 @@ fun FindBooks(onBack: () -> Unit) {
     var added by remember { mutableStateOf(setOf<Int>()) }
     BackHandler(onBack = onBack)
     LaunchedEffect(Unit) { Catalogue.open(ctx) }
+    LaunchedEffect(Unit) { Gutenberg.probe(Gutenberg.client(ctx).userAgent, maxAgeMs = 0) } // which site a queued book comes from is decided here, while the reader searches
 
     val data = (state as? Catalogue.State.Ready)?.data
     val languages = remember(data) { CatalogueLanguage.ordered(data?.languages.orEmpty()) }

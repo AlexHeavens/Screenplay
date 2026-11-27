@@ -114,6 +114,7 @@ object QueueDownload {
     private suspend fun fetchOnce(ctx: Context, id: String, attempt: Int) {
         if (!awaiting(id)) return
         val client = Gutenberg.client(ctx)
+        Gutenberg.probe(client.userAgent, maxAgeMs = PROBE_MAX_AGE_MS)
         // The row says so from the moment a try is made, also while it waits out the back-off or another fetch, so a retry never looks like nothing happening.
         activeProgress.update { it + (id to DownloadProgress(0, -1, attempt)) }
         try {
@@ -121,7 +122,7 @@ object QueueDownload {
             one.withLock {
                 val book = Library.books.value.firstOrNull { it.id == id }?.takeIf { it.awaitingDownload } ?: return
                 val throttle = DownloadProgress.Throttle().also { it.accept(DownloadProgress(0, -1)) }
-                client.download(book.downloadUrl, File(Library.dir(ctx, id), Files.EPUB)) { received, expected ->
+                client.download(Gutenberg.routed(book.downloadUrl), File(Library.dir(ctx, id), Files.EPUB)) { received, expected ->
                     val progress = DownloadProgress(received, expected, attempt)
                     if (throttle.accept(progress)) activeProgress.update { it + (id to progress) }
                 }
@@ -134,6 +135,9 @@ object QueueDownload {
 
     /** Tries of one fetch for a transient failure, the first included; the client's back-off (2 s, then 4 s) spaces them. */
     const val ATTEMPTS = 3
+
+    /** A probe of the book sites made in the last ten minutes still counts when a book's turn comes. */
+    private const val PROBE_MAX_AGE_MS = 10 * 60 * 1000L
 
     private fun awaiting(id: String) = Library.books.value.firstOrNull { it.id == id }?.awaitingDownload == true
 

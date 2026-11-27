@@ -105,6 +105,9 @@ object Engines {
      * It calls `onProgress` with the bytes received so far and the bytes the server announced (0 or less when it did not) as the body arrives.
      */
     var httpGet: suspend (url: String, userAgent: String, out: java.io.OutputStream, onProgress: (received: Long, expected: Long) -> Unit) -> Unit = Gutenberg::fetch
+
+    /** Whether the site at [url] answers: the one other network call "Catalogue" makes, a HEAD request per book site each time the screen opens. A test swaps in one that answers as the test says. */
+    var httpProbe: suspend (url: String, userAgent: String) -> Boolean = Gutenberg::headSucceeds
 }
 
 class AndroidSynthesizer(private val context: Context) : Synthesizer {

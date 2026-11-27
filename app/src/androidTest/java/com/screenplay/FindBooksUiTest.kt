@@ -102,6 +102,8 @@ class FindBooksUiTest {
         CatalogueLanguage.choose(ctx, "en") // most tests search the English books; the language tests say otherwise
         Engines.synthesizer = { FakeSynthesizer() }
         Gutenberg.client = null
+        Gutenberg.forgetProbe()
+        Engines.httpProbe = { _, _ -> true }
         Catalogue.reset()
         Engines.httpGet = { url, agent, out, _ ->
             requests += url
@@ -119,6 +121,8 @@ class FindBooksUiTest {
     fun restore() {
         CatalogueLanguage.reset(ctx)
         Engines.httpGet = Gutenberg::fetch
+        Engines.httpProbe = Gutenberg::headSucceeds
+        Gutenberg.forgetProbe()
         Gutenberg.client = null
         Catalogue.reset()
         scenario?.close()
@@ -419,6 +423,21 @@ class FindBooksUiTest {
         compose.onNodeWithTag("find-retry").performClick()
         waitForTag("result-4242")
         assertTrue(!exists("find-failed"))
+    }
+
+    @Test
+    fun aBookIsFetchedFromTheMirrorWhenGutenbergIsDownAndTheMirrorAnswers() {
+        Engines.httpProbe = { url, _ -> url == Gutenberg.MIRROR_URL }
+        val inner = Engines.httpGet
+        Engines.httpGet = { url, agent, out, onProgress ->
+            if (url == "https://gutenberg.pglaf.org/cache/epub/4242/pg4242-images-3.epub") { requests += url; out.write(book()) } else inner(url, agent, out, onProgress)
+        }
+
+        openFindBooks()
+        waitForTag("result-4242")
+        compose.onNodeWithTag("result-4242").performClick()
+        compose.waitUntil(30_000) { "https://gutenberg.pglaf.org/cache/epub/4242/pg4242-images-3.epub" in requests }
+        assertTrue("nothing was asked of Gutenberg's own site", epubLink !in requests)
     }
 
     @Test
